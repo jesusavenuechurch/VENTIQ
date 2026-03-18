@@ -63,8 +63,6 @@ class RegistrationController extends Controller
             'phone' => $this->normalizePhone($request->phone),
         ]);
 
-        dd($request->phone);
-
         $organization = Organization::where('slug', $orgSlug)->firstOrFail();
 
         $event = Event::where('slug', $eventSlug)
