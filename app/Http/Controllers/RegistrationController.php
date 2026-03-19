@@ -62,7 +62,6 @@ class RegistrationController extends Controller
         $request->merge([
             'phone' => $this->normalizePhone($request->phone),
         ]);
-         dd($request->phone);
 
         $organization = Organization::where('slug', $orgSlug)->firstOrFail();
 
