@@ -119,6 +119,46 @@
                         <input type="hidden" name="preferred_delivery" id="preferred_delivery_input" value="{{ old('has_whatsapp') ? 'both' : 'email' }}">
                     </div>
 
+                    @if($event->event_type === 'workshop')
+                    <div class="pt-6 border-t border-gray-50 space-y-6">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-[#1D4069]/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chalkboard-teacher text-[#1D4069] text-sm"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Workshop Details</h3>
+                                <p class="text-[10px] font-bold text-[#F07F22] uppercase mt-1">Required for workshop registration</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Position / Title <span class="text-rose-500">*</span></label>
+                                <input type="text" name="position" value="{{ old('position') }}" required
+                                    placeholder="e.g. Teacher, Principal, Officer"
+                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Institution <span class="text-rose-500">*</span></label>
+                                <input type="text" name="institution" value="{{ old('institution') }}" required
+                                    placeholder="e.g. Maseru High School"
+                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">District <span class="text-rose-500">*</span></label>
+                            <select name="district" required
+                                class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900 appearance-none cursor-pointer">
+                                <option value="" disabled selected>Select your district...</option>
+                                @foreach(config('constants.workshop_districts') as $key => $label)
+                                    <option value="{{ $key }}" {{ old('district') == $key ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    @endif
                     {{-- Additional Attendees --}}
                     @if($selectedTier && $selectedTier->quantity_per_purchase > 1)
                     <div class="pt-6 border-t border-gray-50 space-y-6">
@@ -259,20 +299,42 @@
                             <div class="space-y-4">
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Provider</label>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    @foreach($paymentMethods as $method)
-                                        @php
-                                            $config = config('constants.payment_methods.' . $method->payment_method, []);
-                                            $icon = $config['icon'] ?? 'fa-money-bill';
-                                            $color = $config['color'] ?? 'text-gray-600';
-                                            $label = $config['label'] ?? ucfirst($method->payment_method);
-                                        @endphp
+                                @foreach($paymentMethods as $method)
+                                    @php
+                                        $config = config('constants.payment_methods.' . $method->payment_method, []);
+                                        $icon = $config['icon'] ?? 'fa-money-bill';
+                                        $color = $config['color'] ?? 'text-gray-600';
+                                        $label = $config['label'] ?? ucfirst($method->payment_method);
+                                    @endphp
 
+                                    @if($method->payment_method === 'online')
+                                        <label class="relative cursor-pointer group">
+                                            <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
+                                                data-instructions="You'll be redirected to our secure payment page. A small processing fee applies to online payments."
+                                                data-is-cash="false"
+                                                {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
+
+                                            <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
+                                                <div class="flex items-center mb-3">
+                                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm text-[#F07F22]">
+                                                        <i class="fas fa-bolt text-lg"></i>
+                                                    </div>
+                                                    <span class="text-xs font-black text-gray-900 uppercase tracking-tight">Pay Online</span>
+                                                </div>
+                                                <div class="mt-auto space-y-1">
+                                                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">M-Pesa · EcoCash · Card</p>
+                                                    <p class="text-[9px] font-bold text-emerald-600 uppercase">✓ Instant ticket activation</p>
+                                                    <p class="text-[9px] font-bold text-amber-500 uppercase">⚡ Processing fee applies</p>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    @else
                                         <label class="relative cursor-pointer group">
                                             <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
                                                 data-instructions="{{ $method->instructions }}"
                                                 data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
                                                 {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
-                                            
+
                                             <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
                                                 <div class="flex items-center mb-3">
                                                     <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm {{ $color }}">
@@ -293,7 +355,8 @@
                                                 @endif
                                             </div>
                                         </label>
-                                    @endforeach
+                                    @endif
+                                @endforeach
                                 </div>
                             </div>
 

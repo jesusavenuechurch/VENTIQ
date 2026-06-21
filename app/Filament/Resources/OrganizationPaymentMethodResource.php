@@ -123,7 +123,7 @@ class OrganizationPaymentMethodResource extends Resource
                         ->placeholder('e.g., Expressions Conference')
                         ->helperText('Optional: Name shown on payment account')
                         ->visible(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         ),
 
                     Forms\Components\TextInput::make('account_number')
@@ -145,11 +145,11 @@ class OrganizationPaymentMethodResource extends Resource
                             return $label ? "The {$label} customers should use" : 'Where customers should send payments';
                         })
                         ->required(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         )
                         ->maxLength(255)
                         ->visible(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         ),
 
                     Forms\Components\Textarea::make('instructions')

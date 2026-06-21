@@ -41,4 +41,14 @@ return [
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', '+14155238886'),
     ],
 
+    'mopay' => [
+        'api_key' => env('MOPAY_API_KEY'),
+    ],
+
+    'whatsapp' => [
+        'token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'api_version' => env('WHATSAPP_API_VERSION', 'v25.0'),
+    ],
+
 ];

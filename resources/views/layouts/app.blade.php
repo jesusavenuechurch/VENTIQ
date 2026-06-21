@@ -421,5 +421,6 @@
         setTimeout(dismissLoader, 2500);
     });
 </script>
+@livewire('upgrade-package-modal')
 </body>
 </html>

@@ -56,6 +56,18 @@ class OrganizationResource extends Resource
                     }
                 }),
 
+
+            Forms\Components\FileUpload::make('logo_path')
+                ->label('Organisation Logo')
+                ->image()
+                ->disk('public')
+                ->directory('organization-logos')
+                ->maxSize(2048)
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'])
+                ->imageEditor()
+                ->helperText('Used on PDF reports. Recommended: square PNG or SVG, min 200×200px.')
+                ->columnSpanFull(),
+
             Forms\Components\TextInput::make('slug')
                 ->required()
                 ->unique(ignoreRecord: true)
@@ -83,6 +95,11 @@ class OrganizationResource extends Resource
 
             Forms\Components\Toggle::make('is_active')
                 ->default(true),
+            
+            Forms\Components\Toggle::make('workshop_enabled')
+                ->label('Workshop Mode Enabled')
+                ->helperText('Grants access to workshop events, signatures, and attendance registers.')
+                ->visible(fn () => auth()->user()->isSuperAdmin()),
         ]);
     }
     public static function table(Table $table): Table

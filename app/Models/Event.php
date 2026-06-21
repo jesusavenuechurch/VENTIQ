@@ -30,6 +30,8 @@ class Event extends Model
         'installment_instructions',
         'banner_image',
         'organization_package_id',
+        'event_type',
+        'payment_mode',
     ];
 
     protected $casts = [
@@ -162,5 +164,21 @@ class Event extends Model
         }
 
         return ($this->package->tickets_used + $quantity) <= $this->package->tickets_included;
+    }
+
+    public function isWorkshop(): bool
+    {
+        return $this->event_type === 'workshop';
+    }
+    
+    public function isStandard(): bool
+    {
+        return $this->event_type === 'standard' || empty($this->event_type);
+    }
+    
+    public function getEventTypeLabelAttribute(): string
+    {
+        return config('constants.event_types.' . $this->event_type . '.label')
+            ?? ucfirst($this->event_type ?? 'standard');
     }
 }

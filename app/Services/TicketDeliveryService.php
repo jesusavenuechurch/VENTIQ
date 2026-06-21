@@ -18,7 +18,7 @@ class TicketDeliveryService
                 ->sendTicket($ticket, $ticket->client->phone);
 
             if (!$sent) {
-                $ticket->logDeliveryFailure('whatsapp', 'Failed to send via Twilio');
+                $ticket->logDeliveryFailure('whatsapp', 'Failed to send via Meta WhatsApp Cloud API');
             }
         }
 

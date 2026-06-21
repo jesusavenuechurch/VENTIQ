@@ -49,6 +49,55 @@
     </div>
     @endif
 
+    {{-- Package Summary --}}
+    @if(!empty($package))
+    <div class="mt-6 pt-6 border-t border-gray-300">
+        <p class="text-sm font-medium text-gray-500 mb-3">Package</p>
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div class="px-4 py-3 flex items-center justify-between border-b border-gray-100">
+                <span class="font-semibold text-gray-900">{{ $package->display_name }}</span>
+                <span class="text-xs font-medium px-2 py-1 rounded-full
+                    @if($package->package_type === 'starter') bg-blue-100 text-blue-700
+                    @elseif($package->package_type === 'standard') bg-green-100 text-green-700
+                    @elseif($package->package_type === 'professional') bg-purple-100 text-purple-700
+                    @elseif($package->package_type === 'enterprise') bg-red-100 text-red-700
+                    @else bg-gray-100 text-gray-600
+                    @endif
+                ">{{ ucfirst($package->package_type) }}</span>
+            </div>
+            <div class="grid grid-cols-4 divide-x divide-gray-100">
+                <div class="px-3 py-3 text-center">
+                    <p class="text-lg font-bold text-gray-800">{{ $package->remaining_tickets }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Tickets</p>
+                </div>
+                <div class="px-3 py-3 text-center">
+                    <p class="text-lg font-bold text-gray-800">{{ $package->remaining_comp_tickets }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Comp</p>
+                </div>
+                <div class="px-3 py-3 text-center">
+                    <p class="text-lg font-bold text-gray-800">{{ $package->max_scanners }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Scanners</p>
+                </div>
+                <div class="px-3 py-3 text-center">
+                    <p class="text-lg font-bold text-gray-800">{{ $package->max_users }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Team</p>
+                </div>
+            </div>
+            @if(!empty($package->getEnabledFeatures()))
+            <div class="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                <div class="flex flex-wrap gap-2">
+                    @foreach($package->getEnabledFeatures() as $feature)
+                        <span class="text-xs bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                            ✓ {{ ucwords(str_replace('_', ' ', $feature)) }}
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+        </div>
+    </div>
+    @endif
+
     <div class="mt-6 pt-6 border-t border-gray-300">
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div class="flex items-start">

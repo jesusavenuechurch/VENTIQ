@@ -50,8 +50,8 @@ return [
             'label' => 'Online Payment',
             'icon' => 'fa-globe',
             'color' => 'text-blue-600',
-            'account_label' => 'Payment Gateway',
-            'requires_account' => true,
+            'account_label' => null,
+            'requires_account' => false,
         ],
         'free' => [
             'label' => 'Free',
@@ -132,5 +132,78 @@ return [
             'color' => 'danger',
             'icon' => 'fa-exclamation-circle',
         ],
+    ],
+
+        'event_types' => [
+        'standard' => [
+            'label'       => 'Standard Event',
+            'description' => 'Conferences, concerts, church events, launches, general registrations.',
+            'icon'        => 'heroicon-o-calendar',
+            'color'       => 'info',
+            'workshop'    => false, // drives whether workshop features activate
+        ],
+        'workshop' => [
+            'label'       => 'Workshop / Training',
+            'description' => 'Donor workshops, ministry trainings, HR sessions, funded programs.',
+            'icon'        => 'heroicon-o-academic-cap',
+            'color'       => 'warning',
+            'workshop'    => true,
+        ],
+        // Future types — uncomment when ready, no migration needed:
+        // 'conference' => [
+        //     'label'       => 'Conference',
+        //     'description' => 'Multi-day conferences with sessions and speakers.',
+        //     'icon'        => 'heroicon-o-microphone',
+        //     'color'       => 'success',
+        //     'workshop'    => false,
+        // ],
+        // 'hybrid' => [
+        //     'label'       => 'Hybrid Event',
+        //     'description' => 'In-person and virtual attendance combined.',
+        //     'icon'        => 'heroicon-o-globe-alt',
+        //     'color'       => 'purple',
+        //     'workshop'    => false,
+        // ],
+    ],
+
+     // ── Workshop Districts ────────────────────────────────────────────────────
+    // Lesotho's 10 districts — add or rename without touching the database
+    'workshop_districts' => [
+        'maseru'        => 'Maseru',
+        'berea'         => 'Berea',
+        'leribe'        => 'Leribe',
+        'butha_buthe'   => 'Butha-Buthe',
+        'teyateyaneng'  => 'TY (Teyateyaneng)',
+        'mafeteng'      => 'Mafeteng',
+        'mohales_hoek'  => 'Mohale\'s Hoek',
+        'quthing'       => 'Quthing',
+        'qacha_nek'     => 'Qacha\'s Nek',
+        'mokhotlong'    => 'Mokhotlong',
+        'thaba_tseka'   => 'Thaba-Tseka',
+        'other'         => 'Other / Outside Lesotho',
+    ],
+ 
+    // ── Workshop Signature Statuses ───────────────────────────────────────────
+    'signature_statuses' => [
+        'pending'  => [
+            'label' => 'Awaiting Signature',
+            'color' => 'warning',
+        ],
+        'signed'   => [
+            'label' => 'Signed',
+            'color' => 'success',
+        ],
+        'declined' => [
+            'label' => 'Declined',
+            'color' => 'danger',
+        ],
+        'skipped'  => [
+            'label' => 'Skipped at Gate',
+            'color' => 'gray',
+        ],
+    ],
+    'payment' => [
+        'surcharge_rate'    => 0.05,   // 5% added to ticket price, paid by attendee
+        'gateway_fee_rate'  => 0.025,  // 2.5% MoPay takes from gross_paid
     ],
 ];

@@ -18,6 +18,7 @@ use App\Http\Controllers\AgentApplicationController;
 use App\Http\Controllers\ContactInquiryController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\Organization;
+use App\Http\Controllers\MopayController;
 
 Route::post('/contact', [ContactInquiryController::class, 'store'])->name('contact.store');
 
@@ -85,18 +86,6 @@ Route::get('/login', function () {
 
 Route::get('/events', [PublicEventController::class, 'browseAll'])
     ->name('events.browse');
-
-// Partner Registration Routes
-Route::get('/partner/register/{token}', [PartnerRegistrationController::class, 'show'])
-    ->name('partner.register');
-Route::post('/partner/register/{token}', [PartnerRegistrationController::class, 'store'])
-    ->name('partner.store');
-Route::get('partner/success', [PartnerRegistrationController::class, 'success'])
-    ->name('partner.success');
-
-// Partner QR Code Verification Route
-Route::get('/partner/verify/{id}', [PartnerRegistrationController::class, 'verify'])
-    ->name('partner.verify');
 
 // Ticket Routes
 Route::get('/ticket/{qr_code}', [TicketDownloadController::class, 'show'])->name('ticket.download');
@@ -188,3 +177,43 @@ Route::get('/become-agent', [AgentApplicationController::class, 'showForm'])->na
 Route::post('/become-agent', [AgentApplicationController::class, 'submit'])->name('agent.submit');
 Route::get('/reset-password/{token}', [AgentApplicationController::class, 'showResetForm'])->name('password.reset');
 Route::post('/reset-password', [AgentApplicationController::class, 'resetPassword'])->name('password.update');
+
+Route::middleware(['auth'])->group(function () {
+    Route::get(
+        '/organizational-records/{organizationalRecord}/pdf',
+        [\App\Http\Controllers\OrganizationalRecordPdfController::class, 'download']
+    )->name('organizational-records.pdf');
+});
+
+Route::get('/reports/revenue/{event}', function (App\Models\Event $event) {
+    return (new App\Services\Reports\RevenueReportService(
+        $event->load(['organization', 'tiers', 'tickets.payments', 'tickets.tier'])
+    ))->downloadPdf();
+})->middleware(['auth'])->name('reports.revenue');
+
+Route::get('/reports/attendance/{event}', function (App\Models\Event $event) {
+    return (new App\Services\Reports\AttendanceReportService(
+        $event->load(['organization', 'tiers', 'tickets.client', 'tickets.tier', 'tickets.workshopDetail'])
+    ))->downloadPdf();
+})->middleware(['auth'])->name('reports.attendance');
+
+Route::get('/reports/registration-summary/{event}', function (App\Models\Event $event) {
+    return (new App\Services\Reports\RegistrationSummaryService(
+        $event->load(['organization', 'tiers', 'tickets.tier'])
+    ))->downloadPdf();
+})->middleware(['auth'])->name('reports.registration-summary');
+
+// Replace the existing mopay routes with these names
+Route::middleware(['auth'])->prefix('payment')->name('online-payment.')->group(function () {
+    Route::get('/package/initiate', [MopayController::class, 'initiatePackagePayment'])
+        ->name('package.initiate');
+});
+
+Route::get('/payment/ticket/initiate', [MopayController::class, 'initiateTicketPayment'])
+    ->name('online-payment.ticket.initiate');
+        
+Route::get('/payment/package/callback', [MopayController::class, 'packageCallback'])
+    ->name('online-payment.package.callback');
+
+Route::get('/payment/ticket/callback', [MopayController::class, 'ticketCallback'])
+    ->name('online-payment.ticket.callback');

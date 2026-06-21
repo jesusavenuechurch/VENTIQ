@@ -85,7 +85,12 @@ class WhatsAppController extends Controller
                      . "📍 *Venue:* {$ticket->event->venue}\n\n"
                      . "👉 *Download your ticket:*\n{$ticketUrl}\n\n"
                      . "Or use the QR code attached below! 👇\n\n"
-                     . "See you at the event! 🎉";
+                     . "See you at the event! 🎉"
+                     . "*Your Access Voucher Code:*\n"
+                     . "┌─────────────┐\n"
+                     . "│  *" . $ticket->voucher_code . "*  │\n"
+                     . "└─────────────┘\n"
+                     . "_Show this code at the entrance if you cannot scan your QR ticket._\n\n";
 
             // Get QR code image path
             $qrCodePath = $ticket->qr_code_path;

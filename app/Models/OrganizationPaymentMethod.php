@@ -34,9 +34,16 @@ class OrganizationPaymentMethod extends Model
         parent::boot();
 
         // Before saving, validate that non-cash methods have account numbers
-        static::saving(function ($model) {
-            if ($model->payment_method !== 'cash' && empty($model->account_number)) {
-                throw new \Exception('Account number is required for ' . $model->payment_method . ' payment method.');
+       static::saving(function ($model) {
+            $requiresAccount = config(
+                "constants.payment_methods.{$model->payment_method}.requires_account",
+                true
+            );
+
+            if ($requiresAccount && empty($model->account_number)) {
+                throw new \Exception(
+                    'Account number is required for ' . $model->payment_method . ' payment method.'
+                );
             }
         });
     }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +29,7 @@ class Ticket extends Model
         'preferred_delivery', 'has_whatsapp', 'delivery_status',
         'whatsapp_delivered_at', 'email_delivered_at', 'delivery_log', 'amount_paid',
         'is_complimentary', 'complimentary_issued_by', 'complimentary_reason', 'organization_package_id',
+        'voucher_code',
     ];
 
     protected $casts = [
@@ -349,6 +351,16 @@ class Ticket extends Model
         ]);
     }
 
+    public function isWorkshopTicket(): bool
+    {
+        return $this->event?->isWorkshop() ?? false;
+    }
+
+    public function workshopDetail(): HasOne
+    {
+        return $this->hasOne(WorkshopTicketDetail::class);
+    }
+
     // ===== HOOKS =====
 
     protected static function booted(): void
@@ -357,12 +369,25 @@ class Ticket extends Model
             if (!$ticket->qr_code) {
                 $ticket->qr_code = 'QR-' . Str::uuid();
             }
-
+        
             if (!$ticket->ticket_number) {
                 $ticket->ticket_number = 'TKT-' . $ticket->event_id . '-' . Str::random(8);
             }
-
-            Log::info("New ticket created: {$ticket->ticket_number}");
+        
+            // Generate voucher code — safe alphabet, no ambiguous characters
+            if (!$ticket->voucher_code) {
+                $alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+                do {
+                    $code = 'VQ-';
+                    for ($i = 0; $i < 4; $i++) {
+                        $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+                    }
+                } while (static::where('voucher_code', $code)->exists());
+        
+                $ticket->voucher_code = $code;
+            }
+        
+            Log::info("New ticket created: {$ticket->ticket_number} | Voucher: {$ticket->voucher_code}");
         });
 
         static::updated(function ($ticket) {
@@ -380,6 +405,7 @@ class Ticket extends Model
             } else {
                 Log::info("⏭️ Skipping notification (complimentary or not pending)");
             }
+            
         });
 
         static::updated(function ($ticket) {
@@ -413,36 +439,19 @@ class Ticket extends Model
             Log::info("🚀 Auto-delivering ticket {$this->ticket_number}");
 
             // Deliver via WhatsApp if enabled
-            if ($this->shouldDeliverViaWhatsApp()) {
-                try {
-                    $success = \App\Http\Controllers\WhatsAppController::deliverTicket($this);
-                    
-                    if ($success) {
-                        Log::info("✅ WhatsApp delivery successful for {$this->ticket_number}");
-                    } else {
-                        Log::warning("⚠️ WhatsApp delivery failed for {$this->ticket_number}");
-                        $this->logDeliveryFailure('whatsapp', 'Delivery method returned false - check Twilio limits');
-                    }
-                } catch (\Exception $e) {
-                    // Log but don't throw - delivery failures shouldn't block approval
-                    Log::error("❌ WhatsApp delivery exception for {$this->ticket_number}: " . $e->getMessage());
-                    $this->logDeliveryFailure('whatsapp', $e->getMessage());
-                }
-            } else {
-                Log::info("⏭️ Skipping WhatsApp delivery for {$this->ticket_number} (not enabled or no phone)");
-            }
+            app(\App\Services\TicketDeliveryService::class)->deliver($this);
 
             // Deliver via Email if enabled
-            if ($this->shouldDeliverViaEmail()) {
-                try {
-                    // TODO: Implement email delivery
-                    // Mail::to($this->client->email)->send(new TicketDeliveryMail($this));
-                    Log::info("📧 Email delivery would trigger here for {$this->ticket_number}");
-                } catch (\Exception $e) {
-                    Log::error("❌ Email delivery exception for {$this->ticket_number}: " . $e->getMessage());
-                    $this->logDeliveryFailure('email', $e->getMessage());
-                }
-            }
+            // if ($this->shouldDeliverViaEmail()) {
+            //     try {
+            //         // TODO: Implement email delivery
+            //         // Mail::to($this->client->email)->send(new TicketDeliveryMail($this));
+            //         Log::info("📧 Email delivery would trigger here for {$this->ticket_number}");
+            //     } catch (\Exception $e) {
+            //         Log::error("❌ Email delivery exception for {$this->ticket_number}: " . $e->getMessage());
+            //         $this->logDeliveryFailure('email', $e->getMessage());
+            //     }
+            // }
 
         } catch (\Exception $e) {
             // Final catch-all - log but never throw
@@ -555,6 +564,42 @@ class Ticket extends Model
         }
     }
 
+    /**
+     * Generate Voucher Code for fallback
+     */
+
+    public function generateVoucherCode(): string
+    {
+        // Safe alphabet — no O, 0, I, 1 to avoid confusion when reading aloud
+        // or typing manually at a gate
+        $alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    
+        do {
+            // VQ- prefix + 4 random characters = VQ-X82L
+            $code = 'VQ-';
+            for ($i = 0; $i < 4; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (static::where('voucher_code', $code)->exists());
+        // Loop guarantees uniqueness — collision chance is astronomically low
+        // but we handle it cleanly just in case
+    
+        $this->update(['voucher_code' => $code]);
+    
+        return $code;
+    }
+    public function scopeByVoucherCode($query, string $code): mixed
+    {
+        // Normalise — uppercase, strip spaces in case someone types "vq 4k29"
+        $normalised = strtoupper(str_replace([' ', '-'], '', $code));
+    
+        // Try exact match first
+        return $query->where('voucher_code', $code)
+                    ->orWhere(
+                        \Illuminate\Support\Facades\DB::raw("REPLACE(UPPER(voucher_code), '-', '')"),
+                        $normalised
+                    );
+    }
     /**
      * Get the public URL for the QR code
      */

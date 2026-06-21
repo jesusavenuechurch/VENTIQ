@@ -3,7 +3,7 @@
         <div class="border dark:border-gray-700 rounded-lg p-4">
             <div class="flex justify-between items-start mb-3">
                 <div>
-                    <p class="font-semibold">{{ number_format($record->amount) }} UGX</p>
+                    <p class="font-semibold">{{ number_format($record->amount) }} LSL</p>
                     <p class="text-sm text-gray-600 dark:text-gray-400">
                         {{ $record->created_at->format('M d, Y H:i:s') }}
                     </p>

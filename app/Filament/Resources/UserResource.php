@@ -29,7 +29,16 @@ class UserResource extends Resource
     public static function canCreate(): bool
     {
         $user = auth()->user();
-        return $user && ($user->isSuperAdmin() || $user->hasPermissionTo('manage_staff'));
+        if (!$user) return false;
+        if ($user->isSuperAdmin()) return true;
+        if (!$user->hasPermissionTo('manage_staff')) return false;
+
+        // Check current active package user limit
+        $package = $user->organization?->activePackage();
+        if (!$package) return false;
+
+        $currentUsers = User::where('organization_id', $user->organization_id)->count();
+        return $currentUsers < $package->max_users;
     }
 
     public static function canEdit(Model $record): bool
