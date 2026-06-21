@@ -43,3 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // WhatsApp webhook
 Route::post('/whatsapp/webhook', [WhatsAppController::class, 'webhook'])
     ->name('whatsapp.webhook');
+
+// WhatsApp webhook verification (Meta calls this once when you click "Verify and Save")
+Route::get('/whatsapp/webhook', [WhatsAppController::class, 'verifyWebhook'])
+    ->name('whatsapp.webhook.verify');

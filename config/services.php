@@ -41,4 +41,6 @@ return [
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', '+14155238886'),
     ],
 
+    'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
+
 ];
