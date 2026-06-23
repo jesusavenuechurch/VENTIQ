@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class SendTicketApprovedEmail implements ShouldQueue
 {
@@ -30,39 +31,44 @@ class SendTicketApprovedEmail implements ShouldQueue
     public function handle(): void
     {
         $ticket = Ticket::with(['client', 'event', 'tier'])->find($this->ticketId);
-        
+
         if (!$ticket) {
             Log::warning("Ticket ID {$this->ticketId} not found - skipping approved email");
             return;
         }
 
-        // Only send if email is available and delivery method includes email
         if (!$ticket->client->email || !in_array($ticket->preferred_delivery, ['email', 'both'])) {
             Log::info("Ticket {$ticket->ticket_number} - Email not configured, skipping");
             return;
         }
 
-        // Only send if payment is completed
         if ($ticket->payment_status !== 'completed') {
             Log::info("Ticket {$ticket->ticket_number} not completed - skipping approved email");
             return;
         }
 
+        // Ensure the PDF exists before sending - self-healing regardless of
+        // whether generateAvatar() ran earlier in the approval flow or not.
+        if (!$ticket->avatar_path || !Storage::disk('public')->exists($ticket->avatar_path)) {
+            Log::info("Avatar PDF missing for {$ticket->ticket_number} - generating now before email send");
+            $ticket->generateAvatar();
+            $ticket->refresh();
+        }
+
         Log::info("📧 Sending approved email for ticket: {$ticket->ticket_number} to {$ticket->client->email}");
-        
+
         try {
             Mail::to($ticket->client->email)->send(new TicketApprovedMail($ticket));
-            
+
             Log::info("✅ Approved email sent successfully for: {$ticket->ticket_number}");
-            
-            // Mark as delivered via email
+
             $ticket->markAsDeliveredViaEmail();
-            
+
         } catch (\Exception $e) {
             Log::error("❌ Approved email failed for {$ticket->ticket_number}: " . $e->getMessage());
-            
+
             $ticket->logDeliveryFailure('email', 'Approved notification: ' . $e->getMessage());
-            
+
             throw $e;
         }
     }
@@ -70,11 +76,11 @@ class SendTicketApprovedEmail implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         Log::error("SendTicketApprovedEmail job permanently failed for Ticket ID: {$this->ticketId}");
-        
+
         $ticket = Ticket::find($this->ticketId);
         if ($ticket) {
             $ticket->logDeliveryFailure(
-                'email', 
+                'email',
                 'Approved email job failed after ' . $this->tries . ' attempts: ' . substr($exception->getMessage(), 0, 200)
             );
         }

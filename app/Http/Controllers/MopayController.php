@@ -342,7 +342,9 @@ public function initiatePackagePayment(Request $request)
             $paymentSession->update(['status' => 'completed']);
             $this->approveTicket($ticket, $verified, $paymentSession);
 
-            return redirect($confirmationRoute)->with('success', '✅ Payment confirmed! Your ticket is ready.');
+            return redirect()->route('ticket.download', [
+                'qr_code' => $ticket->qr_code,
+            ]);
         }
 
         if (in_array($verified['status'], ['FAILED', 'CANCELLED', 'EXPIRED'])) {

@@ -27,7 +27,7 @@
     </header>
 
     <main class="max-w-6xl mx-auto px-4 lg:px-6 py-8 pb-40 lg:pb-10">
-        
+
         <a href="{{ route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]) }}"
            class="inline-flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#F07F22] transition-all mb-8 group">
             <i class="fas fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"></i>
@@ -46,21 +46,32 @@
         @endif
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            
+
             <div class="lg:col-span-7 bg-white rounded-ventiq shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100">
                 <div class="p-8 sm:p-10 border-b border-gray-50">
                     <h2 class="text-4xl font-black text-gray-900 tracking-tighter mb-2 uppercase italic leading-none">Register</h2>
-                    <p class="text-gray-500 font-medium">Securing spot for <span class="text-[#F07F22] font-bold">{{ $event->name }}</span></p>
+                    <p class="text-gray-500 font-medium">Securing your spot for <span class="text-[#F07F22] font-bold">{{ $event->name }}</span></p>
                 </div>
 
-                <form id="regForm" method="POST" action="{{ route('registration.submit', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]) }}" class="p-8 sm:p-10 space-y-10">
+                <form id="regForm" method="POST" action="{{ route('registration.submit', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]) }}" class="p-8 sm:p-10 space-y-8">
                     @csrf
                     <input type="hidden" name="tier_id" value="{{ $selectedTier->id ?? '' }}">
 
-                    {{-- Personal Info --}}
+                    {{--
+                        WhatsApp delivery is temporarily disabled while the Meta
+                        Cloud API integration is finished. Defaulting everyone
+                        to email delivery for now. Re-enable the toggle block
+                        below once WhatsApp pull-delivery is live.
+                    --}}
+                    <input type="hidden" name="has_whatsapp" value="0">
+                    <input type="hidden" name="preferred_delivery" value="email">
+
+                    {{-- ── PERSONAL INFO ─────────────────────────────────── --}}
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name <span class="text-rose-500">*</span></label>
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                Full Name <span class="text-rose-500">*</span>
+                            </label>
                             <input type="text" name="full_name" value="{{ old('full_name') }}" required
                                 placeholder="e.g. Lerato Molapo"
                                 class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
@@ -68,17 +79,21 @@
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                    Email Address
+                                </label>
                                 <input type="email" name="email" value="{{ old('email') }}"
                                     placeholder="lerato@example.com"
                                     class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
                                 <p class="text-[10px] font-bold text-[#F07F22]/60 uppercase mt-2 ml-1 tracking-wider">
-                                    <i class="fas fa-envelope mr-1"></i> Tickets sent here
+                                    <i class="fas fa-envelope mr-1"></i> Ticket sent here
                                 </p>
                             </div>
 
                             <div>
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Phone Number <span class="text-rose-500">*</span></label>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
+                                    Phone Number <span class="text-rose-500">*</span>
+                                </label>
                                 <div class="flex">
                                     <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
                                     <input type="tel" name="phone" id="phone_input" value="{{ old('phone') }}" required
@@ -88,37 +103,55 @@
                             </div>
                         </div>
 
-                        {{-- WhatsApp Toggle --}}
-                        <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
-                            <div class="flex items-center mb-6">
-                                <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
-                                    <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
-                                    <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
-                                </div>
+                        {{-- Ticket delivery info banner — explains email + download, no WhatsApp mention --}}
+                        <div class="flex items-start gap-4 p-5 bg-[#1D4069]/5 border border-[#1D4069]/10 rounded-2xl">
+                            <div class="w-10 h-10 bg-[#1D4069] rounded-xl flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-envelope text-white text-sm"></i>
                             </div>
-
-                            <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
-                                <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
-                                    class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
-                                <div class="ml-4">
-                                    <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
-                                    <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
-                                </div>
-                            </label>
-
-                            <div id="whatsapp-confirmation" class="mt-4 hidden">
-                                <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
-                                    <i class="fas fa-check-circle mr-3"></i>
-                                    <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
-                                </div>
+                            <div>
+                                <p class="text-xs font-black text-[#1D4069] uppercase tracking-wider mb-1">Getting Your Ticket</p>
+                                <p class="text-xs font-medium text-gray-500 leading-relaxed">
+                                    If you provide an email above, your ticket will be sent there once your registration is confirmed.
+                                    Either way, you can download it directly from the ticket page right after you register.
+                                </p>
                             </div>
                         </div>
-                        <input type="hidden" name="preferred_delivery" id="preferred_delivery_input" value="{{ old('has_whatsapp') ? 'both' : 'email' }}">
+
+                        {{--
+                            WhatsApp toggle — DISABLED, kept here for re-enabling later.
+                            Uncomment once Meta WhatsApp Cloud API pull-delivery is wired up.
+
+                            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
+                                <div class="flex items-center mb-6">
+                                    <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
+                                        <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
+                                        <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
+                                    </div>
+                                </div>
+
+                                <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
+                                    <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
+                                        class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
+                                    <div class="ml-4">
+                                        <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
+                                        <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
+                                    </div>
+                                </label>
+
+                                <div id="whatsapp-confirmation" class="mt-4 hidden">
+                                    <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
+                                        <i class="fas fa-check-circle mr-3"></i>
+                                        <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        --}}
                     </div>
 
+                    {{-- ── WORKSHOP FIELDS ───────────────────────────────── --}}
                     @if($event->event_type === 'workshop')
                     <div class="pt-6 border-t border-gray-50 space-y-6">
                         <div class="flex items-center gap-3">
@@ -138,7 +171,6 @@
                                     placeholder="e.g. Teacher, Principal, Officer"
                                     class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
                             </div>
-
                             <div>
                                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Institution <span class="text-rose-500">*</span></label>
                                 <input type="text" name="institution" value="{{ old('institution') }}" required
@@ -159,7 +191,8 @@
                         </div>
                     </div>
                     @endif
-                    {{-- Additional Attendees --}}
+
+                    {{-- ── ADDITIONAL ATTENDEES ──────────────────────────── --}}
                     @if($selectedTier && $selectedTier->quantity_per_purchase > 1)
                     <div class="pt-6 border-t border-gray-50 space-y-6">
                         <div class="flex items-center space-x-3">
@@ -173,11 +206,10 @@
                         </div>
 
                         @for($i = 2; $i <= $selectedTier->quantity_per_purchase; $i++)
-                        <div class="bg-slate-50 border-2 border-slate-50 rounded-[2rem] p-6 sm:p-8 relative group hover:border-[#1D4069]/20 hover:bg-white transition-all">
+                        <div class="bg-slate-50 border-2 border-slate-50 rounded-[2rem] p-6 sm:p-8 relative hover:border-[#1D4069]/20 hover:bg-white transition-all">
                             <div class="absolute -top-3 left-8 px-4 py-1 bg-[#1D4069] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">
                                 Guest #{{ $i }}
                             </div>
-
                             <div class="space-y-4 mt-2">
                                 <div>
                                     <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name <span class="text-rose-500">*</span></label>
@@ -185,7 +217,6 @@
                                         class="w-full bg-white border border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-[#F07F22] outline-none transition-all"
                                         placeholder="e.g., Jane Smith">
                                 </div>
-
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Phone <span class="lowercase text-gray-300">(optional)</span></label>
@@ -196,7 +227,6 @@
                                                 placeholder="5949 4756" maxlength="9">
                                         </div>
                                     </div>
-
                                     <div>
                                         <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email <span class="lowercase text-gray-300">(optional)</span></label>
                                         <input type="email" name="companion_{{ $i }}_email" value="{{ old('companion_' . $i . '_email') }}"
@@ -208,8 +238,8 @@
                         </div>
                         @endfor
 
-                        <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start">
-                            <i class="fas fa-info-circle text-amber-500 mt-1 mr-3"></i>
+                        <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3">
+                            <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
                             <p class="text-[11px] font-black text-amber-800 uppercase tracking-tight leading-relaxed">
                                 Each person will receive their own ticket with a unique QR code for event entry.
                             </p>
@@ -217,11 +247,11 @@
                     </div>
                     @endif
 
-                    {{-- Payment Section --}}
+                    {{-- ── PAYMENT SECTION ───────────────────────────────── --}}
                     @if($selectedTier && $selectedTier->price > 0)
                     <div class="pt-6 border-t border-gray-50 space-y-6">
                         <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Payment Setup</h3>
-                        
+
                         @if($paymentMethods->isNotEmpty())
 
                             {{-- Payment Plan (Full vs Installments) --}}
@@ -269,7 +299,7 @@
                             <div id="deposit-amount-section" class="hidden">
                                 <div class="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-8">
                                     <label class="block text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em] mb-4 text-center">Initial Payment Amount</label>
-                                    
+
                                     <div class="relative max-w-xs mx-auto">
                                         <span class="absolute left-6 top-1/2 -translate-y-1/2 text-emerald-400 font-black">M</span>
                                         <input type="number" name="deposit_amount" id="deposit_amount" step="0.01"
@@ -279,12 +309,12 @@
                                             class="w-full pl-12 pr-6 py-5 bg-white border-2 border-emerald-200 rounded-2xl focus:border-emerald-500 outline-none text-2xl font-black text-emerald-900 shadow-inner">
                                     </div>
 
+                                    @php
+                                        $minDeposit = $selectedTier->price * ($event->minimum_deposit_percentage / 100);
+                                        $halfAmount = $selectedTier->price / 2;
+                                        $fullAmount = $selectedTier->price;
+                                    @endphp
                                     <div class="flex flex-wrap justify-center gap-2 mt-6">
-                                        @php
-                                            $minDeposit = $selectedTier->price * ($event->minimum_deposit_percentage / 100);
-                                            $halfAmount = $selectedTier->price / 2;
-                                            $fullAmount = $selectedTier->price;
-                                        @endphp
                                         <button type="button" onclick="setDepositAmount({{ $minDeposit }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Min</button>
                                         <button type="button" onclick="setDepositAmount({{ $halfAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Half</button>
                                         <button type="button" onclick="setDepositAmount({{ $fullAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Full</button>
@@ -390,7 +420,7 @@
                         <input type="hidden" name="payment_type" value="full">
                     @endif
 
-                    {{-- Free Ticket Banner --}}
+                    {{-- ── FREE TICKET BANNER ────────────────────────────── --}}
                     @if($selectedTier && $selectedTier->price == 0)
                     <div class="animate-in fade-in zoom-in duration-500">
                         <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 rounded-[2rem] p-8 text-center shadow-sm">
@@ -401,7 +431,7 @@
                     </div>
                     @endif
 
-                    {{-- Terms --}}
+                    {{-- ── TERMS ─────────────────────────────────────────── --}}
                     <div class="pt-10 border-t border-gray-50 space-y-6">
                         <label class="flex items-start cursor-pointer group">
                             <input type="checkbox" name="terms" class="mt-1 w-5 h-5 text-[#F07F22] border-gray-300 rounded" required>
@@ -415,7 +445,7 @@
                 </form>
             </div>
 
-            {{-- Desktop Summary Sidebar --}}
+            {{-- ── DESKTOP SIDEBAR (original gray-900 + emerald-flavored colors) ───────────────────────────────── --}}
             <div class="lg:col-span-5 hidden lg:block sticky top-20">
                 <div class="bg-gray-900 rounded-ventiq shadow-2xl overflow-hidden">
                     <div class="p-8 text-white border-b border-white/5">
@@ -425,11 +455,16 @@
                     <div class="p-8 space-y-8">
                         <div class="flex justify-between items-end pb-6 border-b border-white/5">
                             <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Investment</span>
-                            <span class="text-3xl font-black tracking-tighter text-white">M{{ number_format($selectedTier->price ?? 0) }}</span>
+                            <span class="text-3xl font-black tracking-tighter text-white">
+                                {{ $selectedTier->price > 0 ? 'M' . number_format($selectedTier->price) : 'Free' }}
+                            </span>
                         </div>
                         <div class="space-y-4 text-white/60">
                             <div class="flex items-center gap-3"><i class="far fa-calendar-alt text-[#F07F22] text-xs"></i><span class="text-[10px] font-black uppercase tracking-widest">{{ $event->event_date->format('d M, Y') }}</span></div>
+                            @if($event->venue)
                             <div class="flex items-center gap-3"><i class="fas fa-map-marker-alt text-[#F07F22] text-xs"></i><span class="text-[10px] font-black uppercase tracking-widest truncate">{{ $event->venue }}</span></div>
+                            @endif
+                            <div class="flex items-center gap-3"><i class="fas fa-tag text-[#F07F22] text-xs"></i><span class="text-[10px] font-black uppercase tracking-widest">{{ $event->organization->name }}</span></div>
                         </div>
                     </div>
                 </div>
@@ -437,12 +472,14 @@
         </div>
     </main>
 
-    {{-- Mobile Sticky CTA --}}
+    {{-- ── MOBILE STICKY CTA ─────────────────────────────────────────── --}}
     <div class="lg:hidden sticky-mobile-price bg-white border-t border-gray-100 px-6 py-5 shadow-[0_-15px_40px_rgba(0,0,0,0.08)]">
         <div class="flex items-center justify-between gap-6">
             <div class="flex flex-col">
                 <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Payable</span>
-                <span class="text-3xl font-black text-gray-900 tracking-tighter leading-none">M{{ number_format($selectedTier->price) }}</span>
+                <span class="text-3xl font-black text-gray-900 tracking-tighter leading-none">
+                    {{ isset($selectedTier) && $selectedTier->price > 0 ? 'M' . number_format($selectedTier->price) : 'Free' }}
+                </span>
             </div>
             <button onclick="document.getElementById('regForm').submit()" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
                 Register
@@ -453,31 +490,6 @@
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const phoneInput = document.getElementById('phone_input');
-        const phoneDisplays = document.querySelectorAll('#phone-display-confirm');
-        
-        // WhatsApp confirmation toggle
-        window.toggleWhatsAppConfirmation = function() {
-            const checkbox = document.getElementById('has_whatsapp_checkbox');
-            const confirmation = document.getElementById('whatsapp-confirmation');
-            const hiddenInput = document.getElementById('preferred_delivery_input');
-            
-            if (checkbox && checkbox.checked) {
-                confirmation?.classList.remove('hidden');
-                if (hiddenInput) hiddenInput.value = 'both';
-            } else {
-                confirmation?.classList.add('hidden');
-                if (hiddenInput) hiddenInput.value = 'email';
-            }
-        };
-        toggleWhatsAppConfirmation();
-
-        // Update phone display dynamically
-        phoneInput?.addEventListener('input', function(e) {
-            phoneDisplays.forEach(display => {
-                const value = e.target.value.trim();
-                display.textContent = value ? value : '';
-            });
-        });
 
         // Auto-format main phone
         phoneInput?.addEventListener('input', function(e) {
@@ -503,13 +515,12 @@
             if (emailInput && !emailInput.value.trim()) {
                 emailInput.removeAttribute('name');
             }
-            
+
             if (phoneInput) {
                 let cleanPhone = phoneInput.value.replace(/\D/g, '');
                 phoneInput.value = '+266' + cleanPhone;
             }
 
-            // Format companion phones
             document.querySelectorAll('.companion-phone').forEach(input => {
                 if (input.value.trim()) {
                     let cleanPhone = input.value.replace(/\D/g, '');
