@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'VENTIQ | Intelligent Ticketing & Event Streaming')</title>
+    <title>@yield('title', 'VENTIQ | Event Operations & Access Management')</title>
     <meta name="description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations in Lesotho. Simply Connected.')">
     
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url()->full() }}">
-    <meta property="og:title" content="@yield('title', 'VENTIQ | Intelligent Ticketing & Event Streaming')">
+    <meta property="og:title" content="@yield('title', 'VENTIQ | Event Operations & Access Management')">
     <meta property="og:description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations in Lesotho. Simply Connected.')">
     <meta property="og:image" content="{{ asset('images/meta.jpeg') }}">
     <meta property="og:image:type" content="image/jpeg">
@@ -19,8 +19,8 @@
 
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="{{ url()->full() }}">
-    <meta property="twitter:title" content="@yield('title', 'VENTIQ | Intelligent Ticketing & Event Streaming')">
-    <meta property="twitter:description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations in Lesotho. Simply Connected.')">
+    <meta property="twitter:title" content="@yield('title', 'VENTIQ | Event Operations & Access Management')">
+    <meta property="twitter:description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations. Simply Connected.')">
     <meta property="twitter:image" content="{{ asset('images/meta.jpeg') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
