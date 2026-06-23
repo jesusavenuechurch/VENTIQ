@@ -74,8 +74,8 @@
                     <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none"></div>
                     <div class="flex justify-between items-center relative z-10">
                         <div>
-                            <h2 class="text-lg font-black uppercase tracking-tight">Find an Event</h2>
-                            <p class="text-xs text-blue-100/60 font-medium mt-0.5">Browse &amp; register for events near you</p>
+                            <h2 class="text-lg font-black uppercase tracking-tight">Attend an Event</h2>
+                            <p class="text-xs text-blue-100/60 font-medium mt-0.5">Discover &amp; register for upcoming events</p>
                         </div>
                         <div class="bg-white/10 p-3 rounded-xl group-hover:bg-[#F07F22] transition-colors flex-shrink-0 ml-4">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,7 +93,7 @@
                     </div>
                     <div class="flex justify-between items-center">
                         <div>
-                            <h2 class="text-lg font-black text-gray-900 uppercase tracking-tight">Create an Event</h2>
+                            <h2 class="text-lg font-black text-gray-900 uppercase tracking-tight">Organize an Event</h2>
                             <p class="text-xs font-semibold text-[#F07F22] mt-0.5">Manage registrations, payments & attendance</p>
                         </div>
                         <div class="bg-[#F07F22]/10 p-3 rounded-xl group-hover:bg-[#F07F22] group-hover:text-white text-[#F07F22] transition-all flex-shrink-0 ml-4">
@@ -267,7 +267,7 @@
                 <div class="bg-[#1D4069]/4 rounded-2xl p-4 mb-6">
                     <p class="text-[10px] font-black text-[#1D4069] uppercase tracking-widest mb-3">Your earnings per package sold</p>
                     <div class="grid grid-cols-3 gap-2">
-                        @foreach([['M250', 'M50', 'Starter'], ['M700', 'M140', 'Growth'], ['M1500', 'M300', 'Pro']] as $tier)
+                        @foreach([['M250', 'M50', 'Starter'], ['M600', 'M120', 'Standard'], ['M1,200', 'M240', 'Professional']] as $tier)
                         <div class="bg-white rounded-xl p-3 text-center shadow-sm">
                             <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wide">{{ $tier[2] }}</p>
                             <p class="text-[10px] text-gray-300 font-medium line-through mt-0.5">{{ $tier[0] }}</p>
