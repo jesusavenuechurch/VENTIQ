@@ -30,10 +30,18 @@
 
                 <div class="hidden lg:flex lg:col-span-3 flex-col items-center justify-center relative h-[450px] select-none pointer-events-none">
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-gray-100 shadow-xl transform -rotate-8 -translate-y-6 opacity-60 overflow-hidden">
-                        <img src="{{ asset('images/hero/2.jpg') }}" alt="Moments of Worship" class="w-full h-full object-cover grayscale-[20%] contrast-[1.05]">
+                        <div class="absolute inset-0 img-skeleton"></div>
+                        <img src="{{ asset('images/hero/2.jpg') }}" alt="Moments of Worship"
+                             class="relative w-full h-full object-cover grayscale-[20%] contrast-[1.05] opacity-0 img-fade"
+                             loading="lazy"
+                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
                     </div>
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-white/80 shadow-2xl shadow-gray-200/80 transform -rotate-2 translate-x-3 translate-y-4 overflow-hidden">
-                        <img src="{{ asset('images/hero/sing.jpg') }}" alt="Maseru Market Gathering" class="w-full h-full object-cover contrast-[1.05]">
+                        <div class="absolute inset-0 img-skeleton"></div>
+                        <img src="{{ asset('images/hero/sing.jpg') }}" alt="Maseru Market Gathering"
+                             class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
+                             loading="lazy"
+                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
                     </div>
                 </div>
 
@@ -74,10 +82,18 @@
 
                 <div class="hidden lg:flex lg:col-span-3 flex-col items-center justify-center relative h-[450px] select-none pointer-events-none">
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-gray-100 shadow-xl transform rotate-6 -translate-x-4 -translate-y-4 opacity-70 overflow-hidden">
-                        <img src="{{ asset('images/hero/3.jpg') }}" alt="Finish Line Connection" class="w-full h-full object-cover grayscale-[10%] contrast-[1.05]">
+                        <div class="absolute inset-0 img-skeleton"></div>
+                        <img src="{{ asset('images/hero/3.jpg') }}" alt="Finish Line Connection"
+                             class="relative w-full h-full object-cover grayscale-[10%] contrast-[1.05] opacity-0 img-fade"
+                             loading="lazy"
+                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
                     </div>
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-white/80 shadow-2xl shadow-gray-200/60 transform -rotate-3 translate-x-4 translate-y-8 overflow-hidden">
-                        <img src="{{ asset('images/hero/4.jpg') }}" alt="Shared Laughter" class="w-full h-full object-cover contrast-[1.05]">
+                        <div class="absolute inset-0 img-skeleton"></div>
+                        <img src="{{ asset('images/hero/4.jpg') }}" alt="Shared Laughter"
+                             class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
+                             loading="lazy"
+                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
                     </div>
                 </div>
 
@@ -105,7 +121,11 @@
                     <a href="{{ $event->public_url ?? '#' }}" class="group block relative bg-white border border-gray-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
                         <div class="aspect-[4/3] w-full bg-[#1D4069] relative overflow-hidden">
                             @if($event->banner_image)
-                                <img src="{{ asset('storage/' . $event->banner_image) }}" alt="{{ $event->name }}" class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500">
+                                <div class="absolute inset-0 img-skeleton"></div>
+                                <img src="{{ asset('storage/' . $event->banner_image) }}" alt="{{ $event->name }}"
+                                     class="relative w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-0 img-fade"
+                                     loading="lazy"
+                                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
                             @else
                                 <div class="absolute inset-0 flex items-center justify-center overflow-hidden select-none pointer-events-none">
                                     <span class="text-white/10 font-black uppercase tracking-tight text-[64px] leading-none whitespace-nowrap transform -rotate-6">VENTIQ</span>
@@ -189,6 +209,7 @@
     
             <template x-for="(col, i) in collections" :key="col.key">
                 <a :href="col.href"
+                x-data="{ imgLoaded: false }"
                 class="absolute top-0 left-1/2 w-80 md:w-[26rem] h-full rounded-[1.75rem] shadow-2xl overflow-hidden transition-all duration-500 ease-out"
                 :style="`
                         transform: translateX(calc(-50% + ${offset(i) * 56}%)) scale(${offset(i) === 0 ? 1 : (Math.abs(offset(i)) === 1 ? 0.78 : 0.6)});
@@ -197,7 +218,10 @@
                         pointer-events: ${Math.abs(offset(i)) > 2 ? 'none' : 'auto'};
                 `">
     
-                    <img x-show="col.image" :src="col.image" class="absolute inset-0 w-full h-full object-cover">
+                    <div x-show="col.image && !imgLoaded" class="absolute inset-0 img-skeleton"></div>
+                    <img x-show="col.image" @load="imgLoaded = true" :src="col.image"
+                         class="absolute inset-0 w-full h-full object-cover img-fade"
+                         :class="imgLoaded ? 'opacity-100' : 'opacity-0'">
                     <div x-show="!col.image" class="absolute inset-0" :style="`background: linear-gradient(160deg, ${col.color}, ${col.color}cc)`"></div>
                     <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent"></div>
     
@@ -263,7 +287,7 @@
     <section class="w-full max-w-7xl mx-auto px-6 py-16 border-t border-gray-100"
         data-reveal
         x-data="{
-            upcoming: {{ Js::from($upcomingEvents->map(fn ($e) => [
+            upcoming: {{ \Illuminate\Support\Js::from($upcomingEvents->map(fn ($e) => [
                 'name' => $e->name,
                 'venue' => $e->venue,
                 'city' => $e->city,
@@ -319,9 +343,12 @@
             </template>
 
             <template x-for="event in upcoming" :key="event.url + event.name">
-                <a :href="event.url" class="group block bg-white rounded-[1.5rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
+                <a :href="event.url" x-data="{ imgLoaded: false }" class="group block bg-white rounded-[1.5rem] border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300">
                     <div class="aspect-[4/3] w-full bg-gray-50 overflow-hidden relative">
-                        <img x-show="event.image" :src="event.image" class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500">
+                        <div x-show="event.image && !imgLoaded" class="absolute inset-0 img-skeleton"></div>
+                        <img x-show="event.image" @load="imgLoaded = true" :src="event.image"
+                             class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 img-fade"
+                             :class="imgLoaded ? 'opacity-100' : 'opacity-0'">
                         <div x-show="!event.image" class="w-full h-full bg-[#1D4069] relative overflow-hidden flex items-center justify-center">
                             <span class="text-white/10 font-black uppercase tracking-tight text-[32px] leading-none whitespace-nowrap transform -rotate-6 select-none pointer-events-none">VENTIQ</span>
                         </div>
@@ -378,13 +405,7 @@
 
 
     {{-- =========================================================================
-         SECTION 5: BROWSE BY DISTRICT
-         ========================================================================= --}}
-    
-
-
-    {{-- =========================================================================
-         SECTION 6: HOW IT WORKS
+         SECTION 5: HOW IT WORKS
          ========================================================================= --}}
     <section class="w-full bg-[#1D4069] text-white py-24 px-6 relative overflow-hidden" data-reveal>
         <div class="absolute inset-0 opacity-10 pointer-events-none">
@@ -436,7 +457,7 @@
 
 
     {{-- =========================================================================
-         SECTION 7: COMMUNITY MEMORIES
+         SECTION 6: COMMUNITY MEMORIES
          ========================================================================= --}}
     <section class="w-full py-20 overflow-hidden bg-white" data-reveal>
         <div class="w-full max-w-7xl mx-auto px-6 flex flex-col mb-12 items-center text-center">
@@ -445,24 +466,40 @@
         </div>
 
         <div class="w-full max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 select-none pointer-events-none">
-            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0">
-                <img src="{{ asset('images/hero/3.jpg') }}" alt="" class="w-full h-full object-cover grayscale-[10%]">
+            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
+                <div class="absolute inset-0 img-skeleton"></div>
+                <img src="{{ asset('images/hero/3.jpg') }}" alt=""
+                     class="relative w-full h-full object-cover grayscale-[10%] opacity-0 img-fade"
+                     loading="lazy"
+                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
             </div>
-            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-3 translate-y-4 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0">
-                <img src="{{ asset('images/hero/4.jpg') }}" alt="" class="w-full h-full object-cover">
+            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-3 translate-y-4 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
+                <div class="absolute inset-0 img-skeleton"></div>
+                <img src="{{ asset('images/hero/4.jpg') }}" alt=""
+                     class="relative w-full h-full object-cover opacity-0 img-fade"
+                     loading="lazy"
+                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
             </div>
-            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-1 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0">
-                <img src="{{ asset('images/hero/sing.jpg') }}" alt="" class="w-full h-full object-cover contrast-[1.05]">
+            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-1 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
+                <div class="absolute inset-0 img-skeleton"></div>
+                <img src="{{ asset('images/hero/sing.jpg') }}" alt=""
+                     class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
+                     loading="lazy"
+                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
             </div>
-            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-2 translate-y-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0">
-                <img src="{{ asset('images/hero/2.jpg') }}" alt="" class="w-full h-full object-cover grayscale-[15%]">
+            <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-2 translate-y-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
+                <div class="absolute inset-0 img-skeleton"></div>
+                <img src="{{ asset('images/hero/2.jpg') }}" alt=""
+                     class="relative w-full h-full object-cover grayscale-[15%] opacity-0 img-fade"
+                     loading="lazy"
+                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
             </div>
         </div>
     </section>
 
 
     {{-- =========================================================================
-         SECTION 8: ORGANIZER CTA
+         SECTION 7: ORGANIZER CTA
          ========================================================================= --}}
     <section class="w-full max-w-5xl mx-auto px-6 py-16 mb-8 border-t border-gray-100" data-reveal>
         <div class="rounded-[2.5rem] bg-gray-50 border border-gray-200/60 p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -516,6 +553,27 @@
   [data-reveal].revealed {
     opacity: 1;
     transform: none;
+  }
+
+  /* ============================================================
+     IMAGE LOADING — skeleton + fade-in.
+     Every <img> that could be slow (uploaded banners) or is just
+     loading normally stays fully transparent until its onload/@load
+     fires, so the browser's progressive JPEG paint is never visible.
+     A shimmering skeleton sits underneath in the meantime and is
+     removed once the real image is ready.
+     ============================================================ */
+  .img-skeleton {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+    background-size: 400% 100%;
+    animation: img-shimmer 1.4s ease infinite;
+  }
+  @keyframes img-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+  }
+  .img-fade {
+    transition: opacity 0.4s ease;
   }
 </style>
 
