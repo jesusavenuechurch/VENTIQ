@@ -300,10 +300,6 @@ class PublicEventController extends Controller
             $events = $base()->orderBy('event_date', 'asc')->take(8)->get();
         }
 
-        if ($events->isEmpty()) {
-            return response()->json($this->dummyUpcomingEvents());
-        }
-
         return response()->json($events->map(fn ($e) => [
             'name' => $e->name,
             'venue' => $e->venue,
@@ -318,44 +314,6 @@ class PublicEventController extends Controller
         ]));
     }
 
-    /**
-     * Same fallback content used in index() when the DB has zero public
-     * events, reshaped to match the /events/upcoming JSON contract so the
-     * homepage's Alpine component can render it identically either way.
-     */
-    private function dummyUpcomingEvents(): array
-    {
-        return [
-            [
-                'name' => 'Maseru street food & craft market',
-                'venue' => 'Maseru Mall', 'city' => 'Maseru',
-                'category_label' => 'Markets', 'category_color' => '#F07F22',
-                'organizer' => 'VENTIQ', 'date' => now()->addDays(2)->format('M d'),
-                'time' => '10:00 AM', 'image' => null, 'url' => '#',
-            ],
-            [
-                'name' => 'Live acoustic sessions at the mountain lodge',
-                'venue' => 'Mountain Lodge', 'city' => 'Leribe',
-                'category_label' => 'Music', 'category_color' => '#D4537E',
-                'organizer' => 'VENTIQ', 'date' => now()->addDays(5)->format('M d'),
-                'time' => '7:00 PM', 'image' => null, 'url' => '#',
-            ],
-            [
-                'name' => 'High altitude marathon finish line gala',
-                'venue' => 'Setsoto Stadium', 'city' => 'Mokhotlong',
-                'category_label' => 'Sports', 'category_color' => '#639922',
-                'organizer' => 'VENTIQ', 'date' => now()->addDays(12)->format('M d'),
-                'time' => '2:00 PM', 'image' => null, 'url' => '#',
-            ],
-            [
-                'name' => 'Community worship gathering',
-                'venue' => 'Berea Community Hall', 'city' => 'Berea',
-                'category_label' => 'Worship', 'category_color' => '#7F77DD',
-                'organizer' => 'VENTIQ', 'date' => now()->addDays(7)->format('M d'),
-                'time' => '6:00 PM', 'image' => null, 'url' => '#',
-            ],
-        ];
-    }
 
     /**
      * Homepage. URL: /
