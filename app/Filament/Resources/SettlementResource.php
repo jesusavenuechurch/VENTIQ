@@ -20,9 +20,9 @@ class SettlementResource extends Resource
 {
     protected static ?string $model = Settlement::class;
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
-    protected static ?string $navigationGroup = 'Finance';
-    protected static ?string $navigationLabel = 'Settlements';
+    protected static ?string $cluster = \App\Filament\Clusters\FinanceCluster::class;
     protected static ?int $navigationSort = 1;
+    protected static ?string $navigationLabel = 'Settlements';
 
     public static function canViewAny(): bool
     {

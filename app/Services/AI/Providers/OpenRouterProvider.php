@@ -119,10 +119,23 @@ class OpenRouterProvider implements AIProvider
     {
         try {
             $response = Http::withToken($this->apiKey)
-                ->timeout(5)
+                ->timeout(10) // bumped from 5s — was too aggressive for a health check
                 ->get("{$this->baseUrl}/models");
+
+            if (!$response->successful()) {
+                Log::warning('OpenRouter isAvailable check failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+            }
+
             return $response->successful();
-        } catch (\Exception) {
+
+        } catch (\Exception $e) {
+            Log::error('OpenRouter isAvailable check threw exception', [
+                'error' => $e->getMessage(),
+                'class' => get_class($e),
+            ]);
             return false;
         }
     }

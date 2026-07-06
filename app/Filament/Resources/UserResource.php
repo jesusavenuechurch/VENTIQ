@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\OrganizationCluster;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,8 +18,9 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
-    protected static ?string $navigationGroup = 'System';
-    protected static ?string $navigationLabel = 'Users';
+    protected static ?string $cluster = OrganizationCluster::class;
+    protected static ?string $navigationLabel = 'Team';
+    protected static ?int $navigationSort = 2;
 
     public static function canViewAny(): bool
     {

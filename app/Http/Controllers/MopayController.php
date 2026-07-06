@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Filament\Resources\PackagePurchaseResource;
 use App\Models\AgentEarning;
 use App\Models\Organization;
 use App\Models\OrganizationPackage;
@@ -23,60 +24,63 @@ class MopayController extends Controller
     // PACKAGE PAYMENT
     // =========================================================================
 
-    /**
-     * Initiate MoPay session for a package purchase.
-     * Called from Filament PackagePurchaseResource when org selects "Pay Online".
-     */
-public function initiatePackagePayment(Request $request)
-{
-    $request->validate([
-        'package_id' => 'required|exists:organization_packages,id',
-    ]);
-
-    $user    = auth()->user();
-    $package = OrganizationPackage::findOrFail($request->package_id);
-    $def     = PackageDefinition::get($package->package_type);
-
-    if (!$def) {
-        return back()->with('error', 'Invalid package.');
-    }
-
-    try {
-        $internalRef = 'PKG' . $package->id . 'T' . time();
-
-        $session = $this->mopay->createSession([
-            'amount'        => $def['price'],
-            'reference'     => $internalRef,
-            'redirectUrl'   => route('online-payment.package.callback'),
-            'description'   => strtoupper($package->package_type) . ' Package — Ventiq',
-            'customerEmail' => $user->email,
-            'customerName'  => $user->name,
+    public function initiatePackagePayment(Request $request)
+    {
+        $request->validate([
+            'package_id' => 'required|exists:organization_packages,id',
         ]);
 
-        PaymentSession::create([
-            'payable_type'      => 'package',
-            'payable_id'        => $package->id,
-            'mopay_reference'   => $internalRef,
-            'mopay_session_id'  => $session['sessionId'],
-            'mopay_payment_url' => $session['paymentUrl'],
-            'amount'            => $def['price'],
-            'status'            => 'pending',
-            'organization_id'   => $package->organization_id,
-            'initiated_by'      => $user->id,
-        ]);
+        $user    = auth()->user();
+        $package = OrganizationPackage::findOrFail($request->package_id);
+        $def     = PackageDefinition::get($package->package_type);
 
-        $package->update(['payment_reference' => $internalRef]);
+        if (!$def) {
+            return back()->with('error', 'Invalid package.');
+        }
 
-        return redirect()->away($session['paymentUrl']);
+        try {
+            $internalRef = 'PKG' . $package->id . 'T' . time();
 
-    } catch (\Exception $e) {
-        Log::error('MoPay package initiation failed', ['error' => $e->getMessage()]);
-        return back()->with('error', 'Could not initiate payment: ' . $e->getMessage());
+            $session = $this->mopay->createSession([
+                'amount'        => $def['price'],
+                'reference'     => $internalRef,
+                'redirectUrl'   => route('online-payment.package.callback'),
+                'description'   => strtoupper($package->package_type) . ' Package — Ventiq',
+                'customerEmail' => $user->email,
+                'customerName'  => $user->name,
+            ]);
+
+            PaymentSession::create([
+                'payable_type'      => 'package',
+                'payable_id'        => $package->id,
+                'mopay_reference'   => $internalRef,
+                'mopay_session_id'  => $session['sessionId'],
+                'mopay_payment_url' => $session['paymentUrl'],
+                'amount'            => $def['price'],
+                'status'            => 'pending',
+                'organization_id'   => $package->organization_id,
+                'initiated_by'      => $user->id,
+            ]);
+
+            $package->update(['payment_reference' => $internalRef]);
+
+            return redirect()->away($session['paymentUrl']);
+
+        } catch (\Exception $e) {
+            Log::error('MoPay package initiation failed', ['error' => $e->getMessage()]);
+            return back()->with('error', 'Could not initiate payment: ' . $e->getMessage());
+        }
     }
-}
 
     /**
      * MoPay redirects here after package payment.
+     *
+     * NOTE: every redirect below uses PackagePurchaseResource::getUrl('index')
+     * instead of a hardcoded route name string. This resource now lives
+     * inside OrganizationCluster, which changed its actual route name —
+     * getUrl() always resolves correctly regardless of which cluster (or
+     * no cluster) the resource currently lives in, so this can't break
+     * again the next time navigation gets reorganized.
      */
     public function packageCallback(Request $request)
     {
@@ -85,28 +89,28 @@ public function initiatePackagePayment(Request $request)
 
         Log::info('MoPay package callback', $request->query());
 
+        $packageIndexUrl = PackagePurchaseResource::getUrl('index');
+
         if (!$sessionId) {
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('error', 'Invalid payment callback.');
         }
 
-        // Find our session record
         $paymentSession = PaymentSession::where('mopay_session_id', $sessionId)
             ->where('payable_type', 'package')
             ->first();
 
         if (!$paymentSession) {
             Log::error('MoPay: package session not found', ['sessionId' => $sessionId]);
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('error', 'Payment session not found.');
         }
 
-        // Verify server-side — never trust redirect params alone
         try {
             $verified = $this->mopay->verifySession($sessionId);
         } catch (\Exception $e) {
             Log::error('MoPay package verification failed', ['error' => $e->getMessage()]);
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('error', 'Could not verify payment. Please contact support.');
         }
 
@@ -119,7 +123,7 @@ public function initiatePackagePayment(Request $request)
         $package = OrganizationPackage::find($paymentSession->payable_id);
 
         if (!$package) {
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('error', 'Package not found.');
         }
 
@@ -127,13 +131,13 @@ public function initiatePackagePayment(Request $request)
             $paymentSession->update(['status' => 'completed']);
             $this->approvePackage($package, $verified);
 
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('success', '✅ Payment successful! Your ' . strtoupper($package->package_type) . ' package is now active.');
         }
 
         if (in_array($verified['status'] ?? '', ['FAILED', 'CANCELLED', 'EXPIRED'])) {
             $paymentSession->update(['status' => strtolower($verified['status'])]);
-            $package->delete(); // Remove the pending package — they can try again
+            $package->delete();
 
             $message = match($verified['status']) {
                 'CANCELLED' => 'Payment was cancelled. You can try again.',
@@ -141,19 +145,14 @@ public function initiatePackagePayment(Request $request)
                 default     => 'Payment expired. Please try again.',
             };
 
-            return redirect()->route('filament.admin.resources.package-purchases.index')
+            return redirect($packageIndexUrl)
                 ->with('error', $message);
         }
 
-        // Still processing — unlikely on redirect but handle it
-        return redirect()->route('filament.admin.resources.package-purchases.index')
+        return redirect($packageIndexUrl)
             ->with('warning', 'Payment is being processed. Your package will activate shortly.');
     }
 
-    /**
-     * Approve package and run all associated logic (agent commission, trial conversion).
-     * Mirrors the existing Filament approve action.
-     */
     private function approvePackage(OrganizationPackage $record, array $verified): void
     {
         DB::transaction(function () use ($record, $verified) {
@@ -164,7 +163,6 @@ public function initiatePackagePayment(Request $request)
                 'purchased_at'     => now(),
             ]);
 
-            // Convert free trial if this is the org's first paid package
             $hasPaidPackage = OrganizationPackage::where('organization_id', $record->organization_id)
                 ->where('id', '!=', $record->id)
                 ->where('is_free_trial', false)
@@ -178,7 +176,6 @@ public function initiatePackagePayment(Request $request)
                     ->update(['status' => 'converted']);
             }
 
-            // Agent commission
             $org = $record->organization;
             if ($org && $org->agent_id) {
                 $commission = AgentEarning::calculateCommission($record->price_paid);
@@ -192,12 +189,11 @@ public function initiatePackagePayment(Request $request)
                     'package_price'           => $record->price_paid,
                     'package_type'            => $record->package_type,
                     'status'                  => 'approved',
-                    'approved_by'             => null, // auto-approved via MoPay
+                    'approved_by'             => null,
                     'approved_at'             => now(),
                     'notes'                   => "Auto-approved via MoPay — {$org->name}",
                 ]);
 
-                // Milestone bonus check
                 $paidCount = Organization::where('agent_id', $org->agent_id)
                     ->whereHas('activePackages', fn ($q) => $q->where('is_free_trial', false)->where('status', 'active'))
                     ->count();
@@ -228,11 +224,6 @@ public function initiatePackagePayment(Request $request)
     // TICKET PAYMENT
     // =========================================================================
 
-    /**
-     * Initiate MoPay session for a ticket purchase.
-     * Called after ticket + TicketPayment are created in RegistrationController,
-     * when the selected payment method is 'mopay'.
-     */
     public function initiateTicketPayment(Request $request)
     {
         $request->validate([
@@ -243,7 +234,6 @@ public function initiatePackagePayment(Request $request)
 
         DB::beginTransaction();
         try {
-            // Reference: TKT + ticket_id + timestamp
             $internalRef = 'TKT' . $ticket->id . 'T' . time();
 
             $surchargeRate = config('constants.payment.surcharge_rate');
@@ -267,10 +257,9 @@ public function initiatePackagePayment(Request $request)
                 'amount'            => $ticket->amount,
                 'status'            => 'pending',
                 'organization_id'   => $ticket->event->organization_id,
-                'initiated_by'      => null, // public user
+                'initiated_by'      => null,
             ]);
 
-            // Update ticket's payment reference
             $ticket->update(['payment_reference' => $internalRef]);
             $ticket->payments()->latest()->first()?->update(['payment_reference' => $internalRef]);
 
@@ -290,9 +279,6 @@ public function initiatePackagePayment(Request $request)
         }
     }
 
-    /**
-     * MoPay redirects here after ticket payment.
-     */
     public function ticketCallback(Request $request)
     {
         $sessionId = $request->query('sessionId');
@@ -324,7 +310,6 @@ public function initiatePackagePayment(Request $request)
             'ticketId'  => $ticket->id,
         ]);
 
-        // Verify server-side
         try {
             $verified = $this->mopay->verifySession($sessionId);
         } catch (\Exception $e) {
@@ -362,15 +347,10 @@ public function initiatePackagePayment(Request $request)
         return redirect($confirmationRoute)->with('warning', 'Payment is being processed. Your ticket will activate shortly.');
     }
 
-    /**
-     * Approve ticket after successful MoPay payment.
-     * Mirrors the existing manual approval flow in TicketResource.
-     */
     private function approveTicket(Ticket $ticket, array $verified, PaymentSession $paymentSession): void
     {
         DB::transaction(function () use ($ticket, $verified, $paymentSession) {
-    
-            // 1. Approve the pending TicketPayment record
+
             $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first();
             if ($pendingPayment) {
                 $pendingPayment->update([
@@ -381,8 +361,7 @@ public function initiatePackagePayment(Request $request)
                     'approved_at'       => now(),
                 ]);
             }
-    
-            // 2. Activate the ticket
+
             $ticket->update([
                 'payment_status'    => 'completed',
                 'status'            => 'active',
@@ -391,23 +370,21 @@ public function initiatePackagePayment(Request $request)
                 'payment_date'      => now(),
                 'amount_paid'       => $ticket->amount,
             ]);
-    
-            // 3. Increment tier sold counter
+
             if ($ticket->payments()->where('status', 'approved')->count() === 1) {
                 $ticket->tier->increment('quantity_sold');
             }
-    
-            // 4. Create settlement item — records the economics of this payment
+
             $surchargeRate = config('constants.payment.surcharge_rate');
             $gatewayRate   = config('constants.payment.gateway_fee_rate');
-    
+
             $ticketAmount  = $ticket->amount;
             $grossPaid     = round($ticketAmount * (1 + $surchargeRate), 2);
             $gatewayFee    = round($grossPaid * $gatewayRate, 2);
             $amtReceived   = round($grossPaid - $gatewayFee, 2);
-    
+
             \App\Models\SettlementItem::create([
-                'settlement_id'      => null, // not batched yet — null until admin runs settlement
+                'settlement_id'      => null,
                 'payment_session_id' => $paymentSession->id,
                 'ticket_id'          => $ticket->id,
                 'organization_id'    => $ticket->event->organization_id,
@@ -417,18 +394,17 @@ public function initiatePackagePayment(Request $request)
                 'amount_received'    => $amtReceived,
                 'amount_owed_to_org' => $ticketAmount,
             ]);
-    
-            // 5. Deliver ticket
+
             dispatch(function () use ($ticket) {
                 $ticket->load(['client', 'event', 'tier', 'event.organization']);
                 $ticket->generateQrCode();
                 $ticket->autoDeliverTicket();
             })->afterResponse();
-    
+
             if ($ticket->client->email) {
                 dispatch(new \App\Jobs\SendTicketApprovedEmail($ticket->id))->afterResponse();
             }
-    
+
             Log::info("MoPay: ticket {$ticket->id} approved, settlement_item created");
         });
     }

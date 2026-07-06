@@ -22,7 +22,8 @@ class TierTemplateResource extends Resource
     protected static ?string $model = TierTemplate::class;
     protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
     protected static ?string $navigationLabel = 'Tier Templates';
-    protected static ?string $navigationGroup = 'Events';
+    protected static ?string $cluster = \App\Filament\Clusters\EventsCluster::class;
+    protected static ?int $navigationSort = 5;
 
     public static function canViewAny(): bool
     {

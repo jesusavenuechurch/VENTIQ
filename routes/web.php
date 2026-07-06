@@ -19,6 +19,7 @@ use App\Http\Controllers\ContactInquiryController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\Organization;
 use App\Http\Controllers\MopayController;
+use App\Livewire\Assist\ChatPage;
 
 Route::post('/contact', [ContactInquiryController::class, 'store'])->name('contact.store');
 
@@ -62,10 +63,7 @@ Route::get('/sitemap.xml', function () {
 })->name('sitemap');
 
 
-Route::get('/', function () {
-    $activeOrgs = Organization::where('is_active', true)->count();
-    return view('welcome', compact('activeOrgs'));
-});
+Route::get('/', [PublicEventController::class, 'index'])->name('home');
 
 Route::view('/about', 'public.about')->name('about');
 // 1. The handler for the email link (Fixes your 'verification.verify' error)
@@ -217,3 +215,8 @@ Route::get('/payment/package/callback', [MopayController::class, 'packageCallbac
 
 Route::get('/payment/ticket/callback', [MopayController::class, 'ticketCallback'])
     ->name('online-payment.ticket.callback');
+
+Route::middleware(['auth'])->get('/assist/{conversation?}', ChatPage::class)->name('assist');
+Route::get('/events/search', [PublicEventController::class, 'search'])->name('events.search');
+Route::get('/events/upcoming', [PublicEventController::class, 'upcoming'])->name('events.upcoming');
+Route::get('/events/discover', [PublicEventController::class, 'discover'])->name('events.discover');

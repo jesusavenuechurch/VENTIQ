@@ -14,12 +14,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use App\Filament\Resources\EventResource\Pages;
+use App\Filament\Resources\EventResource\RelationManagers\TicketsRelationManager;
+use App\Filament\Resources\EventResource\Pages\EventRegistrations;
+use App\Filament\Resources\EventResource\Pages\EventTiers;
 
 class EventResource extends Resource
 {
     protected static ?string $model = Event::class;
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
-    protected static ?string $navigationGroup = 'Events';
+    protected static ?string $cluster = \App\Filament\Clusters\EventsCluster::class;
+    protected static ?int $navigationSort = 1;
     protected static ?string $navigationLabel = 'Events';
 
     /* ------------------------------------------------------------
@@ -486,6 +490,7 @@ class EventResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+             ->recordUrl(fn ($record) => static::getUrl('registrations', ['record' => $record]))
             ->defaultSort('event_date')
             ->columns([
                 Tables\Columns\TextColumn::make('name')
@@ -609,6 +614,12 @@ class EventResource extends Resource
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+           // TicketsRelationManager::class,
+        ];
+    }
     /* ------------------------------------------------------------
      | Pages
      ------------------------------------------------------------ */
@@ -619,6 +630,17 @@ class EventResource extends Resource
             'index'  => Pages\ListEvents::route('/'),
             'create' => Pages\CreateEvent::route('/create'),
             'edit'   => Pages\EditEvent::route('/{record}/edit'),
+            'registrations' => Pages\EventRegistrations::route('/{record}/registrations'),
+             'tiers'  => Pages\EventTiers::route('/{record}/tiers'),
         ];
+    }
+
+    public static function getRecordSubNavigation(\Filament\Resources\Pages\Page $page): array
+    {
+        return $page->generateNavigationItems([
+            Pages\EventRegistrations::class,
+            Pages\EventTiers::class,
+            Pages\EditEvent::class,
+        ]);
     }
 }

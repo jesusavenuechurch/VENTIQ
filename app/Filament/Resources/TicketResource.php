@@ -29,8 +29,14 @@ class TicketResource extends Resource
 {
     protected static ?string $model = Ticket::class;
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
-    protected static ?string $navigationGroup = 'Events';
+    // protected static ?string $cluster = \App\Filament\Clusters\EventsCluster::class;
+    // protected static ?int $navigationSort = 2;
     protected static ?string $recordTitleAttribute = 'ticket_number';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function canViewAny(): bool
     {
@@ -48,7 +54,7 @@ class TicketResource extends Resource
     }
 
     // ── Helper: get the package bound to an event ─────────────────────
-    protected static function packageForEvent(?int $eventId): ?OrganizationPackage
+    public static function packageForEvent(?int $eventId): ?OrganizationPackage
     {
         if (!$eventId) return null;
         $event = Event::find($eventId);
@@ -56,7 +62,7 @@ class TicketResource extends Resource
     }
 
     // ── Helper: upgrade hint HTML ──────────────────────────────────────
-    protected static function upgradeHint(string $message): HtmlString
+    public static function upgradeHint(string $message): HtmlString
     {
         return new HtmlString(
             $message . ' <button type="button"

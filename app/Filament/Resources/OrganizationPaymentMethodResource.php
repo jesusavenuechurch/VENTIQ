@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\OrganizationCluster;
 use App\Models\OrganizationPaymentMethod;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -16,7 +17,7 @@ class OrganizationPaymentMethodResource extends Resource
     protected static ?string $model = OrganizationPaymentMethod::class;
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Payment Methods';
-    protected static ?string $navigationGroup = 'Settings';
+    protected static ?string $cluster = OrganizationCluster::class;
     protected static ?int $navigationSort = 3;
 
     /* ------------------------------------------------------------
@@ -107,7 +108,6 @@ class OrganizationPaymentMethodResource extends Resource
                     Forms\Components\Select::make('payment_method')
                         ->label('Payment Method')
                         ->options(function () {
-                            // ✅ Get from constants and format for dropdown
                             return collect(config('constants.payment_methods'))
                                 ->mapWithKeys(fn ($config, $key) => [$key => $config['label'] ?? ucfirst($key)])
                                 ->toArray();

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\OrganizationCluster;
 use App\Models\OrganizationPackage;
 use App\Models\AgentEarning;
 use App\Models\Organization;
@@ -20,9 +21,10 @@ class PackagePurchaseResource extends Resource
 {
     protected static ?string $model = OrganizationPackage::class;
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';
-    protected static ?string $navigationGroup = 'System';
-    protected static ?string $navigationLabel = 'My Packages';
+    protected static ?string $cluster = OrganizationCluster::class;
+    protected static ?string $navigationLabel = 'Subscription';
     protected static ?string $modelLabel = 'Package';
+    protected static ?int $navigationSort = 4;
 
     public static function canCreate(): bool { return false; }
 
@@ -148,7 +150,6 @@ class PackagePurchaseResource extends Resource
         $def = PackageDefinition::get($data['package_type']);
 
         if ($data['payment_mode'] === 'online') {
-            // Create package in pending state — MoPay callback will activate it
             $package = OrganizationPackage::create([
                 'organization_id'       => auth()->user()->organization_id,
                 'package_type'          => $data['package_type'],
@@ -164,7 +165,6 @@ class PackagePurchaseResource extends Resource
                 'notes'                 => $data['notes'] ?? null,
             ]);
 
-            // Redirect to MoPay initiation
             $livewire->redirect(route('online-payment.package.initiate', [
                 'package_id' => $package->id,
             ]));
@@ -172,7 +172,6 @@ class PackagePurchaseResource extends Resource
             return;
         }
 
-        // Manual — pending, awaits your approval
         OrganizationPackage::create([
             'organization_id'       => auth()->user()->organization_id,
             'package_type'          => $data['package_type'],
@@ -303,7 +302,6 @@ class PackagePurchaseResource extends Resource
                     ->visible(fn () => auth()->user()?->isSuperAdmin()),
             ])
             ->headerActions([
-                // Free trial — only if no packages at all
                 Tables\Actions\Action::make('start_free_trial')
                     ->label('Start Free Trial')
                     ->icon('heroicon-o-gift')
@@ -318,7 +316,6 @@ class PackagePurchaseResource extends Resource
                         Notification::make()->title('Free Trial Activated!')->success()->send();
                     }),
 
-                // New package purchase — header level
                 Tables\Actions\Action::make('purchase_package_header')
                     ->label('Buy a Package')
                     ->icon('heroicon-o-plus-circle')
@@ -334,7 +331,6 @@ class PackagePurchaseResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    // Upgrade from existing package row
                     Tables\Actions\Action::make('upgrade_package')
                         ->label('Upgrade / Buy Another')
                         ->icon('heroicon-o-arrow-trending-up')
@@ -347,7 +343,6 @@ class PackagePurchaseResource extends Resource
                             static::handlePurchase($data, $livewire)
                         ),
 
-                    // Approve — super admin only
                     Tables\Actions\Action::make('approve_package')
                         ->label('Approve')
                         ->icon('heroicon-m-check-badge')

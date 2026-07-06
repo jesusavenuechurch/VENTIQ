@@ -6,6 +6,8 @@ use App\Filament\Resources\EventResource;
 use App\Models\OrganizationPackage;
 use App\Models\OrganizationPaymentMethod;
 use Filament\Forms;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Wizard\Step;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
@@ -138,6 +140,26 @@ class CreateEvent extends CreateRecord
                     ->dehydrated(true)
                     ->columnSpanFull(),
 
+                Forms\Components\Select::make('category')
+                    ->label('Category')
+                    ->options(collect(config('constants.categories'))->map(fn ($c) => $c['label']))
+                    ->searchable()
+                    ->required()
+                    ->columnSpan(1),
+
+                Forms\Components\Select::make('city')
+                    ->label('District')
+                    ->options([
+                        'Maseru' => 'Maseru', 'Leribe' => 'Leribe', 'Mafeteng' => 'Mafeteng',
+                        "Mohale's Hoek" => "Mohale's Hoek", 'Butha-Buthe' => 'Butha-Buthe',
+                        "Qacha's Nek" => "Qacha's Nek", 'Mokhotlong' => 'Mokhotlong',
+                        'Quthing' => 'Quthing', 'Berea' => 'Berea', 'Thaba-Tseka' => 'Thaba-Tseka',
+                    ])
+                    ->default('Maseru')
+                    ->searchable()
+                    ->required()
+                    ->columnSpan(1),
+
                 Forms\Components\FileUpload::make('banner_image')
                     ->label('Event Poster / Flyer')
                     ->image()
@@ -189,7 +211,7 @@ class CreateEvent extends CreateRecord
                         if ($isSuperAdmin) return null;
                         $package = OrganizationPackage::find($get('organization_package_id')) ?? $singlePackage;
                         if (!($package?->hasFeature('private_events') ?? false)) {
-                            return new HtmlString('🔒 Not included in your package. <button type="button" onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\'))" class="underline font-medium text-primary-600">Upgrade</button>');
+                            return new HtmlString('🔒 Not included in your package. <button type="button" onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\', { detail: { feature: \'private_events\' } }))" class="underline font-medium text-primary-600">Upgrade</button>');
                         }
                         return null;
                     })
@@ -371,12 +393,83 @@ class CreateEvent extends CreateRecord
                             ->helperText('Attendees pay manually and submit a reference number. You approve payments in the admin panel.')
                             ->columnSpanFull(),
 
+                        // Inline "add payment method" — lets the org admin create a
+                        // manual payment method without leaving the wizard, since
+                        // making them go find Organization → Payment Methods mid-flow
+                        // is exactly the kind of step someone forgets exists.
+                        Forms\Components\Actions::make([
+                            FormAction::make('add_payment_method')
+                                ->label('+ Add Payment Method')
+                                ->icon('heroicon-o-plus-circle')
+                                ->color('gray')
+                                ->modalHeading('Add a Payment Method')
+                                ->modalWidth('lg')
+                                ->form([
+                                    Forms\Components\Select::make('payment_method')
+                                        ->label('Method')
+                                        ->options(collect(config('constants.payment_methods'))
+                                            ->only(['cash', 'ecocash', 'mpesa', 'bank_transfer'])
+                                            ->mapWithKeys(fn ($m, $key) => [$key => $m['label'] ?? ucfirst($key)])
+                                            ->toArray())
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(fn ($set) => $set('account_number', null)),
+
+                                    Forms\Components\TextInput::make('account_name')
+                                        ->label('Account Name / Label')
+                                        ->maxLength(255)
+                                        ->visible(fn (Forms\Get $get) =>
+                                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                        ),
+
+                                    Forms\Components\TextInput::make('account_number')
+                                        ->label(fn (Forms\Get $get) =>
+                                            config("constants.payment_methods.{$get('payment_method')}.account_label", 'Account Number')
+                                        )
+                                        ->required(fn (Forms\Get $get) =>
+                                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                        )
+                                        ->visible(fn (Forms\Get $get) =>
+                                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                        ),
+
+                                    Forms\Components\Textarea::make('instructions')
+                                        ->label('Payment Instructions (optional)')
+                                        ->rows(2),
+                                ])
+                                ->action(function (array $data, Forms\Set $set, Forms\Get $get) use ($org, $isSuperAdmin) {
+                                    if ($isSuperAdmin || !$org) return;
+
+                                    $method = OrganizationPaymentMethod::create([
+                                        'organization_id' => $org->id,
+                                        'payment_method'  => $data['payment_method'],
+                                        'account_name'    => $data['account_name'] ?? null,
+                                        'account_number'  => $data['account_number'] ?? null,
+                                        'instructions'    => $data['instructions'] ?? null,
+                                        'is_active'       => true,
+                                        'display_order'   => 0,
+                                    ]);
+
+                                    // Auto-select the newly created method — the org
+                                    // admin just created it specifically to use it here.
+                                    $current = $get('enabled_payment_method_ids') ?? [];
+                                    $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
+
+                                    Notification::make()
+                                        ->title('Payment method added')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ])
+                            ->visible(fn () => !$isSuperAdmin)
+                            ->columnSpanFull(),
+
                         // Notice if no manual methods configured
                         Forms\Components\Placeholder::make('no_manual_methods_notice')
                             ->label('')
                             ->content(new HtmlString('
                                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-                                    💡 No manual payment methods configured yet. You can add M-Pesa, bank transfer, or cash options under <strong>Settings → Payment Methods</strong> and they\'ll appear here.
+                                    💡 No manual payment methods configured yet. Use the button above to add M-Pesa, bank transfer, or cash — it\'ll appear here and in <strong>Organization → Payment Methods</strong>.
                                 </div>
                             '))
                             ->visible(function () use ($org, $isSuperAdmin) {
@@ -513,7 +606,7 @@ class CreateEvent extends CreateRecord
                             return new HtmlString("
                                 <div class='p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800'>
                                     🔒 Your package supports one ticket type only.
-                                    <button type='button' onclick=\"window.dispatchEvent(new CustomEvent('open-upgrade-modal'))\" class='underline font-medium ml-1'>Upgrade →</button>
+                                    <button type='button' onclick=\"window.dispatchEvent(new CustomEvent('open-upgrade-modal', { detail: { feature: 'ticket_tiers' } }))\" class='underline font-medium ml-1'>Upgrade →</button>
                                 </div>
                             ");
                         }
@@ -580,6 +673,13 @@ class CreateEvent extends CreateRecord
                             ->default(true)
                             ->columnSpan(['default' => 1, 'md' => 1]),
 
+                        // FIX: this toggle previously had ->disabled() with no
+                        // explanation at all when the org's package doesn't
+                        // include installments — it just went grey. Added the
+                        // same ->hint() + upgrade-modal button pattern already
+                        // used on is_public above and on the event-level version
+                        // of this same toggle in EventResource's edit form, so
+                        // the behavior is consistent everywhere it appears.
                         Forms\Components\Toggle::make('allow_installments')
                             ->label('Allow Installments')
                             ->default(false)
@@ -588,6 +688,21 @@ class CreateEvent extends CreateRecord
                                 if ($isSuperAdmin) return false;
                                 $package = OrganizationPackage::find($get('../../organization_package_id')) ?? $singlePackage;
                                 return !($package?->hasFeature('installments') ?? false);
+                            })
+                            ->hint(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
+                                if ($isSuperAdmin) return null;
+                                $package = OrganizationPackage::find($get('../../organization_package_id')) ?? $singlePackage;
+                                if (!($package?->hasFeature('installments') ?? false)) {
+                                    return new HtmlString(
+                                        '🔒 Available on Professional or as a Standard add-on. ' .
+                                        '<button type="button"
+                                            onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\', { detail: { feature: \'installments\' } }))"
+                                            class="underline font-medium text-primary-600">
+                                            Upgrade
+                                        </button>'
+                                    );
+                                }
+                                return null;
                             })
                             ->columnSpanFull(),
 

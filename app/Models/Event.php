@@ -18,6 +18,8 @@ class Event extends Model
         'event_date',
         'duration_days',
         'location',
+        'city',        
+        'category',    
         'capacity',
         'status',
         'slug',
@@ -32,13 +34,12 @@ class Event extends Model
         'organization_package_id',
         'event_type',
         'payment_mode',
+        'is_sponsored',
     ];
 
     protected $casts = [
         'event_date' => 'datetime',
         'registration_deadline' => 'datetime',
-
-        // ✅ NEW
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
     ];
@@ -52,7 +53,6 @@ class Event extends Model
         parent::boot();
 
         static::creating(function ($event) {
-            // Auto-generate slug if not provided
             if (empty($event->slug)) {
                 $event->slug = static::generateUniqueSlug(
                     $event->name,
@@ -60,9 +60,16 @@ class Event extends Model
                 );
             }
 
-            // Auto-populate tagline from name if left blank
             if (empty($event->tagline)) {
                 $event->tagline = $event->name;
+            }
+
+            // Mirrors the pattern already used for tagline: if city is
+            // left blank for any reason, default at the model level too,
+            // not just in the form — protects data created outside the
+            // Filament form (seeders, imports, API).
+            if (empty($event->city)) {
+                $event->city = 'Maseru';
             }
         });
 
@@ -110,13 +117,31 @@ class Event extends Model
         return null;
     }
 
-    /**
-     * Helper for deposits (used later in controllers / views)
-     */
     public function requiresDeposit(): bool
     {
         return $this->allow_installments === true
             && ! is_null($this->minimum_deposit_percentage);
+    }
+
+    /**
+     * Resolves to the predefined category's color, or a neutral navy
+     * fallback for custom/unrecognized categories so the homepage
+     * cards never end up with an undefined or blank accent.
+     */
+    public function getCategoryColorAttribute(): string
+    {
+        return config('constants.categories.' . $this->category . '.color', '#1D4069');
+    }
+
+    /**
+     * Predefined categories resolve to their nice label; a custom
+     * category (one an organizer typed in that isn't in the config
+     * list) just displays as typed, title-cased.
+     */
+    public function getCategoryLabelAttribute(): string
+    {
+        return config('constants.categories.' . $this->category . '.label')
+            ?? ucfirst($this->category ?? '');
     }
 
     /* ------------------------------------------------------------
@@ -149,10 +174,6 @@ class Event extends Model
         return $this->belongsTo(OrganizationPackage::class, 'organization_package_id');
     }
 
-    /**
-     * Check if this specific event can issue more tickets 
-     * based on the package it was created under.
-     */
     public function hasPackageCapacity(int $quantity = 1, bool $isComp = false): bool
     {
         if (!$this->package) {
@@ -170,12 +191,12 @@ class Event extends Model
     {
         return $this->event_type === 'workshop';
     }
-    
+
     public function isStandard(): bool
     {
         return $this->event_type === 'standard' || empty($this->event_type);
     }
-    
+
     public function getEventTypeLabelAttribute(): string
     {
         return config('constants.event_types.' . $this->event_type . '.label')

@@ -168,6 +168,7 @@ return [
 
      // ── Workshop Districts ────────────────────────────────────────────────────
     // Lesotho's 10 districts — add or rename without touching the database
+    ///TODO: needs work, districts are districts and can be reused, so workshop_distrcit is wrong
     'workshop_districts' => [
         'maseru'        => 'Maseru',
         'berea'         => 'Berea',
@@ -182,6 +183,7 @@ return [
         'thaba_tseka'   => 'Thaba-Tseka',
         'other'         => 'Other / Outside Lesotho',
     ],
+    
  
     // ── Workshop Signature Statuses ───────────────────────────────────────────
     'signature_statuses' => [
@@ -205,5 +207,29 @@ return [
     'payment' => [
         'surcharge_rate'    => 0.05,   // 5% added to ticket price, paid by attendee
         'gateway_fee_rate'  => 0.025,  // 2.5% MoPay takes from gross_paid
+    ],
+
+        'categories' => [
+        'music' => ['label' => 'Music', 'color' => '#D4537E'],
+        'business' => ['label' => 'Business', 'color' => '#378ADD'],
+        'sports' => ['label' => 'Sports', 'color' => '#639922'],
+        'worship' => ['label' => 'Worship', 'color' => '#7F77DD'],
+        'education' => ['label' => 'Education', 'color' => '#BA7517'],
+        'markets' => ['label' => 'Markets', 'color' => '#F07F22'],
+        'arts' => ['label' => 'Arts', 'color' => '#534AB7'],
+        'community' => ['label' => 'Community', 'color' => '#0F6E56'],
+    ],
+ 
+    'districts' => [
+        'Maseru',
+        'Leribe',
+        'Berea',
+        'Mafeteng',
+        "Mohale's Hoek",
+        'Quthing',
+        'Qacha\'s Nek',
+        'Mokhotlong',
+        'Thaba-Tseka',
+        'Butha-Buthe',
     ],
 ];
