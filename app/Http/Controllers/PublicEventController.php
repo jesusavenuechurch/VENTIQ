@@ -94,26 +94,38 @@ class PublicEventController extends Controller
     }
 
     /**
-     * Shared weekend-window logic — also used by the pulse-strip
-     * signals() method. Handles "today is already Sat/Sun" correctly
-     * rather than always jumping to next week's weekend.
+     * Shared weekend-window logic — also used by the discover() carousel.
+     * Handles "today is already Sat/Sun" by still anchoring to this
+     * weekend rather than jumping to next week's — but critically, the
+     * window's START is clamped to now(), never to the start of Saturday.
+     * Without that clamp, viewing this on a Sunday would include all of
+     * Saturday's already-finished events, since they're still inside the
+     * calendar-day range even though they're in the past.
      */
     private function scopeWeekend($query)
     {
-        $today = now()->startOfDay();
-        $saturday = $today->isSunday()
-            ? $today->copy()->subDay()
-            : ($today->isSaturday() ? $today->copy() : $today->copy()->next(\Carbon\Carbon::SATURDAY));
+        $now = now();
+        $saturday = $now->isSunday()
+            ? $now->copy()->subDay()->startOfDay()
+            : ($now->isSaturday() ? $now->copy()->startOfDay() : $now->copy()->next(\Carbon\Carbon::SATURDAY)->startOfDay());
         $weekendEnd = $saturday->copy()->addDay()->endOfDay();
-    
-        return $query->whereBetween('event_date', [$saturday, $weekendEnd]);
+
+        $windowStart = $now->greaterThan($saturday) ? $now : $saturday;
+
+        return $query->whereBetween('event_date', [$windowStart, $weekendEnd]);
     }
     private function scopeTonight($query)
     {
-        return $query->whereBetween('event_date', [
-            now()->startOfDay()->addHours(17), // 5pm today
-            now()->endOfDay(),
-        ]);
+        $now = now();
+        $tonightStart = $now->copy()->startOfDay()->addHours(17); // 5pm today
+
+        // Same clamp as scopeWeekend: don't let the window start in
+        // the past relative to right now (e.g. it's 9pm — "tonight"
+        // should mean "from now", not "from 5pm", which would still
+        // include events that already started or finished).
+        $windowStart = $now->greaterThan($tonightStart) ? $now : $tonightStart;
+
+        return $query->whereBetween('event_date', [$windowStart, $now->copy()->endOfDay()]);
     }
     /**
      * Powers the homepage discovery carousel. Every card here is a
@@ -163,6 +175,12 @@ class PublicEventController extends Controller
         // "New in {city}" — checks each district in turn, uses the
         // first one with real recent activity rather than hardcoding
         // Maseru, so this stays honest as other districts grow.
+        //
+        // FIX: this previously filtered only on created_at (when the
+        // record was entered into the system), with no event_date
+        // check at all. A past-dated event backfilled or entered late
+        // would pass "created in the last 14 days" and show here even
+        // though it already happened. Added event_date >= now().
         foreach (config('constants.districts') as $city) {
             $collection = $this->buildCollection(
                 key: 'new_' . \Illuminate\Support\Str::slug($city),
@@ -170,6 +188,7 @@ class PublicEventController extends Controller
                 color: '#7F77DD',
                 query: fn () => Event::where('is_public', true)
                     ->where('city', $city)
+                    ->where('event_date', '>=', now())
                     ->where('created_at', '>=', now()->subDays(14)),
                 href: ['district' => $city],
             );
@@ -194,6 +213,7 @@ class PublicEventController extends Controller
             label: "Closing\nSoon",
             color: '#BA7517',
             query: fn () => Event::where('is_public', true)
+                ->where('event_date', '>=', now())
                 ->whereNotNull('registration_deadline')
                 ->whereBetween('registration_deadline', [now(), now()->addHours(48)]),
             href: ['closing_soon' => 1],

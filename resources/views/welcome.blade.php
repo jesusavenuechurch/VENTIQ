@@ -220,8 +220,8 @@
     
                     <div x-show="col.image && !imgLoaded" class="absolute inset-0 img-skeleton"></div>
                     <img x-show="col.image" @load="imgLoaded = true" :src="col.image"
-                         class="absolute inset-0 w-full h-full object-cover img-fade"
-                         :class="imgLoaded ? 'opacity-100' : 'opacity-0'">
+                         class="absolute inset-0 w-full h-full object-cover opacity-0 img-fade"
+                         :style="imgLoaded ? 'opacity: 1' : ''">
                     <div x-show="!col.image" class="absolute inset-0" :style="`background: linear-gradient(160deg, ${col.color}, ${col.color}cc)`"></div>
                     <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent"></div>
     
@@ -347,8 +347,8 @@
                     <div class="aspect-[4/3] w-full bg-gray-50 overflow-hidden relative">
                         <div x-show="event.image && !imgLoaded" class="absolute inset-0 img-skeleton"></div>
                         <img x-show="event.image" @load="imgLoaded = true" :src="event.image"
-                             class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 img-fade"
-                             :class="imgLoaded ? 'opacity-100' : 'opacity-0'">
+                             class="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-0 img-fade"
+                             :style="imgLoaded ? 'opacity: 1' : ''">
                         <div x-show="!event.image" class="w-full h-full bg-[#1D4069] relative overflow-hidden flex items-center justify-center">
                             <span class="text-white/10 font-black uppercase tracking-tight text-[32px] leading-none whitespace-nowrap transform -rotate-6 select-none pointer-events-none">VENTIQ</span>
                         </div>
