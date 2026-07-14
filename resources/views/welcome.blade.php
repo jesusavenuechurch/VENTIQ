@@ -28,20 +28,44 @@
              :class="loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-4 items-center w-full relative">
 
-                <div class="hidden lg:flex lg:col-span-3 flex-col items-center justify-center relative h-[450px] select-none pointer-events-none">
-                    <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-gray-100 shadow-xl transform -rotate-8 -translate-y-6 opacity-60 overflow-hidden">
-                        <div class="absolute inset-0 img-skeleton"></div>
-                        <img src="{{ asset('images/hero/2.jpg') }}" alt="Moments of Worship"
-                             class="relative w-full h-full object-cover grayscale-[20%] contrast-[1.05] opacity-0 img-fade"
-                             loading="lazy"
-                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
-                    </div>
-                    <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-white/80 shadow-2xl shadow-gray-200/80 transform -rotate-2 translate-x-3 translate-y-4 overflow-hidden">
-                        <div class="absolute inset-0 img-skeleton"></div>
-                        <img src="{{ asset('images/hero/sing.jpg') }}" alt="Maseru Market Gathering"
-                             class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
-                             loading="lazy"
-                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                {{-- Drop-in replacement for the LEFT hero block (the "Moments of
+                    Worship" / "Maseru Market Gathering" photo stack). Right-side
+                    photo stack is untouched.
+
+                    Styled after the session workspace's ROSTER panel — whitish
+                    background, small-caps group label, icon-circle rows with a
+                    hover-to-white-card lift — not the black ticket card. Scoped to
+                    this hero slot only, not a site-wide sidebar. --}}
+                <div class="hidden lg:flex lg:col-span-3 flex-col h-[450px]">
+                    <div class="w-full h-full bg-[#F8FAFC] rounded-[2rem] border border-gray-100 flex flex-col overflow-hidden">
+                        <div class="px-5 pt-6 pb-4">
+                            <p class="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Not here for events?</p>
+                            <p class="text-[13px] font-black text-[#1D4069] uppercase tracking-tight mt-1">Quick access</p>
+                        </div>
+
+                        <div class="flex-1 px-3 pb-4 space-y-1">
+                            <a href="{{ auth()->check() ? route('sessions.index') : route('login', ['intent' => 'session']) }}"
+                            class="flex items-center gap-3 px-2.5 py-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all">
+                                <div class="w-9 h-9 rounded-full bg-[#1D4069] flex items-center justify-center shrink-0">
+                                    <i class="fas fa-microphone-lines text-white text-[11px]"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[11.5px] font-black text-[#1D4069] uppercase tracking-tight">Sessions</p>
+                                    <p class="text-[9px] text-gray-400 font-bold truncate">Capture notes, live</p>
+                                </div>
+                            </a>
+
+                            <a href="{{ auth()->check() ? route('filament.admin.pages.dashboard') : route('login', ['intent' => 'host']) }}"
+                            class="flex items-center gap-3 px-2.5 py-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all">
+                                <div class="w-9 h-9 rounded-full bg-[#F07F22] flex items-center justify-center shrink-0">
+                                    <i class="fas fa-calendar-plus text-white text-[11px]"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[11.5px] font-black text-[#1D4069] uppercase tracking-tight">Host an Event</p>
+                                    <p class="text-[9px] text-gray-400 font-bold truncate">List on Ventiq</p>
+                                </div>
+                            </a>
+                        </div>
                     </div>
                 </div>
 

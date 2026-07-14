@@ -20,6 +20,11 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\Organization;
 use App\Http\Controllers\MopayController;
 use App\Livewire\Assist\ChatPage;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\SessionController;
+use App\Http\Controllers\SessionSegmentController;
+use App\Http\Controllers\PublicSessionCheckinController;
+use App\Http\Controllers\SessionParticipantController;
 
 Route::post('/contact', [ContactInquiryController::class, 'store'])->name('contact.store');
 
@@ -76,11 +81,6 @@ Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $requ
 Route::get('/email/verify', function () {
     return view('auth.verify-email');
 })->middleware('auth')->name('verification.notice');
-
-// Redirect the standard login route to your Filament login page
-Route::get('/login', function () {
-    return redirect()->route('filament.admin.auth.login');
-})->name('login');
 
 Route::get('/events', [PublicEventController::class, 'browseAll'])
     ->name('events.browse');
@@ -220,3 +220,39 @@ Route::middleware(['auth'])->get('/assist/{conversation?}', ChatPage::class)->na
 Route::get('/events/search', [PublicEventController::class, 'search'])->name('events.search');
 Route::get('/events/upcoming', [PublicEventController::class, 'upcoming'])->name('events.upcoming');
 Route::get('/events/discover', [PublicEventController::class, 'discover'])->name('events.discover');
+
+
+Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(function () {
+    Route::get('/', [SessionController::class, 'index'])->name('index');
+    Route::get('/create', [SessionController::class, 'create'])->name('create');
+    Route::post('/', [SessionController::class, 'store'])->name('store');
+    Route::get('/{session}', [SessionController::class, 'show'])->name('show');
+    Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
+    Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
+    Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
+    Route::post('/{session}/segments/{segment}/finish', [SessionSegmentController::class, 'finish'])->name('segments.finish');
+    Route::post('/{session}/segments/{segment}/tag', [SessionSegmentController::class, 'tag'])->name('segments.tag');
+   // Route::post('/{session}/report', [SessionController::class, 'generateReport'])->name('report.generate');
+    Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
+    Route::patch('/{session}/report', [SessionController::class, 'updateReport'])->name('report.update');
+    Route::get('/{session}/report/pdf', [SessionController::class, 'reportPdf'])->name('report.pdf');
+    Route::get('/{session}/report/status', [SessionController::class, 'reportStatus'])->name('report.status');
+    Route::get('/{session}/checkin', [SessionParticipantController::class, 'index'])->name('checkin');
+    Route::post('/{session}/checkin', [SessionParticipantController::class, 'store'])->name('checkin.store');
+    Route::get('/{session}/checkin-qr.png', [SessionController::class, 'checkinQr'])->name('checkin.qr');
+    Route::get('/{session}/checkin-pass', [SessionController::class, 'checkinPass'])->name('checkin.pass');
+    Route::get('/{session}/checkin-pass.pdf', [SessionController::class, 'checkinPassPdf'])->name('checkin.pass.pdf');
+    Route::get('/{session}/participants/count', [SessionController::class, 'participantsCount'])->name('participants.count');
+    Route::post('/{session}/segments/{segment}/pause', [SessionSegmentController::class, 'pause'])->name('segments.pause');
+    Route::post('/{session}/segments/{segment}/resume', [SessionSegmentController::class, 'resume'])->name('segments.resume');
+});
+Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
+Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
+
+
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
+Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])->name('login');
+Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->name('login.submit');
+Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'destroy'])->name('logout');
+

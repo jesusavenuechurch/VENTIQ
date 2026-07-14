@@ -3,18 +3,13 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PartnerRegistrationController;
-use App\Http\Controllers\PartnerVerificationController;
 use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\Api\TicketScanController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\Api\VoucherScanController;
+use App\Http\Controllers\Api\WorkshopController;
 
-// Partner routes
-Route::get('/partner/download', [PartnerVerificationController::class, 'downloadPartners']);
-Route::get('/partner/verify/{id}', [PartnerVerificationController::class, 'verifyPartner']);
-Route::get('/partner/sync-status', [PartnerVerificationController::class, 'syncStatus']);
 
 // Check-in routes
 Route::post('/checkin/bulk', [CheckInController::class, 'bulkCheckIn']);

@@ -202,4 +202,9 @@ class Event extends Model
         return config('constants.event_types.' . $this->event_type . '.label')
             ?? ucfirst($this->event_type ?? 'standard');
     }
+
+    public function participants(): HasMany
+    {
+        return $this->hasMany(Participant::class);
+    }
 }

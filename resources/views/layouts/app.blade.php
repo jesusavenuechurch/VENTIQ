@@ -302,10 +302,40 @@
                 <button @click="showChat = true" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069] transition-colors">
                     Support
                 </button>
-                <a href="{{ route('filament.admin.auth.login') }}"
-                class="px-5 py-2 rounded-full border border-[#1D4069]/10 text-[#1D4069] text-[10px] font-black uppercase tracking-widest hover:border-[#1D4069] hover:bg-[#1D4069] hover:text-white transition-all duration-300 active:scale-95">
-                    Login
-                </a>
+
+@auth
+                    <div class="relative" x-data="{ accountOpen: false }">
+                        <button @click="accountOpen = !accountOpen" type="button"
+                                class="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-[#1D4069] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F07F22] transition-all duration-300 active:scale-95">
+                            <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-black shrink-0">
+                                {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                            </span>
+                            {{ Str::before(auth()->user()->name ?? 'Account', ' ') }}
+                            <i class="fas fa-chevron-down text-[8px] transition-transform" :class="accountOpen ? 'rotate-180' : ''"></i>
+                        </button>
+
+                        <div x-show="accountOpen"
+                             x-cloak
+                             @click.away="accountOpen = false"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 -translate-y-1"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit"
+                                        class="w-full text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">
+                                    Logout
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                @else
+                    <a href="{{ route('login') }}"
+                    class="px-5 py-2 rounded-full border border-[#1D4069]/10 text-[#1D4069] text-[10px] font-black uppercase tracking-widest hover:border-[#1D4069] hover:bg-[#1D4069] hover:text-white transition-all duration-300 active:scale-95">
+                        Login
+                    </a>
+                @endauth
             </div>
 
         </div>
@@ -538,27 +568,38 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const player = document.getElementById('loader-lottie');
         const loader = document.getElementById('page-loader');
+        const player = document.getElementById('loader-lottie');
         let dismissed = false;
 
-        function dismissLoader() {
+        // Has this browser tab already seen VENTIQ boot up once this session?
+        const isWarmNavigation = sessionStorage.getItem('ventiq_booted') === '1';
+
+        function dismissLoader(fast = false) {
             if (dismissed) return;
             dismissed = true;
             loader.classList.add('done');
-            setTimeout(() => { document.body.style.overflow = ''; }, 750);
+            if (fast) loader.style.transitionDuration = '150ms';
+            setTimeout(() => { document.body.style.overflow = ''; }, fast ? 150 : 300);
         }
 
-        if (player) {
-            player.addEventListener('loop', function onLoop() {
-                player.removeEventListener('loop', onLoop);
-                dismissLoader();
-            });
-            player.addEventListener('error', () => setTimeout(dismissLoader, 500));
-        }
+        if (isWarmNavigation) {
+            // Internal navigation — user already knows the app is fast.
+            // Skip the theatrics, dismiss almost immediately.
+            dismissLoader(true);
+        } else {
+            // Cold entry — first load this session. Let the lottie play properly.
+            sessionStorage.setItem('ventiq_booted', '1');
 
-        // Hard fallback — never blocks longer than 2.5s
-        setTimeout(dismissLoader, 2500);
+            if (document.readyState === 'complete') {
+                requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 150));
+            } else {
+                window.addEventListener('load', () => setTimeout(() => dismissLoader(false), 150));
+            }
+
+            // Safety net for cold loads only
+            setTimeout(() => dismissLoader(false), 900);
+        }
     });
 </script>
 @livewire('upgrade-package-modal')

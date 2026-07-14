@@ -38,14 +38,14 @@ class OrganizationResource extends Resource
         return auth()->user()?->isSuperAdmin() ?? false;
     }
 
-public static function canEdit($record): bool
-{
-    $user = auth()->user();
-    if (! $user) return false;
-    if ($user->isSuperAdmin()) return true;
+    public static function canEdit($record): bool
+    {
+        $user = auth()->user();
+        if (! $user) return false;
+        if ($user->isSuperAdmin()) return true;
 
-    return (int) $record->id === (int) $user->organization_id;
-}
+        return (int) $record->id === (int) $user->organization_id;
+    }
 
     public static function canDelete($record): bool
     {
