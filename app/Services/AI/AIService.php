@@ -60,12 +60,13 @@ class AIService
     public function parseSections(string $content): array
     {
         $sections = [];
-        $pattern  = '/^([A-Z_]+):\s*\n(.*?)(?=\n[A-Z_]+:|$)/ms';
+        $pattern  = '/^([A-Z][A-Z \-]*[A-Z]|[A-Z]):\s*\n(.*?)(?=\n[A-Z][A-Z \-]*:|$)/ms';
 
         preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
 
         foreach ($matches as $match) {
-            $key            = strtolower(trim($match[1]));
+            $key = strtolower(trim($match[1]));
+            $key = str_replace([' ', '-'], '_', $key); // "KEY POINTS" -> "key_points", "FOLLOW-UPS" -> "follow_ups"
             $sections[$key] = trim($match[2]);
         }
 
