@@ -25,6 +25,8 @@ class PublicSessionCheckinController extends Controller
             'full_name' => 'required|string|max:255',
             'phone'     => 'nullable|string|max:20',
             'email'     => 'nullable|email|max:255',
+            'institution' => 'nullable|string|max:255',
+            'position'    => 'nullable|string|max:255'
         ]);
 
         if (!empty($validated['phone'])) {
@@ -52,6 +54,8 @@ class PublicSessionCheckinController extends Controller
         $participant->role            = 'attendee';
         $participant->source          = 'walk_in';
         $participant->attended_at     = now();
+        $participant->institution = $validated['institution'] ?? null;
+        $participant->position    = $validated['position']    ?? null;
         $participant->save();
 
         return view('public.session-checkin', [

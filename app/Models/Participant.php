@@ -16,6 +16,8 @@ class Participant extends Model
         'role',
         'source',
         'attended_at',
+        'institution',
+        'position'
     ];
 
     protected $casts = [

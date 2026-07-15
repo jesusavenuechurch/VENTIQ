@@ -31,6 +31,8 @@ class SessionParticipantController extends Controller
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'phone'     => 'nullable|string|max:20',
+            'institution' => 'nullable|string|max:255',
+            'position'    => 'nullable|string|max:255',
         ]);
 
         // Same dedupe convention as RegistrationController — key on phone
@@ -60,6 +62,8 @@ class SessionParticipantController extends Controller
         $participant->role            = 'attendee';
         $participant->source          = 'walk_in';
         $participant->attended_at     = now();
+        $participant->institution     = $validated['institution'] ?? null;
+        $participant->position        = $validated['position'] ?? null;
         $participant->save();
 
         return redirect()->route('sessions.checkin', $session);
