@@ -29,6 +29,22 @@
             <h2 class="text-lg font-black text-[#1D4069] uppercase tracking-tight mb-1">{{ $session->resolved_title }}</h2>
             <p class="text-[11px] text-gray-400 font-bold uppercase tracking-widest mb-6">Enter your details to check in</p>
 
+@if(empty($existing))
+    <label class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+        Search by phone or email to edit missing details
+    </label>
+    <form method="GET" action="{{ route('public.session-checkin.form', $session->public_token) }}" class="mb-5 flex gap-2">
+        <input type="text" name="search" placeholder="Search here"
+            class="flex-1 bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
+        <button type="submit" class="px-4 py-3 rounded-2xl bg-gray-100 text-[#1D4069] text-[9px] font-black uppercase tracking-widest">Find Me</button>
+    </form>
+    <div class="text-center text-[9px] font-bold text-gray-300 uppercase tracking-widest mb-5">— or fill in fresh —</div>
+@else
+    <div class="mb-5 p-3 bg-emerald-50 text-emerald-600 rounded-xl text-[11px] font-bold">
+        Found your check-in — just fill in what's missing.
+    </div>
+@endif
+
             @if($errors->any())
                 <div class="mb-4 p-3 bg-rose-50 text-rose-600 rounded-xl text-[11px] font-bold">
                     {{ $errors->first() }}
@@ -38,15 +54,20 @@
             <form method="POST" action="{{ route('public.session-checkin.submit', $session->public_token) }}" class="space-y-4">
                 @csrf
                 <input type="text" name="full_name" required placeholder="Full name" autofocus
+                       value="{{ old('full_name', $existing->client->full_name ?? '') }}"
+                       class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
+                <input type="email" name="email" required placeholder="Email"
+                       value="{{ old('email', $existing->client->email ?? '') }}"
                        class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
                 <input type="tel" name="phone" placeholder="Phone (optional)"
-                       class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
-                <input type="email" name="email" placeholder="Email (optional)"
+                       value="{{ old('phone', $existing->client->phone ?? '') }}"
                        class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
                 <input type="text" name="institution" placeholder="Organization / Institution"
-                    class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
+                       value="{{ old('institution', $existing->institution ?? '') }}"
+                       class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
                 <input type="text" name="position" placeholder="Position / Role"
-                    class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
+                       value="{{ old('position', $existing->position ?? '') }}"
+                       class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
                 <button type="submit" class="w-full py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white font-black text-[10px] uppercase tracking-[0.3em] transition-all">
                     Check In
                 </button>
