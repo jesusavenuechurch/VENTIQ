@@ -245,6 +245,7 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::get('/{session}/participants/count', [SessionController::class, 'participantsCount'])->name('participants.count');
     Route::post('/{session}/segments/{segment}/pause', [SessionSegmentController::class, 'pause'])->name('segments.pause');
     Route::post('/{session}/segments/{segment}/resume', [SessionSegmentController::class, 'resume'])->name('segments.resume');
+    Route::patch('/{session}/checkin/{participant}', [SessionParticipantController::class, 'update'])->name('checkin.update');
 });
 Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');

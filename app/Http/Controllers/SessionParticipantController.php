@@ -68,4 +68,25 @@ class SessionParticipantController extends Controller
 
         return redirect()->route('sessions.checkin', $session);
     }
+
+    public function update(Request $request, Session $session, Participant $participant)
+    {
+        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($participant->event_id === $session->event_id, 404);
+
+        $validated = $request->validate([
+            'full_name'   => 'required|string|max:255',
+            'phone'       => 'nullable|string|max:20',
+            'institution' => 'nullable|string|max:255',
+            'position'    => 'nullable|string|max:255',
+        ]);
+
+        $participant->client->update(['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null]);
+        $participant->update([
+            'institution' => $validated['institution'] ?? null,
+            'position'    => $validated['position'] ?? null,
+        ]);
+
+        return redirect()->route('sessions.checkin', $session);
+    }
 }
