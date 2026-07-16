@@ -7,6 +7,19 @@
         {{ $session->resolved_title }} · {{ $participants->count() }} checked in
     </p>
 
+    <div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="text-2xl font-black text-[#1D4069] uppercase tracking-tight mb-1">Check-in</h1>
+        <p class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+            {{ $session->resolved_title }} · {{ $participants->count() }} checked in
+        </p>
+    </div>
+    <a href="{{ route('sessions.checkin.pdf', $session) }}"
+       class="px-5 py-3 rounded-2xl border border-gray-200 text-[#1D4069] text-[9px] font-black uppercase tracking-widest hover:border-[#1D4069] transition-all">
+        Export PDF
+    </a>
+</div>
+
     <form method="POST" action="{{ route('sessions.checkin.store', $session) }}" class="flex flex-col sm:flex-row gap-2 mb-8">
         @csrf
         <input type="text" name="full_name" required placeholder="Full name" autofocus

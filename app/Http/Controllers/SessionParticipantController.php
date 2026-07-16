@@ -89,4 +89,23 @@ class SessionParticipantController extends Controller
 
         return redirect()->route('sessions.checkin', $session);
     }
+
+    public function exportPdf(Session $session)
+    {
+        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($session->event_id, 404);
+
+        $participants = Participant::with('client')
+            ->where('event_id', $session->event_id)
+            ->orderBy('attended_at')
+            ->get();
+
+        $pdf = \PDF::loadView('sessions.participants-pdf', [
+            'session'      => $session,
+            'participants' => $participants,
+            'orgName'      => $session->organization?->name ?? '',
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("ventiq-participants-{$session->id}.pdf");
+    }
 }
