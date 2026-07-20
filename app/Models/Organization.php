@@ -9,10 +9,11 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\HasPackageEntitlements;
 
 class Organization extends Model
 {
-    use HasFactory;
+    use HasFactory, HasPackageEntitlements;
     protected $fillable = [
         'name',
         'email',
@@ -34,6 +35,7 @@ class Organization extends Model
         'otp_code',
         'otp_expires_at',
         'phone_verified_at',
+        'workshop_enabled',
     ];
 
     protected $casts = [
@@ -247,5 +249,15 @@ class Organization extends Model
     public function isPhoneVerified(): bool
     {
         return !is_null($this->phone_verified_at);
+    }
+
+    public function hasWorkshopAccess(): bool
+    {
+        return $this->workshop_enabled === true;
+    }
+    
+    public function settlementItems(): HasMany
+    {
+        return $this->hasMany(SettlementItem::class);
     }
 }

@@ -18,7 +18,8 @@ class ClientResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user';
     protected static ?string $navigationLabel = 'Clients';
-    protected static ?string $navigationGroup = 'Events';
+    protected static ?string $cluster = \App\Filament\Clusters\EventsCluster::class;
+    protected static ?int $navigationSort = 3;
 
     /* ------------------------------------------------------------
      | Permissions & Scoping

@@ -205,9 +205,24 @@
                         @endif
                     </div>
                     
-                    <div class="scan-text">Scan for Entry</div>
-                    
-                    <div style="margin-top: 45px; opacity: 0.3;">
+                <div class="scan-text">Scan for Entry</div>
+ 
+                    {{-- Voucher code — fallback for guests who cannot scan --}}
+                    @if($ticket->voucher_code)
+                    <div style="margin-top: 20px; padding: 10px 16px; background: #f1f5f9; border: 1.5px dashed #cbd5e1; border-radius: 10px; display: inline-block;">
+                        <div style="font-size: 8px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px;">
+                            Entry Code
+                        </div>
+                        <div style="font-size: 20px; font-weight: 900; color: #0f172a; letter-spacing: 4px;">
+                            {{ $ticket->voucher_code }}
+                        </div>
+                        <div style="font-size: 7px; color: #94a3b8; margin-top: 3px;">
+                            Use this if you cannot scan
+                        </div>
+                    </div>
+                    @endif
+ 
+                    <div style="margin-top: 20px; opacity: 0.3;">
                         <span style="font-size: 8px; font-weight: bold; color: #000; text-transform: uppercase;">Powered by</span><br>
                         <span style="font-size: 12px; font-weight: 900; color: #000; letter-spacing: -1px;">VENTIQ</span>
                     </div>

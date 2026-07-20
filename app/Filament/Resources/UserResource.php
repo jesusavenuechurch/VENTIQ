@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\OrganizationCluster;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,8 +18,9 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
-    protected static ?string $navigationGroup = 'System';
-    protected static ?string $navigationLabel = 'Users';
+    protected static ?string $cluster = OrganizationCluster::class;
+    protected static ?string $navigationLabel = 'Team';
+    protected static ?int $navigationSort = 2;
 
     public static function canViewAny(): bool
     {
@@ -29,7 +31,16 @@ class UserResource extends Resource
     public static function canCreate(): bool
     {
         $user = auth()->user();
-        return $user && ($user->isSuperAdmin() || $user->hasPermissionTo('manage_staff'));
+        if (!$user) return false;
+        if ($user->isSuperAdmin()) return true;
+        if (!$user->hasPermissionTo('manage_staff')) return false;
+
+        // Check current active package user limit
+        $package = $user->organization?->activePackage();
+        if (!$package) return false;
+
+        $currentUsers = User::where('organization_id', $user->organization_id)->count();
+        return $currentUsers < $package->max_users;
     }
 
     public static function canEdit(Model $record): bool

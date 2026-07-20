@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Clusters\OrganizationCluster;
 use App\Models\OrganizationPaymentMethod;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -16,7 +17,7 @@ class OrganizationPaymentMethodResource extends Resource
     protected static ?string $model = OrganizationPaymentMethod::class;
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Payment Methods';
-    protected static ?string $navigationGroup = 'Settings';
+    protected static ?string $cluster = OrganizationCluster::class;
     protected static ?int $navigationSort = 3;
 
     /* ------------------------------------------------------------
@@ -107,7 +108,6 @@ class OrganizationPaymentMethodResource extends Resource
                     Forms\Components\Select::make('payment_method')
                         ->label('Payment Method')
                         ->options(function () {
-                            // ✅ Get from constants and format for dropdown
                             return collect(config('constants.payment_methods'))
                                 ->mapWithKeys(fn ($config, $key) => [$key => $config['label'] ?? ucfirst($key)])
                                 ->toArray();
@@ -123,7 +123,7 @@ class OrganizationPaymentMethodResource extends Resource
                         ->placeholder('e.g., Expressions Conference')
                         ->helperText('Optional: Name shown on payment account')
                         ->visible(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         ),
 
                     Forms\Components\TextInput::make('account_number')
@@ -145,11 +145,11 @@ class OrganizationPaymentMethodResource extends Resource
                             return $label ? "The {$label} customers should use" : 'Where customers should send payments';
                         })
                         ->required(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         )
                         ->maxLength(255)
                         ->visible(fn (Forms\Get $get) =>
-                            config("constants.payment_methods.{$get('payment_method')}.requires_account", true)
+                            (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         ),
 
                     Forms\Components\Textarea::make('instructions')

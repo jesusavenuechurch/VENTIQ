@@ -24,7 +24,7 @@
         <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Amount</p>
-                <p class="text-2xl font-bold text-green-600">{{ number_format($ticket->amount) }} UGX</p>
+                <p class="text-2xl font-bold text-green-600">{{ number_format($ticket->amount) }} LSL</p>
             </div>
             
             <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded">

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Models\Event;
+use App\Models\OrganizationPackage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -11,14 +12,18 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use App\Filament\Resources\EventResource\Pages;
+use App\Filament\Resources\EventResource\RelationManagers\TicketsRelationManager;
+use App\Filament\Resources\EventResource\Pages\EventRegistrations;
+use App\Filament\Resources\EventResource\Pages\EventTiers;
 
 class EventResource extends Resource
 {
     protected static ?string $model = Event::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
-    protected static ?string $navigationGroup = 'Events';
+    protected static ?string $cluster = \App\Filament\Clusters\EventsCluster::class;
+    protected static ?int $navigationSort = 1;
     protected static ?string $navigationLabel = 'Events';
 
     /* ------------------------------------------------------------
@@ -28,68 +33,32 @@ class EventResource extends Resource
     public static function canViewAny(): bool
     {
         $user = auth()->user();
-
-        if ($user?->isSalesAgent()) {
-            return false;
-        }
-
-        return $user?->hasAnyPermission([
-            'view_event',
-            'create_event',
-        ]) ?? false;
+        if ($user?->isSalesAgent()) return false;
+        return $user?->hasAnyPermission(['view_event', 'create_event']) ?? false;
     }
 
     public static function canCreate(): bool
     {
         $user = auth()->user();
-
-        if (! $user?->hasPermissionTo('create_event')) {
-            return false;
-        }
-
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        $organization = $user->organization;
-
-        return $organization?->packages()
-            ->where('status', 'active')
-            ->get()
-            ->filter(fn ($package) => $package->hasEventsRemaining())
-            ->isNotEmpty() ?? false;
+        if (!$user?->hasPermissionTo('create_event')) return false;
+        if ($user->isSuperAdmin()) return true;
+        return $user->organization?->availablePackages()->isNotEmpty() ?? false;
     }
 
     public static function canEdit(Model $record): bool
     {
         $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        if ($user->isSuperAdmin()) {
-            return $user->hasPermissionTo('edit_event');
-        }
-
-        return $user->hasPermissionTo('edit_event')
-            && $record->organization_id === $user->organization_id;
+        if (!$user) return false;
+        if ($user->isSuperAdmin()) return $user->hasPermissionTo('edit_event');
+        return $user->hasPermissionTo('edit_event') && $record->organization_id === $user->organization_id;
     }
 
     public static function canDelete(Model $record): bool
     {
         $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        if ($user->isSuperAdmin()) {
-            return $user->hasPermissionTo('delete_event');
-        }
-
-        return $user->hasPermissionTo('delete_event')
-            && $record->organization_id === $user->organization_id;
+        if (!$user) return false;
+        if ($user->isSuperAdmin()) return $user->hasPermissionTo('delete_event');
+        return $user->hasPermissionTo('delete_event') && $record->organization_id === $user->organization_id;
     }
 
     /* ------------------------------------------------------------
@@ -99,35 +68,95 @@ class EventResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        $user = auth()->user();
-
-        if ($user?->isSuperAdmin()) {
-            return $query;
-        }
-
-        if ($user?->organization_id) {
-            return $query->where('organization_id', $user->organization_id);
-        }
-
+        $user  = auth()->user();
+        if ($user?->isSuperAdmin()) return $query;
+        if ($user?->organization_id) return $query->where('organization_id', $user->organization_id);
         return $query->whereNull('id');
     }
 
     /* ------------------------------------------------------------
-     | Form
+     | Form — used for EDIT only
+     | Create uses CreateEvent wizard (HasWizard)
      ------------------------------------------------------------ */
 
     public static function form(Form $form): Form
     {
+        $user         = auth()->user();
+        $isSuperAdmin = $user?->isSuperAdmin();
+        $org          = $user?->organization;
+
+        $packageOptions = $isSuperAdmin
+            ? OrganizationPackage::where('status', 'active')
+                ->with('organization')
+                ->get()
+                ->mapWithKeys(fn ($p) => [
+                    $p->id => "{$p->organization->name} — {$p->display_name} ({$p->remaining_tickets} tickets left)"
+                ])
+            : ($org?->availablePackages()->mapWithKeys(fn ($p) => [
+                $p->id => "{$p->display_name} — {$p->remaining_tickets} tickets · {$p->remaining_comp_tickets} comp"
+            ]) ?? collect());
+
         return $form->schema([
 
+            // ── PACKAGE ───────────────────────────────────────────────
+            Forms\Components\Section::make('Package')
+                ->description('The package funding this event. Locked once tickets are created.')
+                ->schema([
+                    Forms\Components\Select::make('organization_package_id')
+                        ->label('Event Package')
+                        ->options($packageOptions)
+                        ->required()
+                        ->live()
+                        ->disabled(fn ($record) => !$isSuperAdmin && $record !== null && $record->tickets()->exists())
+                        ->hint(fn ($record) => !$isSuperAdmin && $record?->tickets()->exists()
+                            ? '🔒 Package locked — tickets have been created for this event.'
+                            : null
+                        )
+                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            if ($state) {
+                                $package = OrganizationPackage::find($state);
+                                if ($package) $set('organization_id', $package->organization_id);
+                            }
+                        })
+                        ->columnSpanFull(),
+
+                    Forms\Components\Placeholder::make('package_summary')
+                        ->label('')
+                        ->content(function (Forms\Get $get) {
+                            $package = OrganizationPackage::find($get('organization_package_id'));
+                            if (!$package) return null;
+
+                            $features    = collect($package->getEnabledFeatures())
+                                ->map(fn ($f) => '✓ ' . ucwords(str_replace('_', ' ', $f)))
+                                ->implode('  ·  ');
+                            $ticketColor = $package->remaining_tickets > 20 ? '#10B981' : '#F07F22';
+
+                            return new HtmlString("
+                                <div class='p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10 text-xs space-y-1'>
+                                    <div class='flex gap-6'>
+                                        <span><strong style='color:{$ticketColor}'>{$package->remaining_tickets}</strong> tickets remaining</span>
+                                        <span><strong>{$package->remaining_comp_tickets}</strong> comp remaining</span>
+                                        <span><strong>{$package->max_scanners}</strong> scanners</span>
+                                        <span><strong>{$package->max_users}</strong> team members</span>
+                                    </div>
+                                    <div class='text-gray-400 pt-1'>{$features}</div>
+                                </div>
+                            ");
+                        })
+                        ->visible(fn (Forms\Get $get) => (bool) $get('organization_package_id'))
+                        ->columnSpanFull(),
+                ])
+                ->hidden(fn ($record) => !$isSuperAdmin && $packageOptions->isEmpty()),
+
+            // ── BASIC INFO ────────────────────────────────────────────
             Forms\Components\Section::make('Basic Information')
                 ->schema([
                     Forms\Components\Select::make('organization_id')
                         ->relationship('organization', 'name')
                         ->required()
                         ->searchable()
-                        ->disabled(fn () => ! auth()->user()?->isSuperAdmin())
-                        ->default(auth()->user()?->organization_id)
+                        ->disabled(fn () => !$isSuperAdmin)
+                        ->default($org?->id)
                         ->dehydrated(true)
                         ->columnSpanFull(),
 
@@ -138,7 +167,7 @@ class EventResource extends Resource
 
                     Forms\Components\TextInput::make('tagline')
                         ->label('Tagline')
-                        ->helperText('Short catchy description. Leave blank to auto-generate from event name.')
+                        ->helperText('Short catchy description.')
                         ->columnSpan(1),
 
                     Forms\Components\FileUpload::make('banner_image')
@@ -148,12 +177,8 @@ class EventResource extends Resource
                         ->directory('event-banners')
                         ->maxSize(10240)
                         ->imageEditor()
-                        ->imageEditorAspectRatios([
-                            null,
-                            '16:9',
-                            '4:5',
-                        ])
-                        ->helperText('Upload the full event poster. No forced cropping. Max 10MB.')
+                        ->imageEditorAspectRatios([null, '16:9', '4:5'])
+                        ->helperText('Upload the full event poster. Max 10MB.')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'image/webp'])
                         ->previewable(true)
                         ->downloadable()
@@ -163,10 +188,55 @@ class EventResource extends Resource
                     Forms\Components\Toggle::make('is_public')
                         ->label('Public Event')
                         ->default(true)
+                        ->live()
+                        ->disabled(function (Forms\Get $get) use ($isSuperAdmin) {
+                            if ($isSuperAdmin) return false;
+                            $package = OrganizationPackage::find($get('organization_package_id'));
+                            return !($package?->hasFeature('private_events') ?? false);
+                        })
+                        ->hint(function (Forms\Get $get) use ($isSuperAdmin) {
+                            if ($isSuperAdmin) return null;
+                            $package = OrganizationPackage::find($get('organization_package_id'));
+                            if (!($package?->hasFeature('private_events') ?? false)) {
+                                return new HtmlString(
+                                    '🔒 Not included in your package. ' .
+                                    '<button type="button"
+                                        onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\'))"
+                                        class="underline font-medium text-primary-600 hover:text-primary-700">
+                                        Upgrade your package
+                                    </button>'
+                                );
+                            }
+                            return null;
+                        })
+                        ->helperText('Private events are only accessible via a shared link.')
+                        ->columnSpanFull(),
+
+                    Forms\Components\Select::make('event_type')
+                        ->label('Event Type')
+                        ->options(function () {
+                            $user = auth()->user();
+                            $types = [
+                                'standard' => 'Standard Event',
+                            ];
+                            if ($user->isSuperAdmin() || $user->organization?->hasWorkshopAccess()) {
+                                $types['workshop'] = 'Workshop / Training';
+                            }
+                            return $types;
+                        })
+                        ->default('standard')
+                        ->required()
+                        ->live()
+                        ->helperText(fn (Forms\Get $get) =>
+                            $get('event_type') === 'workshop'
+                                ? 'Workshop events collect attendee details and signatures at check-in.'
+                                : 'Standard ticketing and check-in.'
+                        )
                         ->columnSpanFull(),
                 ])
                 ->columns(2),
 
+            // ── DESCRIPTION ───────────────────────────────────────────
             Forms\Components\Section::make('Description')
                 ->schema([
                     Forms\Components\Textarea::make('description')
@@ -175,30 +245,159 @@ class EventResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
+            // ── SCHEDULE ──────────────────────────────────────────────
+            // Using split date/time pickers so EditEvent mutate methods work correctly
             Forms\Components\Section::make('Schedule')
                 ->schema([
-                    Forms\Components\DateTimePicker::make('event_date')
-                        ->label('Event Date & Time')
-                        ->required(),
+                    Forms\Components\Section::make('Event Date & Time')
+                        ->schema([
+                            Forms\Components\DatePicker::make('event_date_only')
+                                ->label('Event Date')
+                                ->required()
+                                ->native(false)
+                                ->displayFormat('D, M j, Y')
+                                ->prefixIcon('heroicon-o-calendar')
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    $time = $get('event_time_only');
+                                    if ($state && $time) {
+                                        $set('event_date', \Carbon\Carbon::parse($state)
+                                            ->setTimeFromTimeString($time)
+                                            ->format('Y-m-d H:i:s'));
+                                    }
+                                })
+                                ->columnSpan(1),
 
-                    Forms\Components\DateTimePicker::make('registration_deadline')
-                        ->label('Registration Deadline')
-                        ->nullable()
-                        ->before('event_date'),
-                ])
-                ->columns(2),
+                            Forms\Components\TimePicker::make('event_time_only')
+                                ->label('Event Time')
+                                ->required()
+                                ->native(false)
+                                ->seconds(false)
+                                ->prefixIcon('heroicon-o-clock')
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    $date = $get('event_date_only');
+                                    if ($state && $date) {
+                                        $set('event_date', \Carbon\Carbon::parse($date)
+                                            ->setTimeFromTimeString($state)
+                                            ->format('Y-m-d H:i:s'));
+                                    }
+                                })
+                                ->columnSpan(1),
 
-            Forms\Components\Section::make('Location')
+                            Forms\Components\Hidden::make('event_date'),
+
+                            Forms\Components\Placeholder::make('event_datetime_preview')
+                                ->label('Confirmed Date & Time')
+                                ->content(function (Forms\Get $get) {
+                                    $date = $get('event_date_only');
+                                    $time = $get('event_time_only');
+                                    if (!$date || !$time || strlen((string) $time) < 4) {
+                                        return new HtmlString('<span class="text-gray-400 text-sm">⏱️ Select date and time above</span>');
+                                    }
+                                    try {
+                                        return new HtmlString('📅 <strong>' . \Carbon\Carbon::parse($date . ' ' . $time)->format('l, F j, Y @ g:i A') . '</strong>');
+                                    } catch (\Exception $e) {
+                                        return new HtmlString('<span class="text-gray-400 text-sm">⏱️ Select date and time above</span>');
+                                    }
+                                })
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(2)
+                        ->collapsible(),
+
+                    Forms\Components\Section::make('Registration Deadline')
+                        ->description('When should registration close?')
+                        ->icon('heroicon-o-clock')
+                        ->description(function (Forms\Get $get) {
+                            return $get('registration_deadline_date')
+                                ? '✅ Deadline set — ' . \Carbon\Carbon::parse($get('registration_deadline_date'))->format('M j, Y')
+                                : 'Optional — leave blank to keep registration open until the event';
+                        })
+                        ->iconColor(function (Forms\Get $get) {
+                            return $get('registration_deadline_date') ? 'success' : 'gray';
+                        })
+                        ->schema([
+                            Forms\Components\DatePicker::make('registration_deadline_date')
+                                ->label('Deadline Date')
+                                ->nullable()
+                                ->native(false)
+                                ->displayFormat('D, M j, Y')
+                                ->prefixIcon('heroicon-o-calendar')
+                                ->minDate(today())
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    $set('registration_deadline',
+                                        $state && $get('registration_deadline_time')
+                                            ? $state . ' ' . $get('registration_deadline_time')
+                                            : null
+                                    );
+                                })
+                                ->columnSpan(1),
+
+                            Forms\Components\TimePicker::make('registration_deadline_time')
+                                ->label('Deadline Time')
+                                ->nullable()
+                                ->native(false)
+                                ->seconds(false)
+                                ->prefixIcon('heroicon-o-clock')
+                                ->default('23:59')
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                                    $date = $get('registration_deadline_date');
+                                    if ($state && $date) {
+                                        $set('registration_deadline', $date . ' ' . $state);
+                                    }
+                                })
+                                ->columnSpan(1),
+
+                            Forms\Components\Hidden::make('registration_deadline'),
+
+                            Forms\Components\Placeholder::make('deadline_preview')
+                                ->label('Registration Closes')
+                                ->content(function (Forms\Get $get) {
+                                    $date = $get('registration_deadline_date');
+                                    if (!$date) {
+                                        return new HtmlString('<span class="text-gray-400 text-sm">♾️ No deadline — registration stays open until the event</span>');
+                                    }
+                                    try {
+                                        $time = $get('registration_deadline_time') ?? '23:59';
+                                        return new HtmlString('🔒 <strong>' . \Carbon\Carbon::parse($date . ' ' . $time)->format('l, F j, Y @ g:i A') . '</strong>');
+                                    } catch (\Exception $e) {
+                                        return new HtmlString('<span class="text-gray-400 text-sm">♾️ No deadline set</span>');
+                                    }
+                                })
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(2)
+                        ->collapsible()
+                        ->collapsed(),
+                ]),
+
+            // ── LOCATION ──────────────────────────────────────────────
+            Forms\Components\Section::make('Venue Details')
+                ->description(function (Forms\Get $get) {
+                    return $get('venue') ? '✅ ' . $get('venue') : 'Optional — where will the event take place?';
+                })
+                ->icon('heroicon-o-map-pin')
+                ->iconColor(function (Forms\Get $get) {
+                    return $get('venue') ? 'success' : 'gray';
+                })
                 ->schema([
                     Forms\Components\TextInput::make('venue')
                         ->label('Venue Name')
-                        ->maxLength(255),
+                        ->maxLength(255)
+                        ->live(debounce: 500)
+                        ->prefixIcon('heroicon-o-building-office')
+                        ->columnSpan(1),
 
                     Forms\Components\TextInput::make('capacity')
                         ->label('Maximum Capacity')
                         ->numeric()
                         ->nullable()
-                        ->helperText('Leave empty for unlimited'),
+                        ->helperText('Leave empty for unlimited')
+                        ->prefixIcon('heroicon-o-users')
+                        ->columnSpan(1),
 
                     Forms\Components\Textarea::make('location')
                         ->label('Full Address')
@@ -206,29 +405,60 @@ class EventResource extends Resource
                         ->maxLength(500)
                         ->columnSpanFull(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->collapsible(),
 
+            // ── STATUS ────────────────────────────────────────────────
             Forms\Components\Section::make('Status')
                 ->schema([
                     Forms\Components\Select::make('status')
-                        ->options([
-                            'draft'     => 'Draft',
-                            'published' => 'Published',
-                            'live'      => 'Live',
-                            'closed'    => 'Closed',
-                        ])
+                        ->options(config('constants.event_statuses'))
                         ->default('draft')
-                        ->required(),
+                        ->required()
+                        ->live(),
+
+                    // Warn if still on draft
+                    Forms\Components\Placeholder::make('draft_reminder')
+                        ->label('')
+                        ->content(new HtmlString('
+                            <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                                ⚠️ This event is still a <strong>Draft</strong> and not visible to the public.
+                                Change status to <strong>Published</strong> when ready to go live.
+                            </div>
+                        '))
+                        ->visible(fn (Forms\Get $get) => $get('status') === 'draft')
+                        ->columnSpanFull(),
                 ]),
 
+            // ── PAYMENT OPTIONS ───────────────────────────────────────
             Forms\Components\Section::make('Payment Options')
-                ->description('Configure installment payment settings for this event')
+                ->description('Configure installment payment settings for this event.')
                 ->schema([
                     Forms\Components\Toggle::make('allow_installments')
                         ->label('Allow Installment Payments')
                         ->default(false)
                         ->live()
-                        ->helperText('Enable clients to pay in multiple installments'),
+                        ->disabled(function (Forms\Get $get) use ($isSuperAdmin) {
+                            if ($isSuperAdmin) return false;
+                            $package = OrganizationPackage::find($get('organization_package_id'));
+                            return !($package?->hasFeature('installments') ?? false);
+                        })
+                        ->hint(function (Forms\Get $get) use ($isSuperAdmin) {
+                            if ($isSuperAdmin) return null;
+                            $package = OrganizationPackage::find($get('organization_package_id'));
+                            if (!($package?->hasFeature('installments') ?? false)) {
+                                return new HtmlString(
+                                    '🔒 Available on Professional or as a Standard add-on. ' .
+                                    '<button type="button"
+                                        onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\'))"
+                                        class="underline font-medium text-primary-600">
+                                        Upgrade
+                                    </button>'
+                                );
+                            }
+                            return null;
+                        })
+                        ->helperText('Enable clients to pay in multiple installments.'),
 
                     Forms\Components\TextInput::make('minimum_deposit_percentage')
                         ->label('Minimum Deposit (%)')
@@ -239,13 +469,12 @@ class EventResource extends Resource
                         ->suffix('%')
                         ->visible(fn (Forms\Get $get) => $get('allow_installments'))
                         ->required(fn (Forms\Get $get) => $get('allow_installments'))
-                        ->helperText('Minimum percentage clients must pay as first deposit'),
+                        ->helperText('Minimum percentage clients must pay as first deposit.'),
 
                     Forms\Components\Textarea::make('installment_instructions')
                         ->label('Installment Instructions')
                         ->rows(3)
                         ->visible(fn (Forms\Get $get) => $get('allow_installments'))
-                        ->helperText('Instructions shown to clients about payment installments')
                         ->placeholder('Example: Pay minimum 30% deposit to secure your spot. Complete payment before event date.')
                         ->columnSpanFull(),
                 ])
@@ -261,6 +490,7 @@ class EventResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+             ->recordUrl(fn ($record) => static::getUrl('registrations', ['record' => $record]))
             ->defaultSort('event_date')
             ->columns([
                 Tables\Columns\TextColumn::make('name')
@@ -269,7 +499,8 @@ class EventResource extends Resource
                     ->sortable()
                     ->weight('medium')
                     ->wrap()
-                    ->limit(40),
+                    ->limit(40)
+                    ->description(fn ($record) => $record->organizationPackage?->display_name),
 
                 Tables\Columns\TextColumn::make('event_date')
                     ->label('Date')
@@ -278,7 +509,6 @@ class EventResource extends Resource
                     ->description(fn ($record) => $record->event_date?->format('g:i A')),
 
                 Tables\Columns\BadgeColumn::make('status')
-                    ->label('Status')
                     ->colors([
                         'gray'    => 'draft',
                         'info'    => 'published',
@@ -294,30 +524,20 @@ class EventResource extends Resource
                 Tables\Columns\IconColumn::make('allow_installments')
                     ->label('Installments')
                     ->boolean()
-                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->toggleable()
                     ->tooltip(fn ($record) => $record->allow_installments
                         ? "Min deposit: {$record->minimum_deposit_percentage}%"
-                        : 'Installments disabled'),
-
-                Tables\Columns\TextColumn::make('minimum_deposit_percentage')
-                    ->label('Min Deposit')
-                    ->suffix('%')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                        : 'Installments disabled'
+                    ),
 
                 Tables\Columns\TextColumn::make('venue')
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->limit(25)
-                    ->tooltip(fn ($record) => $record->venue),
+                    ->limit(25),
 
                 Tables\Columns\TextColumn::make('capacity')
                     ->label('Capacity')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(fn ($state) => $state ? number_format($state) : '∞'),
-
-                Tables\Columns\TextColumn::make('registration_deadline')
-                    ->label('Reg. Deadline')
-                    ->dateTime('M d, Y')
-                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('tiers_count')
                     ->label('Tiers')
@@ -338,33 +558,18 @@ class EventResource extends Resource
                     ->visible(fn () => auth()->user()?->isSuperAdmin())
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->searchable(),
-
-                Tables\Columns\IconColumn::make('banner_image')
-                    ->label('Banner')
-                    ->boolean()
-                    ->getStateUsing(fn ($record) => ! empty($record->banner_image))
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->tooltip(fn ($record) => $record->banner_image ? 'Has banner' : 'No banner'),
             ])
-
             ->actions([
                 Tables\Actions\Action::make('public_link')
                     ->label('View')
                     ->icon('heroicon-o-link')
                     ->color('primary')
-                    ->visible(fn ($record) =>
-                        $record->is_public &&
-                        $record->slug &&
-                        $record->organization?->slug
-                    )
+                    ->visible(fn ($record) => $record->is_public && $record->slug && $record->organization?->slug)
                     ->modalHeading('Public Event URL')
-                    ->modalContent(fn ($record) => view(
-                        'filament.modals.event-url',
-                        [
-                            'event' => $record,
-                            'url'   => $record->public_url,
-                        ]
-                    ))
+                    ->modalContent(fn ($record) => view('filament.modals.event-url', [
+                        'event' => $record,
+                        'url'   => $record->public_url,
+                    ]))
                     ->modalSubmitAction(false),
 
                 Tables\Actions\ActionGroup::make([
@@ -375,9 +580,9 @@ class EventResource extends Resource
                         ->icon('heroicon-o-banknotes')
                         ->color(fn ($record) => $record->allow_installments ? 'warning' : 'success')
                         ->requiresConfirmation()
+                        ->visible(fn ($record) => $record->organizationPackage?->hasFeature('installments') ?? false)
                         ->action(function ($record) {
-                            $record->update(['allow_installments' => ! $record->allow_installments]);
-
+                            $record->update(['allow_installments' => !$record->allow_installments]);
                             Notification::make()
                                 ->title($record->allow_installments ? 'Installments Enabled' : 'Installments Disabled')
                                 ->success()
@@ -388,15 +593,9 @@ class EventResource extends Resource
                 ])
                 ->icon('heroicon-o-ellipsis-vertical'),
             ])
-
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'draft'     => 'Draft',
-                        'published' => 'Published',
-                        'live'      => 'Live',
-                        'closed'    => 'Closed',
-                    ]),
+                    ->options(config('constants.event_statuses')),
 
                 Tables\Filters\TernaryFilter::make('allow_installments')
                     ->label('Installments')
@@ -410,40 +609,17 @@ class EventResource extends Resource
                     ->trueLabel('Public')
                     ->falseLabel('Private'),
             ])
-
             ->bulkActions([
-                Tables\Actions\BulkAction::make('enable_installments')
-                    ->label('Enable Installments')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->action(function ($records) {
-                        $records->each->update(['allow_installments' => true]);
-
-                        Notification::make()
-                            ->title('Installments enabled for ' . $records->count() . ' event(s)')
-                            ->success()
-                            ->send();
-                    }),
-
-                Tables\Actions\BulkAction::make('disable_installments')
-                    ->label('Disable Installments')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->action(function ($records) {
-                        $records->each->update(['allow_installments' => false]);
-
-                        Notification::make()
-                            ->title('Installments disabled for ' . $records->count() . ' event(s)')
-                            ->success()
-                            ->send();
-                    }),
-
                 Tables\Actions\DeleteBulkAction::make(),
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+           // TicketsRelationManager::class,
+        ];
+    }
     /* ------------------------------------------------------------
      | Pages
      ------------------------------------------------------------ */
@@ -454,6 +630,17 @@ class EventResource extends Resource
             'index'  => Pages\ListEvents::route('/'),
             'create' => Pages\CreateEvent::route('/create'),
             'edit'   => Pages\EditEvent::route('/{record}/edit'),
+            'registrations' => Pages\EventRegistrations::route('/{record}/registrations'),
+             'tiers'  => Pages\EventTiers::route('/{record}/tiers'),
         ];
+    }
+
+    public static function getRecordSubNavigation(\Filament\Resources\Pages\Page $page): array
+    {
+        return $page->generateNavigationItems([
+            Pages\EventRegistrations::class,
+            Pages\EventTiers::class,
+            Pages\EditEvent::class,
+        ]);
     }
 }

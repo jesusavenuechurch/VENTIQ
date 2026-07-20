@@ -18,8 +18,17 @@ class EventTierResource extends Resource
 {
     protected static ?string $model = EventTier::class;
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
-    protected static ?string $navigationLabel = 'Ticket Tiers';
-    protected static ?string $navigationGroup = 'Events';
+
+    // No longer a nav item anywhere — same pattern as TicketResource.
+    // Tiers only ever belong to one event, so they're reached through
+    // Events → [an event] → Ticket Tiers (EventResource\Pages\EventTiers),
+    // not through their own top-level or cluster-level list. This
+    // resource still exists purely to provide the create/edit forms
+    // and route helpers that page links out to.
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function canViewAny(): bool
     {
@@ -101,6 +110,10 @@ class EventTierResource extends Resource
 
                                 return $query->whereNull('id');
                             })
+                            // Prefills from ?event_id= on the create URL, e.g. the
+                            // "Add Tier" button on the event-scoped tab — falls
+                            // back to null (user picks manually) if not present.
+                            ->default(fn () => request()->query('event_id'))
                             ->required()
                             ->searchable()
                             ->disabledOn('edit'),
@@ -286,14 +299,14 @@ class EventTierResource extends Resource
                     ->form([
                         Forms\Components\Select::make('target_event_id')
                             ->label('Clone to Event')
-                            ->options(fn () => Event::query()
+                            ->options(fn (EventTier $record) => Event::query()
                                 ->where('organization_id', auth()->user()?->organization_id)
-                                ->where('id', '!=', auth()->user()?->record?->event_id ?? 0)
+                                ->where('id', '!=', $record->event_id)
                                 ->pluck('name', 'id'))
                             ->required(),
                     ])
                     ->action(function (EventTier $record, array $data) {
-                        $cloned = EventTier::create([
+                        EventTier::create([
                             'event_id' => $data['target_event_id'],
                             'tier_name' => $record->tier_name . ' (Copy)',
                             'description' => $record->description,

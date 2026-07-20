@@ -19,6 +19,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Filament\Support\Facades\FilamentView;  
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -169,9 +170,44 @@ class AdminPanelProvider extends PanelProvider
             )
 
             // 🎯 DRIVER.JS SCRIPT (BODY END)
+                    // 🎯 BODY END
             ->renderHook(
-                 PanelsRenderHook::BODY_END,
-    fn (): string => view('filament.driver-tour')->render()
+                PanelsRenderHook::BODY_END,
+                fn (): string => view('filament.driver-tour')->render() .
+                                view('filament.modals')->render() . "
+                <script>
+                    document.addEventListener('livewire:initialized', () => {
+                        Livewire.on('ventiq-assist-fill-form', ({ name, tagline, description }) => {
+
+                            // 1. Fill tagline FIRST so Livewire sets tagline_locked = true
+                            //    before the name field's afterStateUpdated runs
+                            const taglineField = document.querySelector('input[id*=\"tagline\"]');
+                            if (taglineField) {
+                                taglineField.value = tagline;
+                                taglineField.dispatchEvent(new Event('input', { bubbles: true }));
+                                taglineField.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+
+                            // 2. Wait for Livewire to process tagline_locked = true, then fill name
+                            setTimeout(() => {
+                                const nameField = document.querySelector('input[id*=\"name\"]:not([id*=\"slug\"]):not([id*=\"tagline\"])');
+                                if (nameField) {
+                                    nameField.value = name;
+                                    nameField.dispatchEvent(new Event('input', { bubbles: true }));
+                                    nameField.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+
+                                const descField = document.querySelector('textarea[id*=\"description\"]');
+                                if (descField) {
+                                    descField.value = description;
+                                    descField.dispatchEvent(new Event('input', { bubbles: true }));
+                                    descField.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            }, 300);
+                        });
+                    });
+                </script>
+                "
             )
 
             // ✅ SIDEBAR & UX
@@ -184,14 +220,14 @@ class AdminPanelProvider extends PanelProvider
             // DISCOVERY
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
             ->pages([
                 Pages\Dashboard::class,
             ])
             ->widgets([
-                \App\Filament\Widgets\TicketStatsWidget::class,
-                \App\Filament\Widgets\MobileAppDownload::class,
-                \App\Filament\Widgets\WelcomeWidget::class,
-                \App\Filament\Widgets\AgentWelcomeWidget::class,
+                \App\Filament\Widgets\WelcomeWidget::class,        // org admin — onboarding + operations
+                \App\Filament\Widgets\SuperAdminWidget::class,     // super admin overview
+                \App\Filament\Widgets\AgentWelcomeWidget::class,   // sales agent
             ])
 
             // MIDDLEWARE

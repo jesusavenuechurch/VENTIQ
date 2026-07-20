@@ -16,8 +16,7 @@ class ListEvents extends ListRecords
     protected function getHeaderActions(): array
     {
         $user = auth()->user();
-        
-        // Super admins always get create button
+
         if ($user->isSuperAdmin()) {
             return [
                 CreateAction::make()
@@ -26,10 +25,8 @@ class ListEvents extends ListRecords
             ];
         }
 
-        // Check if organization has any package (active or not)
         $hasAnyPackage = OrganizationPackage::where('organization_id', $user->organization_id)->exists();
 
-        // If no package ever purchased, offer FREE TRIAL
         if (!$hasAnyPackage) {
             return [
                 Action::make('start_free_trial')
@@ -38,28 +35,21 @@ class ListEvents extends ListRecords
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Start Your Free Trial')
-                    ->modalDescription('Get started with a FREE Standard package (300 tickets, 1 event). No payment required!')
+                    ->modalDescription('Get started with a FREE Standard package — 150 tickets, 1 event. No payment required!')
                     ->modalSubmitActionLabel('Activate Free Trial')
                     ->action(function () use ($user) {
-                        // Create free trial package - ACTIVE immediately
                         OrganizationPackage::createFreeTrialPackage($user->organization_id);
-
                         Notification::make()
                             ->title('Free Trial Activated! 🎉')
                             ->body('You can now create your first event.')
                             ->success()
                             ->send();
-
-                        // Refresh the page to show Create Event button
                         redirect()->to(EventResource::getUrl('index'));
                     }),
             ];
         }
 
-        // Check if user has active package with slots
-        $canCreate = static::getResource()::canCreate();
-
-        if ($canCreate) {
+        if (static::getResource()::canCreate()) {
             return [
                 CreateAction::make()
                     ->label('Create Event')
@@ -67,14 +57,18 @@ class ListEvents extends ListRecords
             ];
         }
 
-        // User has packages but all exhausted/expired
+        // All packages exhausted/expired — trigger upgrade modal
         return [
             Action::make('upgrade')
-                ->label('Upgrade Capacity')
+                ->label('Upgrade Package')
                 ->icon('heroicon-o-arrow-up-circle')
                 ->color('primary')
-                ->url(route('filament.admin.resources.package-purchases.index'))
-                ->tooltip('Package exhausted. Click to upgrade.'),
+                ->extraAttributes([
+                    'onclick' => "window.dispatchEvent(new CustomEvent('open-upgrade-modal'))",
+                    'type'    => 'button',
+                ])
+                ->action(fn () => null) // no-op, JS handles it
+                ->tooltip('All packages exhausted or expired. Upgrade to create more events.'),
         ];
     }
 }

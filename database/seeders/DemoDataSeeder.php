@@ -166,6 +166,23 @@ class DemoDataSeeder extends Seeder
         ]);
         echo "✅ Created Event (PRIVATE): {$event3->name}\n";
 
+        // Event 4: Workshop (with WorkshopTicketDetail)
+        $event4 = Event::create([
+            'organization_id' => $org1->id,
+            'name'            => 'Teachers Professional Development Workshop',
+            'slug'            => 'teachers-professional-development-2025',
+            'tagline'         => 'Empowering Educators Across Lesotho',
+            'description'     => 'A one-day professional development workshop for teachers across all districts.',
+            'event_date'      => Carbon::now()->addDays(20)->setHour(8)->setMinute(0),
+            'venue'           => 'Maseru City Hall',
+            'location'        => 'Kingsway Road, Maseru',
+            'capacity'        => 200,
+            'status'          => 'published',
+            'is_public'       => true,
+            'event_type'      => 'workshop',
+        ]);
+        echo "✅ Created Workshop Event: {$event4->name}\n";
+
         // ===== EVENT TIERS =====
         echo "\nCreating Event Tiers...\n";
 
@@ -264,6 +281,15 @@ class DemoDataSeeder extends Seeder
             'is_active' => true,
         ]);
 
+        $tier4 = EventTier::create([
+            'event_id'           => $event4->id,
+            'tier_name'          => 'Delegate Pass',
+            'price'              => 0,
+            'quantity_available' => 200,
+            'quantity_sold'      => 0,
+            'is_active'          => true,
+        ]);
+
         // ===== CLIENTS =====
         echo "\nCreating Clients...\n";
 
@@ -289,6 +315,79 @@ class DemoDataSeeder extends Seeder
             ]);
             $clientModels[] = $client;
             echo "✅ Client: {$client->full_name}\n";
+        }
+
+        // Workshop clients & tickets with details
+        $workshopAttendees = [
+            ['name' => 'Mpho Lerotholi',  'phone' => '+26658001001', 'email' => 'mpho@school.ls',  'position' => 'Teacher',    'institution' => 'Maseru High School',    'district' => 'maseru'],
+            ['name' => 'Teboho Nkosi',    'phone' => '+26658001002', 'email' => 'teboho@school.ls', 'position' => 'Principal',  'institution' => 'Leribe Primary School',  'district' => 'leribe'],
+            ['name' => 'Palesa Mokoena',  'phone' => '+26658001003', 'email' => null,               'position' => 'HOD',        'institution' => 'Berea Secondary School', 'district' => 'berea'],
+            ['name' => 'Retselisitsoe M', 'phone' => '+26658001004', 'email' => null,               'position' => 'Teacher',    'institution' => 'Mafeteng High School',   'district' => 'mafeteng'],
+            ['name' => 'Lineo Theko',     'phone' => '+26658001005', 'email' => 'lineo@edu.ls',     'position' => 'Instructor', 'institution' => 'Mohale\'s Hoek College', 'district' => 'mohales_hoek'],
+        ];
+
+        foreach ($workshopAttendees as $index => $attendee) {
+            $client = Client::create([
+                'organization_id' => $org1->id,
+                'full_name'       => $attendee['name'],
+                'phone'           => $attendee['phone'],
+                'email'           => $attendee['email'],
+                'status'          => 'active',
+            ]);
+
+            $ticket = Ticket::create([
+                'event_id'       => $event4->id,
+                'client_id'      => $client->id,
+                'event_tier_id'  => $tier4->id,
+                'ticket_number'  => 'WRK-' . $event4->id . '-' . str_pad($index + 1, 5, '0', STR_PAD_LEFT),
+                'qr_code'        => 'QR-' . Str::uuid(),
+                'status'         => 'active',
+                'payment_method' => 'free',
+                'amount'         => 0,
+                'payment_status' => 'completed',
+                'delivered_at'   => now(),
+                'created_by'     => $org1Staff->id,
+            ]);
+
+            // Workshop detail — mix of signed and pending for realistic data
+            $isSigned = $index < 3; // first 3 signed, last 2 pending
+
+            $detail = $ticket->workshopDetail()->create([
+                'position'         => $attendee['position'],
+                'institution'      => $attendee['institution'],
+                'district'         => $attendee['district'],
+                'signature_status' => $isSigned ? 'signed' : 'pending',
+            ]);
+
+            if ($isSigned) {
+                // Generate fake signature PNG
+                $img = imagecreatetruecolor(400, 150);
+                $bg  = imagecolorallocate($img, 255, 255, 255);
+                $ink = imagecolorallocate($img, 30, 64, 105);
+                imagefill($img, 0, 0, $bg);
+                // Simple squiggle per person
+                imageline($img, 40,  80, 120, 50, $ink);
+                imageline($img, 120, 50, 200, 90, $ink);
+                imageline($img, 200, 90, 280, 60, $ink);
+                imageline($img, 280, 60, 360, 85, $ink);
+
+                ob_start();
+                imagepng($img);
+                $imageData = ob_get_clean();
+                imagedestroy($img);
+
+                $path = 'signatures/workshops/' . $org1->id . '/ticket_' . $ticket->id . '.png';
+                \Illuminate\Support\Facades\Storage::disk('public')->put($path, $imageData);
+
+                $detail->update([
+                    'signature_path'   => $path,
+                    'signed_at'        => now()->subHours(rand(1, 5)),
+                    'signed_by'        => $org1Scanner->id,
+                    'signature_status' => 'signed',
+                ]);
+            }
+
+            echo "✅ Workshop ticket: {$client->full_name} — " . ($isSigned ? 'Signed' : 'Pending') . "\n";
         }
 
         // ===== TICKETS WITH NOTIFICATION TESTING =====

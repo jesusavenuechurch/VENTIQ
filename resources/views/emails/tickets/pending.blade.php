@@ -3,91 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .ticket-box { background: white; border: 2px solid #667eea; border-radius: 10px; padding: 20px; margin: 20px 0; }
-        .payment-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-        .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
+        body {
+            font-family: 'Helvetica', Arial, sans-serif;
+            background-color: #000000;
+            margin: 0;
+            padding: 40px 20px;
+            color: #0f172a;
+        }
+        .container { max-width: 560px; margin: 0 auto; }
+        .brand-row { text-align: center; margin-bottom: 24px; }
+        .brand-name {
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .brand-sub {
+            color: rgba(255,255,255,0.4);
+            font-weight: 700;
+            font-size: 9px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+        .card { background: #ffffff; border-radius: 28px; padding: 40px; }
+        .status-badge {
+            display: inline-block;
+            background-color: #f59e0b;
+            color: #ffffff;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        .event-name {
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+            margin: 0 0 24px 0;
+        }
+        .label {
+            font-size: 9px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+        .value {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            margin: 0 0 18px 0;
+        }
+        .divider { border: none; border-top: 1px solid #e2e8f0; margin: 0 0 22px 0; }
+        .method-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px 18px;
+            margin: 10px 0;
+        }
+        .method-label {
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 8px 0;
+        }
+        .method-row {
+            font-size: 13px;
+            color: #334155;
+            margin: 2px 0;
+        }
+        .ref-box {
+            background: #0f172a;
+            color: #ffffff;
+            border-radius: 14px;
+            padding: 14px 18px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .ref-box .label-light {
+            color: rgba(255,255,255,0.5);
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+        .ref-box .ref-value {
+            font-size: 17px;
+            font-weight: 900;
+            letter-spacing: 2px;
+        }
+        .steps {
+            margin: 24px 0 0 0;
+            padding: 0;
+            list-style: none;
+        }
+        .steps li {
+            font-size: 13px;
+            color: #334155;
+            padding-left: 22px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .steps li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #f59e0b;
+            font-weight: 900;
+        }
+        .note { font-size: 12px; color: #64748b; line-height: 1.6; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 28px; }
+        .footer p { color: rgba(255,255,255,0.3); font-size: 10px; margin: 4px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Registration Received!</h1>
-            <p>{{ $event->name }}</p>
+        <div class="brand-row">
+            <div class="brand-name">Ventiq</div>
+            <div class="brand-sub">Digital Fulfillment</div>
         </div>
-        
-        <div class="content">
-            <p>Dear {{ $client->full_name }},</p>
-            
-            <p>Thank you for registering for <strong>{{ $event->name }}</strong>! We've received your registration and it's now pending payment verification.</p>
 
-            <div class="ticket-box">
-                <h3>Your Ticket Details</h3>
-                <p><strong>Ticket Number:</strong> {{ $ticket->ticket_number }}</p>
-                <p><strong>Event:</strong> {{ $event->name }}</p>
-                <p><strong>Tier:</strong> {{ $tier->tier_name }}</p>
-                <p><strong>Amount:</strong> {{ number_format($ticket->amount) }} LSL</p>
-                <p><strong>Status:</strong> <span style="color: #ffc107;">Pending Payment Verification</span></p>
+        <div class="card">
+            <div class="status-badge">Pending Payment</div>
+            <h1 class="event-name">{{ $event->name }}</h1>
+
+            <p style="font-size: 14px; color: #334155; margin: 0 0 24px 0;">
+                Hi {{ $client->full_name }}, we've received your registration. Complete payment below to confirm your spot.
+            </p>
+
+            <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td width="50%">
+                        <div class="label">Tier</div>
+                        <div class="value">{{ $tier->tier_name }}</div>
+                    </td>
+                    <td width="50%">
+                        <div class="label">Amount Due</div>
+                        <div class="value">{{ number_format($ticket->amount) }} LSL</div>
+                    </td>
+                </tr>
+            </table>
+
+            <hr class="divider">
+
+            <div class="label" style="margin-bottom: 12px;">Payment Methods</div>
+
+            @foreach($paymentMethods as $method)
+                <div class="method-card">
+                    <div class="method-label">{{ $method->label }}</div>
+
+                    @if($method->payment_method !== 'cash')
+                        <div class="method-row"><strong>{{ $method->getAccountFieldLabel() }}:</strong> {{ $method->account_number }}</div>
+                        @if($method->account_name)
+                            <div class="method-row"><strong>Account Name:</strong> {{ $method->account_name }}</div>
+                        @endif
+                    @else
+                        <div class="method-row" style="color: #64748b;">Pay in person at the venue.</div>
+                    @endif
+
+                    @if($method->instructions)
+                        <div class="method-row" style="color: #64748b; font-size: 12px; margin-top: 6px;">{{ $method->instructions }}</div>
+                    @endif
+                </div>
+            @endforeach
+
+            <div class="ref-box">
+                <div class="label-light">Use This As Your Payment Reference</div>
+                <div class="ref-value">{{ $ticket->ticket_number }}</div>
             </div>
 
-            <div class="payment-box">
-                <h3>⚠️ Payment Required</h3>
-                <p>Please complete your payment of <strong>{{ number_format($ticket->amount) }} LSL</strong> using one of the following methods:</p>
+            <ul class="steps">
+                <li>Make your payment using the details above</li>
+                <li>Our team verifies payment within 24 hours</li>
+                <li>You'll get a confirmation email with your ticket</li>
+                <li>Bring your ticket (digital or printed) to the entrance</li>
+            </ul>
 
-                @foreach($paymentMethods as $method)
-                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin: 12px 0;">
-                        <h4 style="margin: 0 0 8px 0;">{{ $method->label }}</h4>
-
-                        @if($method->payment_method !== 'cash')
-                            <p style="margin: 4px 0;">
-                                <strong>{{ $method->getAccountFieldLabel() }}:</strong> 
-                                {{ $method->account_number }}
-                            </p>
-                            @if($method->account_name)
-                            <p style="margin: 4px 0;">
-                                <strong>Account Name:</strong> 
-                                {{ $method->account_name }}
-                            </p>
-                            @endif
-                        @else
-                            <p style="margin: 4px 0; color: #666;">Pay in person at the venue.</p>
-                        @endif
-
-                        @if($method->instructions)
-                            <p style="margin: 8px 0 0 0; color: #555; font-size: 13px;">
-                                {{ $method->instructions }}
-                            </p>
-                        @endif
-                    </div>
-                @endforeach
-
-                <p style="margin-top: 15px;">
-                    <strong>Important:</strong> Always use your ticket number 
-                    <strong>{{ $ticket->ticket_number }}</strong> as the payment reference.
-                </p>
-            </div>
-
-            <h3>What Happens Next?</h3>
-            <ol>
-                <li>Make your payment using the instructions above</li>
-                <li>Our team will verify your payment within 24 hours</li>
-                <li>You'll receive an email with your ticket once approved</li>
-                <li>Bring your ticket to the event entrance</li>
-            </ol>
-
-            <p>If you have any questions, please contact us at {{ $organization->contact_email ?? $organization->email }}.</p>
-
-            <p>We look forward to seeing you at the event!</p>
-
-            <p>Best regards,<br>{{ $organization->name }}</p>
+            <p class="note">
+                Questions? Reach us at {{ $organization->contact_email ?? $organization->email }}.
+            </p>
         </div>
 
         <div class="footer">
-            <p>&copy; {{ date('Y') }} {{ $organization->name }}. All rights reserved.</p>
+            <p>{{ $organization->name }} &middot; {{ date('Y') }}</p>
         </div>
     </div>
 </body>

@@ -141,7 +141,16 @@
             <div x-show="errorMessage" x-transition class="mb-6 p-4 bg-red-50 text-red-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest border border-red-100">
                 <i class="fas fa-exclamation-triangle mr-2"></i> <span x-text="errorMessage"></span>
             </div>
-
+                <a href="{{ route('auth.google.redirect') }}"
+                class="w-full py-4 rounded-2xl border border-gray-200 flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.2em] text-[#1D4069] hover:border-[#1D4069] transition-all mb-6">
+                    <i class="fab fa-google text-[#F07F22]"></i>
+                    Continue with Google
+                </a>
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                    <span class="text-[9px] font-bold text-gray-300 uppercase tracking-widest">or</span>
+                    <div class="flex-1 h-px bg-gray-100"></div>
+                </div>
             <div x-show="step === 1 && !submitted" class="space-y-6">
                 <h2 class="text-xl font-black text-[#1D4069] uppercase">01. Account Owner</h2>
                 <div class="space-y-4">

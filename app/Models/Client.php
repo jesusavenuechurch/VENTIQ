@@ -43,4 +43,9 @@ class Client extends Model
     {
         return $this->created_by !== null;
     }
+
+    public function participations(): HasMany
+    {
+        return $this->hasMany(Participant::class);
+    }
 }

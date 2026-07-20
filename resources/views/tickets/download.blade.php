@@ -111,6 +111,21 @@
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Entry Pass</p>
                         <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Scan at Entrance</p>
                     </div>
+ 
+                    {{-- Voucher code — shown below QR on web view --}}
+                    @if($ticket->voucher_code)
+                    <div class="mt-6 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-center w-full">
+                        <p class="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Entry Code
+                        </p>
+                        <p class="text-2xl font-black text-slate-900 tracking-[0.2em]">
+                            {{ $ticket->voucher_code }}
+                        </p>
+                        <p class="text-[8px] text-slate-400 mt-1">
+                            Show this if you cannot scan
+                        </p>
+                    </div>
+                    @endif
 
                     <div class="absolute bottom-6 flex items-center space-x-1.5 opacity-20">
                         <span class="text-[8px] font-bold uppercase">Powered by</span>
