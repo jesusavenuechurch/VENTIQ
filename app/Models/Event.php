@@ -32,6 +32,8 @@ class Event extends Model
         'installment_instructions',
         'banner_image',
         'organization_package_id',
+        'is_programme',
+        'certificates_enabled',
         'event_type',
         'payment_mode',
         'is_sponsored',
@@ -40,6 +42,7 @@ class Event extends Model
     protected $casts = [
         'event_date' => 'datetime',
         'registration_deadline' => 'datetime',
+        'is_programme' => 'boolean',
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
     ];
@@ -207,4 +210,10 @@ class Event extends Model
     {
         return $this->hasMany(Participant::class);
     }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(Session::class);
+    }
+    public function certificates(): HasMany { return $this->hasMany(Certificate::class); }
 }

@@ -26,6 +26,8 @@ class SessionSegment extends Model
         'extraction_job_id',
         'paused_at',
         'paused_seconds',
+        'role',
+        'is_presenting',
     ];
 
     protected $casts = [
@@ -62,9 +64,15 @@ class SessionSegment extends Model
 
     public function appendLogLine(string $text): void
     {
-        $log = $this->raw_log ?? [];
-        $log[] = ['time' => now()->format('H:i:s'), 'text' => $text];
-        $this->update(['raw_log' => $log]);
+        \DB::transaction(function () use ($text) {
+            $fresh = static::where('id', $this->id)->lockForUpdate()->first();
+
+            $log = $fresh->raw_log ?? [];
+            $log[] = ['time' => now()->format('H:i:s'), 'text' => $text];
+            $fresh->update(['raw_log' => $log]);
+        });
+
+        $this->refresh();
     }
 
     public function getDurationSecondsAttribute(): ?int

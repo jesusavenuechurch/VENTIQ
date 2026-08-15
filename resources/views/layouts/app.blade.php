@@ -314,13 +314,17 @@
                             <i class="fas fa-chevron-down text-[8px] transition-transform" :class="accountOpen ? 'rotate-180' : ''"></i>
                         </button>
 
-                        <div x-show="accountOpen"
-                             x-cloak
-                             @click.away="accountOpen = false"
-                             x-transition:enter="transition ease-out duration-150"
-                             x-transition:enter-start="opacity-0 -translate-y-1"
-                             x-transition:enter-end="opacity-100 translate-y-0"
-                             class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                       <div x-show="accountOpen"
+                            x-cloak
+                            @click.away="accountOpen = false"
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 -translate-y-1"
+                            x-transition:enter-end="opacity-100 translate-y-0"
+                            class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                            <a href="{{ route('sessions.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Sessions</a>
+                            <a href="{{ route('programmes.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Programmes</a>
+                            <a href="{{ route('organization.members') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Team</a>
+                            <div class="border-t border-gray-100"></div>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit"

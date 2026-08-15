@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\TierTemplateResource;
 use App\Models\EventTier;
 use App\Models\Event;
 use Filament\Forms;
@@ -409,7 +410,7 @@ class EventTierResource extends Resource
                     ->label('📋 Manage Templates')
                     ->icon('heroicon-o-document-duplicate')
                     ->color('info')
-                    ->url(route('filament.admin.resources.tier-templates.index'))
+                    ->url(TierTemplateResource::getUrl('index'))
                     ->openUrlInNewTab(),
 
                 Tables\Actions\Action::make('tier_statistics')

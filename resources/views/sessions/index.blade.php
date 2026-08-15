@@ -2,8 +2,6 @@
 @section('title', 'Sessions | VENTIQ')
 @section('content')
 <style>
-    /* Same tape/folded-corner pattern already used for AI insight
-       stickies in the live workspace — reused here, not reinvented. */
     .session-note {
         position: relative;
         padding: 18px 14px 14px;
@@ -33,8 +31,6 @@
         border-radius: 24px;
         padding: 24px;
     }
-    /* vertical separators between columns, per doc 12 — categories are
-       columns on a desk, not horizontal sections stacked on a page */
     .desk-column {
         border-left: 1px dashed rgba(15,23,42,0.1);
         padding-left: 1.5rem;
@@ -48,7 +44,9 @@
 <div class="max-w-6xl mx-auto px-4 py-8">
 
     <div class="mb-8">
-        <p class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-1">Ventiq</p>
+        <p class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-1">
+            Ventiq · {{ $organization->name }}
+        </p>
 
         @php
             $hour = now()->hour;
@@ -58,41 +56,107 @@
 
         <p class="text-[15px] font-bold text-[#1D4069]">{{ $greeting }}, {{ $firstName }} — what's happening today?</p>
 
-        {{-- ── "Start something" is its own object, deliberately not mixed
-             with the board below, per doc 12's "two different conversations" ── --}}
+        @if(session('status'))
+            <div class="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-[11px] font-bold text-emerald-700">
+                {{ session('status') }}
+            </div>
+        @endif
+
         <div class="flex flex-wrap gap-2 items-center mt-4">
             <a href="{{ route('sessions.create') }}"
-               class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#F07F22] text-white text-[12px] font-black uppercase tracking-wide shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                🎤 Start a Presentation
+            class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#F07F22] text-white text-[12px] font-black uppercase tracking-wide shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">
+                ✨ Schedule a Session
             </a>
-            @foreach(['🤝 Meeting', '📖 Lecture', '⛪ Church', '🛠 Workshop', '🎓 Training', '📋 Board'] as $type)
-                @php [$icon, $label] = explode(' ', $type, 2); @endphp
-                <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-gray-50 text-gray-300 text-[10px] font-black uppercase tracking-wide cursor-not-allowed" title="Coming soon">
-                    {{ $icon }} {{ $label }} <span class="text-[8px]">soon</span>
-                </span>
-            @endforeach
+
+            <a href="{{ route('organization.members') }}"
+            class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-gray-100 hover:border-[#1D4069]/30 transition-all text-[10px] font-black text-[#1D4069] uppercase tracking-wide">
+                👥 {{ $memberCount }} {{ Str::plural('Member', $memberCount) }}
+            </a>
+
+            <a href="{{ \App\Filament\Resources\SessionPackageResource::getUrl('index') }}"
+            class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl {{ $sessionsRemaining > 0 ? 'bg-white border border-gray-100 hover:border-[#1D4069]/30 text-[#1D4069]' : 'bg-rose-50 border border-rose-100 hover:border-rose-300 text-rose-700' }} transition-all text-[10px] font-black uppercase tracking-wide">
+                🎟 {{ $sessionsUsed }}/{{ $sessionsIncluded }} Sessions
+            </a>
+
+            @if($pendingInviteCount > 0)
+                <a href="{{ route('organization.members') }}"
+                class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-100 hover:border-amber-300 transition-all text-[10px] font-black text-amber-700 uppercase tracking-wide">
+                    ⏳ {{ $pendingInviteCount }} Pending
+                </a>
+            @endif
+
+            {{-- Always visible — this is the permanent archive, not a
+                 desk column that can empty out and disappear on you. --}}
+            <a href="{{ route('sessions.reports') }}"
+               class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-gray-100 hover:border-[#1D4069]/30 transition-all text-[10px] font-black text-[#1D4069] uppercase tracking-wide">
+                📄 Reports
+                @if($needsReviewCount > 0)
+                    <span class="ml-1 px-1.5 py-0.5 rounded-full bg-[#F07F22] text-white text-[9px]">{{ $needsReviewCount }}</span>
+                @endif
+            </a>
+
+            <a href="{{ route('programmes.index') }}"
+               class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-gray-100 hover:border-[#1D4069]/30 transition-all text-[10px] font-black text-[#1D4069] uppercase tracking-wide">
+                📁 Programmes
+            </a>
+
+            {{-- Ticketed events live in the Filament admin, a separate
+                 product from Sessions — opens in a new tab so people don't
+                 lose their place on the Desk. --}}
+            <a href="{{ \App\Filament\Resources\EventResource::getUrl('create') }}" target="_blank"
+               class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-gray-100 hover:border-[#1D4069]/30 transition-all text-[10px] font-black text-[#1D4069] uppercase tracking-wide">
+                🎫 Create an Event ↗
+            </a>
         </div>
     </div>
 
-    @unless($hasFeature)
+    @if($sessionsRemaining <= 0)
         <div class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-between gap-4">
-            <p class="text-[11px] font-bold text-amber-700">Package doesn't include Sessions.</p>
-            <a href="{{ route('pricing') }}" class="shrink-0 px-4 py-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest">Upgrade</a>
+            <p class="text-[11px] font-bold text-amber-700">
+                You've used your {{ $sessionsIncluded }} included {{ Str::plural('session', $sessionsIncluded) }}. Add more sessions with PAYG or upgrade your plan.
+            </p>
+            <a href="{{ \App\Filament\Resources\SessionPackageResource::getUrl('index') }}" class="shrink-0 px-4 py-1.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest">Add Sessions</a>
         </div>
-    @endunless
+    @endif
 
-    {{-- ── THE DESK — columns, not stacked sections. Notes stack DOWN
-         inside a column; categories sit side by side, separated by a
-         thin dashed rule, per doc 12. Headings are quiet on purpose:
-         "think museum" — the notes are the stars, not the labels. ── --}}
-    @if($readyToReview->isNotEmpty() || $happeningNow->isNotEmpty() || $comingUp->isNotEmpty() || $recentSessions->isNotEmpty())
+    @php
+        $filterMap = [
+            'ready'   => ['label' => 'Ready to Review',   'items' => $readyToReview,  'tint' => '#FDF3D9', 'empty' => 'Nothing waiting'],
+            'live'    => ['label' => 'Happening Now',     'items' => $happeningNow,   'tint' => '#FFE9CE', 'empty' => 'Nothing live'],
+            'upcoming'=> ['label' => 'Coming Up',         'items' => $comingUp,       'tint' => '#E9EEF5', 'empty' => 'Nothing scheduled'],
+            'recent'  => ['label' => 'Recently Finished', 'items' => $recentSessions, 'tint' => '#F1F5F9', 'empty' => 'Nothing yet'],
+        ];
+        $active = $filter && isset($filterMap[$filter]) ? $filterMap[$filter] : null;
+    @endphp
+
+    @if($active)
+        <a href="{{ route('sessions.index') }}" class="inline-block text-[10px] font-bold text-gray-400 hover:text-[#1D4069] uppercase tracking-widest mb-4">← Back to Desk</a>
+
+        <div class="cork-board">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">{{ $active['label'] }} · {{ $active['items']->count() }}</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @forelse($active['items'] as $session)
+                    @include('sessions.partials.tile', [
+                        'session' => $session,
+                        'category' => $filter,
+                        'tint' => $active['tint'],
+                        'href' => in_array($filter, ['ready']) || ($filter === 'recent' && $session->status === 'reported')
+                            ? route('sessions.report', $session)
+                            : route('sessions.show', $session),
+                    ])
+                @empty
+                    <p class="text-[10px] text-gray-300 italic">{{ $active['empty'] }}</p>
+                @endforelse
+            </div>
+        </div>
+    @elseif($readyToReview->isNotEmpty() || $happeningNow->isNotEmpty() || $comingUp->isNotEmpty() || $recentSessions->isNotEmpty())
         <div class="cork-board">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
 
                 <div class="desk-column">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Ready to Review</p>
                     <div class="space-y-4">
-                        @forelse($readyToReview as $session)
+                        @forelse($readyToReview->take(4) as $session)
                             @include('sessions.partials.tile', [
                                 'session' => $session, 'category' => 'review', 'tint' => '#FDF3D9',
                                 'href' => route('sessions.report', $session),
@@ -101,12 +165,17 @@
                             <p class="text-[10px] text-gray-300 italic">Nothing waiting</p>
                         @endforelse
                     </div>
+                    @if($readyToReview->count() > 4)
+                        <a href="{{ route('sessions.index', ['filter' => 'ready']) }}" class="inline-block text-[10px] font-bold text-[#1D4069] underline mt-3">
+                            View all {{ $readyToReview->count() }} →
+                        </a>
+                    @endif
                 </div>
 
                 <div class="desk-column">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Happening Now</p>
                     <div class="space-y-4">
-                        @forelse($happeningNow as $session)
+                        @forelse($happeningNow->take(4) as $session)
                             @include('sessions.partials.tile', [
                                 'session' => $session, 'category' => 'live', 'tint' => '#FFE9CE',
                                 'href' => route('sessions.show', $session),
@@ -115,12 +184,17 @@
                             <p class="text-[10px] text-gray-300 italic">Nothing live</p>
                         @endforelse
                     </div>
+                    @if($happeningNow->count() > 4)
+                        <a href="{{ route('sessions.index', ['filter' => 'live']) }}" class="inline-block text-[10px] font-bold text-[#1D4069] underline mt-3">
+                            View all {{ $happeningNow->count() }} →
+                        </a>
+                    @endif
                 </div>
 
                 <div class="desk-column">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Coming Up</p>
                     <div class="space-y-4">
-                        @forelse($comingUp as $session)
+                        @forelse($comingUp->take(4) as $session)
                             @include('sessions.partials.tile', [
                                 'session' => $session, 'category' => 'upcoming', 'tint' => '#E9EEF5',
                                 'href' => route('sessions.show', $session),
@@ -129,13 +203,17 @@
                             <p class="text-[10px] text-gray-300 italic">Nothing scheduled</p>
                         @endforelse
                     </div>
+                    @if($comingUp->count() > 4)
+                        <a href="{{ route('sessions.index', ['filter' => 'upcoming']) }}" class="inline-block text-[10px] font-bold text-[#1D4069] underline mt-3">
+                            View all {{ $comingUp->count() }} →
+                        </a>
+                    @endif
                 </div>
 
                 <div class="desk-column">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Recently Finished</p>
                     <div class="space-y-4">
-                        {{-- doc 12: "I'd show maybe two. Then View all history →" --}}
-                        @forelse($recentSessions->take(2) as $session)
+                        @forelse($recentSessions->take(4) as $session)
                             @include('sessions.partials.tile', [
                                 'session' => $session, 'category' => 'recent', 'tint' => '#F1F5F9',
                                 'href' => $session->status === 'reported' ? route('sessions.report', $session) : route('sessions.show', $session),
@@ -144,11 +222,9 @@
                             <p class="text-[10px] text-gray-300 italic">Nothing yet</p>
                         @endforelse
                     </div>
-                    @if($recentSessions->count() > 2)
-                        {{-- ASSUMPTION: this route doesn't exist in what you've shared me —
-                             swap in whatever your actual "all sessions" / history route is named --}}
-                        <a href="{{ route('sessions.index') }}" class="inline-block text-[10px] font-bold text-[#1D4069] underline mt-3">
-                            View all history →
+                    @if($recentSessions->count() > 4)
+                        <a href="{{ route('sessions.index', ['filter' => 'recent']) }}" class="inline-block text-[10px] font-bold text-[#1D4069] underline mt-3">
+                            View all {{ $recentSessions->count() }} →
                         </a>
                     @endif
                 </div>

@@ -247,179 +247,6 @@
                     </div>
                     @endif
 
-                    {{-- ── PAYMENT SECTION ───────────────────────────────── --}}
-                    @if($selectedTier && $selectedTier->price > 0)
-                    <div class="pt-6 border-t border-gray-50 space-y-6">
-                        <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Payment Setup</h3>
-
-                        @if($paymentMethods->isNotEmpty())
-
-                            {{-- Payment Plan (Full vs Installments) --}}
-                            @if($event->allow_installments)
-                            <div class="space-y-4">
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Plan</label>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <label class="relative cursor-pointer group">
-                                        <input type="radio" name="payment_type" value="full" class="peer sr-only" {{ old('payment_type', 'full') == 'full' ? 'checked' : '' }} required>
-                                        <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-[#1D4069] peer-checked:bg-white peer-checked:shadow-xl">
-                                            <div class="flex items-center justify-between mb-4">
-                                                <div class="w-12 h-12 bg-[#1D4069]/10 rounded-2xl flex items-center justify-center text-[#1D4069]">
-                                                    <i class="fas fa-money-bill-wave text-xl"></i>
-                                                </div>
-                                            </div>
-                                            <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Full Amount</h4>
-                                            <p class="text-2xl font-black text-[#F07F22] mt-1">M{{ number_format($selectedTier->price) }}</p>
-                                            <div class="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-check text-emerald-500 mr-2"></i>Instant Activation</p>
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-check text-emerald-500 mr-2"></i>Full Access</p>
-                                            </div>
-                                        </div>
-                                    </label>
-
-                                    <label class="relative cursor-pointer group">
-                                        <input type="radio" name="payment_type" value="deposit" class="peer sr-only" {{ old('payment_type') == 'deposit' ? 'checked' : '' }}>
-                                        <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-emerald-600 peer-checked:bg-white peer-checked:shadow-xl">
-                                            <div class="flex items-center justify-between mb-4">
-                                                <div class="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                                                    <i class="fas fa-calendar-check text-xl"></i>
-                                                </div>
-                                            </div>
-                                            <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Installments</h4>
-                                            <p class="text-2xl font-black text-emerald-600 mt-1">M{{ number_format($selectedTier->price * ($event->minimum_deposit_percentage / 100)) }}+</p>
-                                            <div class="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-percent text-emerald-500 mr-2"></i>{{ number_format($event->minimum_deposit_percentage, 0) }}% Min Deposit</p>
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-calendar-alt text-emerald-500 mr-2"></i>Flexible Schedule</p>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {{-- Deposit Amount Input --}}
-                            <div id="deposit-amount-section" class="hidden">
-                                <div class="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-8">
-                                    <label class="block text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em] mb-4 text-center">Initial Payment Amount</label>
-
-                                    <div class="relative max-w-xs mx-auto">
-                                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-emerald-400 font-black">M</span>
-                                        <input type="number" name="deposit_amount" id="deposit_amount" step="0.01"
-                                            min="{{ $selectedTier->price * ($event->minimum_deposit_percentage / 100) }}"
-                                            max="{{ $selectedTier->price }}"
-                                            value="{{ old('deposit_amount', $selectedTier->price * ($event->minimum_deposit_percentage / 100)) }}"
-                                            class="w-full pl-12 pr-6 py-5 bg-white border-2 border-emerald-200 rounded-2xl focus:border-emerald-500 outline-none text-2xl font-black text-emerald-900 shadow-inner">
-                                    </div>
-
-                                    @php
-                                        $minDeposit = $selectedTier->price * ($event->minimum_deposit_percentage / 100);
-                                        $halfAmount = $selectedTier->price / 2;
-                                        $fullAmount = $selectedTier->price;
-                                    @endphp
-                                    <div class="flex flex-wrap justify-center gap-2 mt-6">
-                                        <button type="button" onclick="setDepositAmount({{ $minDeposit }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Min</button>
-                                        <button type="button" onclick="setDepositAmount({{ $halfAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Half</button>
-                                        <button type="button" onclick="setDepositAmount({{ $fullAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Full</button>
-                                    </div>
-                                </div>
-                            </div>
-                            @else
-                                <input type="hidden" name="payment_type" value="full">
-                            @endif
-
-                            {{-- Payment Methods --}}
-                            <div class="space-y-4">
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Provider</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                @foreach($paymentMethods as $method)
-                                    @php
-                                        $config = config('constants.payment_methods.' . $method->payment_method, []);
-                                        $icon = $config['icon'] ?? 'fa-money-bill';
-                                        $color = $config['color'] ?? 'text-gray-600';
-                                        $label = $config['label'] ?? ucfirst($method->payment_method);
-                                    @endphp
-
-                                    @if($method->payment_method === 'online')
-                                        <label class="relative cursor-pointer group">
-                                            <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
-                                                data-instructions="You'll be redirected to our secure payment page. A small processing fee applies to online payments."
-                                                data-is-cash="false"
-                                                {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
-
-                                            <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
-                                                <div class="flex items-center mb-3">
-                                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm text-[#F07F22]">
-                                                        <i class="fas fa-bolt text-lg"></i>
-                                                    </div>
-                                                    <span class="text-xs font-black text-gray-900 uppercase tracking-tight">Pay Online</span>
-                                                </div>
-                                                <div class="mt-auto space-y-1">
-                                                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">M-Pesa · EcoCash · Card</p>
-                                                    <p class="text-[9px] font-bold text-emerald-600 uppercase">✓ Instant ticket activation</p>
-                                                    <p class="text-[9px] font-bold text-amber-500 uppercase">⚡ Processing fee applies</p>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    @else
-                                        <label class="relative cursor-pointer group">
-                                            <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
-                                                data-instructions="{{ $method->instructions }}"
-                                                data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
-                                                {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
-
-                                            <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
-                                                <div class="flex items-center mb-3">
-                                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm {{ $color }}">
-                                                        <i class="fas {{ $icon }} text-lg"></i>
-                                                    </div>
-                                                    <span class="text-xs font-black text-gray-900 uppercase tracking-tight truncate">{{ $label }}</span>
-                                                </div>
-
-                                                @if($method->payment_method !== 'cash' && $method->account_number)
-                                                    <div class="mt-auto bg-gray-50 rounded-lg p-2 border border-gray-100">
-                                                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">{{ $config['account_label'] ?? 'Send to' }}</p>
-                                                        <p class="text-[11px] font-mono font-bold text-gray-900 break-all leading-none">{{ $method->account_number }}</p>
-                                                    </div>
-                                                @else
-                                                    <div class="mt-auto py-2">
-                                                        <p class="text-[10px] font-bold text-gray-400 uppercase text-center italic tracking-wider">Pay in person</p>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </label>
-                                    @endif
-                                @endforeach
-                                </div>
-                            </div>
-
-                            {{-- Payment Instructions --}}
-                            <div id="payment-instructions" class="hidden bg-[#1D4069] border border-[#1D4069] rounded-2xl p-5">
-                                <div class="flex items-start">
-                                    <i class="fas fa-info-circle text-white text-lg mr-4 mt-0.5"></i>
-                                    <div class="flex-1">
-                                        <p class="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-1">Payment Instructions</p>
-                                        <p class="text-sm font-bold text-white leading-relaxed" id="instruction-text"></p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Payment Reference --}}
-                            <div>
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference <span class="lowercase text-gray-300">(optional)</span></label>
-                                <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Enter transaction reference"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
-                            </div>
-
-                        @else
-                            <div class="bg-amber-50 border-2 border-amber-100 rounded-3xl p-6 text-center">
-                                <i class="fas fa-exclamation-triangle text-amber-500 mb-2"></i>
-                                <h4 class="text-[10px] font-black text-amber-900 uppercase tracking-widest leading-none">Payments Not Configured</h4>
-                            </div>
-                        @endif
-                    </div>
-                    @else
-                        <input type="hidden" name="payment_method_id" value="">
-                        <input type="hidden" name="payment_type" value="full">
-                    @endif
-
                     {{-- ── FREE TICKET BANNER ────────────────────────────── --}}
                     @if($selectedTier && $selectedTier->price == 0)
                     <div class="animate-in fade-in zoom-in duration-500">
@@ -439,7 +266,7 @@
                         </label>
 
                         <button type="submit" class="hidden lg:block w-full py-6 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-xl active:scale-[0.98] transition-all">
-                            Complete Registration
+                            {{ $selectedTier && $selectedTier->price > 0 ? 'Continue to Payment' : 'Complete Registration' }}
                         </button>
                     </div>
                 </form>
@@ -482,7 +309,7 @@
                 </span>
             </div>
             <button onclick="document.getElementById('regForm').submit()" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
-                Register
+                {{ isset($selectedTier) && $selectedTier->price > 0 ? 'Continue to Payment' : 'Register' }}
             </button>
         </div>
     </div>
@@ -529,59 +356,6 @@
             });
         });
 
-        // Payment type toggle (full vs deposit)
-        const paymentTypeRadios = document.querySelectorAll('input[name="payment_type"]');
-        const depositSection = document.getElementById('deposit-amount-section');
-        const depositInput = document.getElementById('deposit_amount');
-
-        function updateDepositSection() {
-            const selectedType = document.querySelector('input[name="payment_type"]:checked')?.value;
-            if (selectedType === 'deposit') {
-                depositSection?.classList.remove('hidden');
-                if (depositInput) depositInput.required = true;
-            } else {
-                depositSection?.classList.add('hidden');
-                if (depositInput) depositInput.required = false;
-            }
-        }
-
-        paymentTypeRadios.forEach(radio => {
-            radio.addEventListener('change', updateDepositSection);
-        });
-        updateDepositSection();
-
-        // Payment method instructions
-        const methodRadios = document.querySelectorAll('input[name="payment_method_id"]');
-        const instructionsBox = document.getElementById('payment-instructions');
-        const instructionText = document.getElementById('instruction-text');
-
-        methodRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                const instructions = this.dataset.instructions;
-                const isCash = this.dataset.isCash === 'true';
-
-                if (instructions && instructions !== 'null') {
-                    instructionText.textContent = instructions;
-                    instructionsBox.classList.remove('hidden');
-                } else if (isCash) {
-                    instructionText.textContent = 'Pay in person at the venue or designated location. Your ticket will be activated upon payment confirmation.';
-                    instructionsBox.classList.remove('hidden');
-                } else {
-                    instructionsBox.classList.add('hidden');
-                }
-            });
-        });
-
-        const checkedMethod = document.querySelector('input[name="payment_method_id"]:checked');
-        if (checkedMethod) {
-            checkedMethod.dispatchEvent(new Event('change'));
-        }
-
-        // Deposit amount helper
-        window.setDepositAmount = function(amount) {
-            const input = document.getElementById('deposit_amount');
-            if (input) input.value = amount.toFixed(2);
-        };
     });
     </script>
 </body>

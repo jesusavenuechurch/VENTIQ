@@ -21,6 +21,7 @@ class Session extends Model
         'created_by',
         'event_id',
         'public_token',
+        'session_code',
         'parent_session_id',
         'type',
         'title',
@@ -31,12 +32,15 @@ class Session extends Model
         'report_last_opened_at',
         'status',
         'report_job_id',
+        'start_time',
+        'reviewed_at',
     ];
 
     protected $casts = [
         'date'                   => 'date',
         'meta'                   => 'array',
         'report_last_opened_at'  => 'datetime',
+        'reviewed_at'            => 'datetime',
     ];
 
     // ── Relationships ────────────────────────────────────────────────────
@@ -124,6 +128,25 @@ class Session extends Model
         $this->update(['report_job_id' => $jobId]);
 
         \App\Jobs\GenerateSessionReport::dispatch($jobId, $this->created_by, $this->id);
+    }
+
+    // ── Public check-in code ────────────────────────────────────────────
+    // A second, human-typeable door into the same check-in form the QR
+    // encodes — for anyone who can't scan. Short and ambiguity-free
+    // (no 0/O/1/I/L) so it's easy to read off a printed pass and type in.
+    public static function generateSessionCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        $length = strlen($alphabet);
+
+        do {
+            $code = '';
+            for ($i = 0; $i < 6; $i++) {
+                $code .= $alphabet[random_int(0, $length - 1)];
+            }
+        } while (static::where('session_code', $code)->exists());
+
+        return $code;
     }
 
     // ── Title resolution ────────────────────────────────────────────────

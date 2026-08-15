@@ -2,6 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\EventResource;
+use App\Filament\Resources\OrganizationPaymentMethodResource;
+use App\Filament\Resources\PackagePurchaseResource;
+use App\Filament\Resources\TicketResource;
 use App\Models\Event;
 use App\Models\Ticket;
 use App\Models\SettlementItem;
@@ -73,8 +77,7 @@ class WelcomeWidget extends Widget
                         'value'  => $pendingCount,
                         'icon'   => 'heroicon-s-clock',
                         'color'  => '#F07F22',
-                        'route'  => 'filament.admin.resources.tickets.index',
-                        'params' => [],
+                        'url'    => TicketResource::getUrl('index'),
                         'badge'  => $pendingCount > 0,
                     ],
                     [
@@ -82,8 +85,7 @@ class WelcomeWidget extends Widget
                         'value'  => null,
                         'icon'   => 'heroicon-s-plus-circle',
                         'color'  => '#1D4069',
-                        'route'  => 'filament.admin.resources.events.create',
-                        'params' => [],
+                        'url'    => EventResource::getUrl('create'),
                         'badge'  => false,
                     ],
                     [
@@ -91,8 +93,7 @@ class WelcomeWidget extends Widget
                         'value'  => null,
                         'icon'   => 'heroicon-s-calendar-days',
                         'color'  => '#10B981',
-                        'route'  => 'filament.admin.resources.events.index',
-                        'params' => [],
+                        'url'    => EventResource::getUrl('index'),
                         'badge'  => false,
                     ],
                     [
@@ -100,8 +101,7 @@ class WelcomeWidget extends Widget
                         'value'  => $package?->display_name,
                         'icon'   => 'heroicon-s-cube',
                         'color'  => '#8B5CF6',
-                        'route'  => 'filament.admin.resources.package-purchases.index',
-                        'params' => [],
+                        'url'    => PackagePurchaseResource::getUrl('index'),
                         'badge'  => false,
                     ],
                 ],
@@ -136,8 +136,7 @@ class WelcomeWidget extends Widget
                     'title'  => 'Activate a Package',
                     'desc'   => 'Start with a free trial or purchase a package to unlock your event capacity.',
                     'icon'   => 'heroicon-o-cube',
-                    'route'  => 'filament.admin.resources.package-purchases.index',
-                    'params' => [],
+                    'url'    => PackagePurchaseResource::getUrl('index'),
                     'color'  => '#8B5CF6',
                 ],
                 [
@@ -145,8 +144,7 @@ class WelcomeWidget extends Widget
                     'title'  => 'Set Up Payments',
                     'desc'   => 'Online payments are configured during event creation. You can also add manual methods like M-Pesa or bank transfer.',
                     'icon'   => 'heroicon-o-credit-card',
-                    'route'  => 'filament.admin.resources.organization-payment-methods.index',
-                    'params' => [],
+                    'url'    => OrganizationPaymentMethodResource::getUrl('index'),
                     'color'  => '#F07F22',
                 ],
                 [
@@ -154,8 +152,7 @@ class WelcomeWidget extends Widget
                     'title'  => 'Create Your First Event',
                     'desc'   => 'Add event details, set up tickets, choose free or paid, publish and share the link.',
                     'icon'   => 'heroicon-o-rocket-launch',
-                    'route'  => 'filament.admin.resources.events.create',
-                    'params' => [],
+                    'url'    => EventResource::getUrl('create'),
                     'color'  => '#10B981',
                 ],
             ],

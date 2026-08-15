@@ -51,7 +51,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('public.session-checkin.submit', $session->public_token) }}" class="space-y-4">
+            <form method="POST" action="{{ route('public.session-checkin.submit', $session->public_token) }}" class="space-y-4" enctype="multipart/form-data">
                 @csrf
                 <input type="text" name="full_name" required placeholder="Full name" autofocus
                        value="{{ old('full_name', $existing->client->full_name ?? '') }}"
@@ -68,10 +68,34 @@
                 <input type="text" name="position" placeholder="Position / Role"
                        value="{{ old('position', $existing->position ?? '') }}"
                        class="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 font-bold outline-none focus:ring-2 focus:ring-[#F07F22]/20">
+
+                <label class="block">
+                    <span class="block text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                        Photo for your attendance card (optional)
+                    </span>
+                    <div class="flex items-center gap-3">
+                        <div id="photo-preview" class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-300 text-xl shrink-0 overflow-hidden">📷</div>
+                        <input type="file" name="photo" accept="image/*" capture="user" id="photo-input"
+                               class="flex-1 text-[11px] font-bold text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[9px] file:font-black file:uppercase file:tracking-widest file:bg-gray-100 file:text-[#1D4069]">
+                    </div>
+                </label>
+
                 <button type="submit" class="w-full py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white font-black text-[10px] uppercase tracking-[0.3em] transition-all">
                     Check In
                 </button>
             </form>
+            <script>
+                document.getElementById('photo-input')?.addEventListener('change', function (e) {
+                    const file = e.target.files[0];
+                    const preview = document.getElementById('photo-preview');
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        preview.innerHTML = `<img src="${reader.result}" class="w-full h-full object-cover">`;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            </script>
         @endif
     </div>
 </div>

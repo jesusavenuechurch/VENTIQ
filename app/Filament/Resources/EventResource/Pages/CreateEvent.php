@@ -3,10 +3,8 @@
 namespace App\Filament\Resources\EventResource\Pages;
 
 use App\Filament\Resources\EventResource;
-use App\Models\OrganizationPackage;
 use App\Models\OrganizationPaymentMethod;
 use Filament\Forms;
-use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Wizard\Step;
 use Filament\Resources\Pages\CreateRecord;
@@ -27,88 +25,30 @@ class CreateEvent extends CreateRecord
         $org          = $user?->organization;
         $steps        = [];
 
-        // ── Available packages ─────────────────────────────────────────
-        $availablePackages = $isSuperAdmin
-            ? OrganizationPackage::where('status', 'active')
-                ->with('organization')
-                ->get()
-                ->mapWithKeys(fn ($p) => [
-                    $p->id => "[{$p->organization->name}] {$p->display_name} — {$p->remaining_tickets} tickets left"
-                ])
-            : ($org?->availablePackages()->mapWithKeys(fn ($p) => [
-                $p->id => "{$p->display_name} — {$p->remaining_tickets} tickets · {$p->remaining_comp_tickets} comp"
-            ]) ?? collect());
+        // ── STEP 1: EVENT TYPE ──────────────────────────────────────────
+        // No longer gated behind a package/workshop_enabled flag — every
+        // org can create either kind of event now.
+        $steps[] = Step::make('Event Type')
+            ->icon('heroicon-o-squares-2x2')
+            ->description('What are you creating?')
+            ->schema([
+                Forms\Components\Radio::make('event_type')
+                    ->label('What would you like to create?')
+                    ->options([
+                        'standard' => '📅 Standard Event',
+                        'workshop' => '🎓 Workshop / Training',
+                    ])
+                    ->descriptions([
+                        'standard' => 'Conferences, concerts, church events, galas, community gatherings.',
+                        'workshop' => 'Donor workshops, ministry trainings, funded programmes, HR sessions.',
+                    ])
+                    ->default('standard')
+                    ->required()
+                    ->live()
+                    ->columnSpanFull(),
+            ]);
 
-        $singlePackage = $availablePackages->count() === 1
-            ? OrganizationPackage::find($availablePackages->keys()->first())
-            : null;
-
-        // ── STEP: PACKAGE (only if more than one) ─────────────────────
-        if ($availablePackages->count() > 1 || $isSuperAdmin) {
-            $steps[] = Step::make('Package')
-                ->icon('heroicon-o-cube')
-                ->description('Choose which package funds this event')
-                ->schema([
-                    Forms\Components\Select::make('organization_package_id')
-                        ->label('Select Package')
-                        ->options($availablePackages)
-                        ->required(!$isSuperAdmin)
-                        ->searchable()
-                        ->live()
-                        ->helperText('Each package funds one event.')
-                        ->afterStateUpdated(function ($state, Forms\Set $set) {
-                            if ($state) {
-                                $package = OrganizationPackage::find($state);
-                                if ($package) {
-                                    $set('organization_id', $package->organization_id);
-                                    $set('capacity', $package->package_type === 'enterprise'
-                                        ? null
-                                        : $package->remaining_tickets
-                                    );
-                                }
-                            }
-                        })
-                        ->columnSpanFull(),
-
-                    Forms\Components\Placeholder::make('package_summary')
-                        ->label('')
-                        ->content(function (Forms\Get $get) {
-                            $packageId = $get('organization_package_id');
-                            if (!$packageId) return new HtmlString(
-                                '<div class="p-4 border border-dashed border-gray-200 rounded-xl text-center text-gray-400 text-sm">Select a package above</div>'
-                            );
-                            return $this->packageSummaryHtml(OrganizationPackage::find($packageId));
-                        })
-                        ->columnSpanFull(),
-                ]);
-        }
-
-        // ── STEP 1: EVENT TYPE (only if org has workshop access) ───────
-        $showEventTypeStep = $isSuperAdmin || ($org?->hasWorkshopAccess() ?? false);
-
-        if ($showEventTypeStep) {
-            $steps[] = Step::make('Event Type')
-                ->icon('heroicon-o-squares-2x2')
-                ->description('What are you creating?')
-                ->schema([
-                    Forms\Components\Radio::make('event_type')
-                        ->label('What would you like to create?')
-                        ->options([
-                            'standard' => '📅 Standard Event',
-                            'workshop' => '🎓 Workshop / Training',
-                        ])
-                        ->descriptions([
-                            'standard' => 'Conferences, concerts, church events, galas, community gatherings.',
-                            'workshop' => 'Donor workshops, ministry trainings, funded programmes, HR sessions.',
-                        ])
-                        ->default('standard')
-                        ->required()
-                        ->live()
-                        ->columnSpanFull(),
-                ]);
-        }
-
-        // ── STEP 2: EVENT DETAILS ──────────────────────────────────────
+        // ── STEP 2: EVENT DETAILS ────────────────────────────────────────
         $steps[] = Step::make('Event Details')
             ->icon('heroicon-o-information-circle')
             ->description('Basic event information')
@@ -124,12 +64,7 @@ class CreateEvent extends CreateRecord
                     '))
                     ->columnSpanFull(),
 
-                Forms\Components\Hidden::make('slug_locked')->default(false),
                 Forms\Components\Hidden::make('tagline_locked')->default(false),
-                Forms\Components\Hidden::make('organization_package_id')->default($singlePackage?->id),
-
-                // event_type default for orgs without workshop access
-                Forms\Components\Hidden::make('event_type')->default('standard'),
 
                 Forms\Components\Select::make('organization_id')
                     ->relationship('organization', 'name')
@@ -175,17 +110,8 @@ class CreateEvent extends CreateRecord
                     ->required()
                     ->live(debounce: 500)
                     ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                        if (!$get('slug_locked')) $set('slug', Str::slug($state));
                         if (!$get('tagline_locked')) $set('tagline', $state);
                     })
-                    ->columnSpan(1),
-
-                Forms\Components\TextInput::make('slug')
-                    ->label('Public URL Slug')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->afterStateUpdated(fn ($set) => $set('slug_locked', true))
-                    ->helperText('Auto-generated from event name')
                     ->columnSpan(1),
 
                 Forms\Components\TextInput::make('tagline')
@@ -198,34 +124,15 @@ class CreateEvent extends CreateRecord
                     ->rows(4)
                     ->columnSpanFull(),
 
+                // No longer gated — every org can run a private event now.
                 Forms\Components\Toggle::make('is_public')
                     ->label('Public Event')
                     ->default(true)
-                    ->live()
-                    ->disabled(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
-                        if ($isSuperAdmin) return false;
-                        $package = OrganizationPackage::find($get('organization_package_id')) ?? $singlePackage;
-                        return !($package?->hasFeature('private_events') ?? false);
-                    })
-                    ->hint(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
-                        if ($isSuperAdmin) return null;
-                        $package = OrganizationPackage::find($get('organization_package_id')) ?? $singlePackage;
-                        if (!($package?->hasFeature('private_events') ?? false)) {
-                            return new HtmlString('🔒 Not included in your package. <button type="button" onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\', { detail: { feature: \'private_events\' } }))" class="underline font-medium text-primary-600">Upgrade</button>');
-                        }
-                        return null;
-                    })
-                    ->columnSpanFull(),
-
-                Forms\Components\Placeholder::make('auto_package_notice')
-                    ->label('')
-                    ->content(fn () => $singlePackage ? $this->packageSummaryHtml($singlePackage) : null)
-                    ->visible(fn () => $singlePackage !== null)
                     ->columnSpanFull(),
             ])
             ->columns(2);
 
-        // ── STEP 3: SCHEDULE & LOCATION ───────────────────────────────
+        // ── STEP 3: SCHEDULE & LOCATION — unchanged ─────────────────────
         $steps[] = Step::make('Schedule & Location')
             ->icon('heroicon-o-calendar')
             ->description('When and where')
@@ -341,7 +248,7 @@ class CreateEvent extends CreateRecord
                     ->collapsible(),
             ]);
 
-        // ── STEP 4: REGISTRATION & PAYMENTS ───────────────────────────
+        // ── STEP 4: REGISTRATION & PAYMENTS ─────────────────────────────
         $steps[] = Step::make('Registration & Payments')
             ->icon('heroicon-o-credit-card')
             ->description('How will attendees register?')
@@ -362,21 +269,23 @@ class CreateEvent extends CreateRecord
                     ->live()
                     ->columnSpanFull(),
 
-                // ── PAID: payment method selection ─────────────────────
                 Forms\Components\Section::make('Payment Methods')
                     ->description('Choose how attendees will pay for this event.')
                     ->visible(fn (Forms\Get $get) => $get('payment_mode') === 'paid')
                     ->schema([
 
-                        // Online payments toggle
+                        // FIX: was "A 5% processing fee is added at checkout" —
+                        // stale wording from the old MoPay-only 5% split. The
+                        // real model now is 4.9% + R7.50/ticket, taken via
+                        // Settlement, and PayLesotho is the primary gateway
+                        // with MoPay as fallback — not a flat 5% either way.
                         Forms\Components\Checkbox::make('enable_online_payments')
                             ->label('💳 Online Payments (Recommended)')
-                            ->helperText('Attendees pay via M-Pesa, EcoCash, or Card. A 5% processing fee is added at checkout. Tickets activate instantly.')
+                            ->helperText('Attendees pay via M-Pesa, EcoCash, or Card. Ventiq\'s ticketing fee (4.9% + M7.50/ticket) is settled separately — not added at checkout. Tickets activate instantly.')
                             ->default(true)
                             ->live()
                             ->columnSpanFull(),
 
-                        // Manual payment methods — checkboxes from org's configured methods
                         Forms\Components\CheckboxList::make('enabled_payment_method_ids')
                             ->label('Manual Payment Methods')
                             ->options(function () use ($org, $isSuperAdmin) {
@@ -393,10 +302,6 @@ class CreateEvent extends CreateRecord
                             ->helperText('Attendees pay manually and submit a reference number. You approve payments in the admin panel.')
                             ->columnSpanFull(),
 
-                        // Inline "add payment method" — lets the org admin create a
-                        // manual payment method without leaving the wizard, since
-                        // making them go find Organization → Payment Methods mid-flow
-                        // is exactly the kind of step someone forgets exists.
                         Forms\Components\Actions::make([
                             FormAction::make('add_payment_method')
                                 ->label('+ Add Payment Method')
@@ -450,21 +355,15 @@ class CreateEvent extends CreateRecord
                                         'display_order'   => 0,
                                     ]);
 
-                                    // Auto-select the newly created method — the org
-                                    // admin just created it specifically to use it here.
                                     $current = $get('enabled_payment_method_ids') ?? [];
                                     $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
 
-                                    Notification::make()
-                                        ->title('Payment method added')
-                                        ->success()
-                                        ->send();
+                                    Notification::make()->title('Payment method added')->success()->send();
                                 }),
                         ])
                             ->visible(fn () => !$isSuperAdmin)
                             ->columnSpanFull(),
 
-                        // Notice if no manual methods configured
                         Forms\Components\Placeholder::make('no_manual_methods_notice')
                             ->label('')
                             ->content(new HtmlString('
@@ -481,7 +380,6 @@ class CreateEvent extends CreateRecord
                             })
                             ->columnSpanFull(),
 
-                        // Validation notice
                         Forms\Components\Placeholder::make('payment_selection_notice')
                             ->label('')
                             ->content(function (Forms\Get $get) {
@@ -515,7 +413,6 @@ class CreateEvent extends CreateRecord
                     ])
                     ->columnSpanFull(),
 
-                // ── FREE: confirmation message ─────────────────────────
                 Forms\Components\Placeholder::make('free_event_notice')
                     ->label('')
                     ->content(new HtmlString('
@@ -531,16 +428,13 @@ class CreateEvent extends CreateRecord
                     ->columnSpanFull(),
             ]);
 
-        // ── STEP 5: TICKET TIERS ──────────────────────────────────────
-        // Skip entirely for free events — tier is auto-created on save
-        // For workshops — simplified single price input
-        // For paid standard — full repeater
+        // ── STEP 5: TICKET TIERS ─────────────────────────────────────────
+        // No package quota — every org can add as many tiers as they want.
         $steps[] = Step::make('Ticket Tiers')
             ->icon('heroicon-o-ticket')
             ->description('Set up your tickets')
             ->schema([
 
-                // FREE EVENT — no input needed
                 Forms\Components\Placeholder::make('free_tier_notice')
                     ->label('')
                     ->content(new HtmlString('
@@ -555,7 +449,6 @@ class CreateEvent extends CreateRecord
                     ->visible(fn (Forms\Get $get) => $get('payment_mode') === 'free')
                     ->columnSpanFull(),
 
-                // WORKSHOP + PAID — simplified single tier
                 Forms\Components\Section::make('Workshop Ticket')
                     ->description('Workshops use a single ticket type.')
                     ->visible(fn (Forms\Get $get) =>
@@ -594,28 +487,6 @@ class CreateEvent extends CreateRecord
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
-
-                // STANDARD + PAID — full tier repeater
-                Forms\Components\Placeholder::make('tier_package_note')
-                    ->label('')
-                    ->content(function (Forms\Get $get) use ($singlePackage, $isSuperAdmin) {
-                        if ($isSuperAdmin) return null;
-                        $package = OrganizationPackage::find($get('organization_package_id')) ?? $singlePackage;
-                        if (!$package) return null;
-                        if (!$package->hasFeature('ticket_tiers')) {
-                            return new HtmlString("
-                                <div class='p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800'>
-                                    🔒 Your package supports one ticket type only.
-                                    <button type='button' onclick=\"window.dispatchEvent(new CustomEvent('open-upgrade-modal', { detail: { feature: 'ticket_tiers' } }))\" class='underline font-medium ml-1'>Upgrade →</button>
-                                </div>
-                            ");
-                        }
-                        return null;
-                    })
-                    ->visible(fn (Forms\Get $get) =>
-                        $get('event_type') !== 'workshop' && $get('payment_mode') === 'paid'
-                    )
-                    ->columnSpanFull(),
 
                 Forms\Components\Repeater::make('tiers')
                     ->label('Ticket Tiers')
@@ -673,37 +544,11 @@ class CreateEvent extends CreateRecord
                             ->default(true)
                             ->columnSpan(['default' => 1, 'md' => 1]),
 
-                        // FIX: this toggle previously had ->disabled() with no
-                        // explanation at all when the org's package doesn't
-                        // include installments — it just went grey. Added the
-                        // same ->hint() + upgrade-modal button pattern already
-                        // used on is_public above and on the event-level version
-                        // of this same toggle in EventResource's edit form, so
-                        // the behavior is consistent everywhere it appears.
+                        // No longer gated — installments available to everyone.
                         Forms\Components\Toggle::make('allow_installments')
                             ->label('Allow Installments')
                             ->default(false)
                             ->live()
-                            ->disabled(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
-                                if ($isSuperAdmin) return false;
-                                $package = OrganizationPackage::find($get('../../organization_package_id')) ?? $singlePackage;
-                                return !($package?->hasFeature('installments') ?? false);
-                            })
-                            ->hint(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
-                                if ($isSuperAdmin) return null;
-                                $package = OrganizationPackage::find($get('../../organization_package_id')) ?? $singlePackage;
-                                if (!($package?->hasFeature('installments') ?? false)) {
-                                    return new HtmlString(
-                                        '🔒 Available on Professional or as a Standard add-on. ' .
-                                        '<button type="button"
-                                            onclick="window.dispatchEvent(new CustomEvent(\'open-upgrade-modal\', { detail: { feature: \'installments\' } }))"
-                                            class="underline font-medium text-primary-600">
-                                            Upgrade
-                                        </button>'
-                                    );
-                                }
-                                return null;
-                            })
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('minimum_deposit_percentage')
@@ -715,13 +560,6 @@ class CreateEvent extends CreateRecord
                             ->visible(fn (Forms\Get $get) => $get('allow_installments'))
                             ->columnSpan(['default' => 1, 'md' => 1]),
                     ])
-                    ->maxItems(function (Forms\Get $get) use ($isSuperAdmin, $singlePackage) {
-                        if ($isSuperAdmin) return null;
-                        $package = OrganizationPackage::find($get('organization_package_id')) ?? $singlePackage;
-                        if (!$package) return 1;
-                        if (in_array($package->package_type, ['starter', 'free_trial'])) return 1;
-                        return $package->hasFeature('ticket_tiers') ? null : 1;
-                    })
                     ->columns(['default' => 1, 'md' => 4])
                     ->defaultItems(1)
                     ->collapsible()
@@ -729,7 +567,7 @@ class CreateEvent extends CreateRecord
                     ->columnSpanFull(),
             ]);
 
-        // ── STEP 6: REVIEW & PUBLISH ──────────────────────────────────
+        // ── STEP 6: REVIEW & PUBLISH ─────────────────────────────────────
         $steps[] = Step::make('Review & Publish')
             ->icon('heroicon-o-eye')
             ->description('Review before publishing')
@@ -776,16 +614,14 @@ class CreateEvent extends CreateRecord
 
                 Forms\Components\Placeholder::make('review')
                     ->label('Event Summary')
-                    ->content(function (Forms\Get $get) use ($singlePackage) {
-                        $packageId = $get('organization_package_id');
-                        $package   = $packageId ? OrganizationPackage::find($packageId) : $singlePackage;
+                    ->content(function (Forms\Get $get) {
                         return view('filament.components.event-summary', [
                             'name'      => $get('name') ?? 'Not set',
                             'date'      => $get('event_date') ?? 'Not set',
                             'venue'     => $get('venue') ?? 'Not set',
                             'tierCount' => count($get('tiers') ?? []),
                             'tiers'     => $get('tiers') ?? [],
-                            'package'   => $package,
+                            'package'   => null, // package concept removed — view should treat this as optional now
                         ]);
                     })
                     ->columnSpanFull(),
@@ -797,7 +633,18 @@ class CreateEvent extends CreateRecord
     // ── MUTATE DATA BEFORE SAVE ───────────────────────────────────────
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Combine date + time
+        // Slug is never user-editable — generated here from the name so it
+        // can't end up with spaces or other characters that break the
+        // public event route. Appends -2, -3, ... on collision.
+        $baseSlug = Str::slug($data['name']);
+        $slug     = $baseSlug;
+        $suffix   = 1;
+        while (\App\Models\Event::where('slug', $slug)->exists()) {
+            $suffix++;
+            $slug = "{$baseSlug}-{$suffix}";
+        }
+        $data['slug'] = $slug;
+
         if (isset($data['event_date_only'], $data['event_time_only'])) {
             $data['event_date'] = \Carbon\Carbon::parse($data['event_date_only'])
                 ->setTimeFromTimeString($data['event_time_only'])
@@ -810,14 +657,12 @@ class CreateEvent extends CreateRecord
             $data['registration_deadline'] = null;
         }
 
-        // Build enabled_payment_method_ids — merge online + manual selections
         $enabledIds = $data['enabled_payment_method_ids'] ?? [];
 
         if (($data['payment_mode'] ?? 'free') === 'paid' && !empty($data['enable_online_payments'])) {
             $org   = auth()->user()->organization;
             $orgId = $org?->id ?? $data['organization_id'];
 
-            // Auto-create online payment method for this org if it doesn't exist
             $onlineMethod = OrganizationPaymentMethod::firstOrCreate(
                 ['organization_id' => $orgId, 'payment_method' => 'online'],
                 ['is_active' => true, 'display_order' => 0]
@@ -828,13 +673,11 @@ class CreateEvent extends CreateRecord
 
         $data['enabled_payment_method_ids'] = !empty($enabledIds) ? array_values(array_unique($enabledIds)) : null;
 
-        // Clean up wizard-only fields
         unset(
             $data['event_date_only'],
             $data['event_time_only'],
             $data['registration_deadline_date'],
             $data['registration_deadline_time'],
-            $data['slug_locked'],
             $data['tagline_locked'],
             $data['enable_online_payments'],
             $data['workshop_ticket_price'],
@@ -849,12 +692,8 @@ class CreateEvent extends CreateRecord
     {
         $event = $this->record->fresh();
 
-        // Increment package events used
-        if ($event->organization_package_id) {
-            OrganizationPackage::find($event->organization_package_id)?->incrementEventsUsed();
-        }
+        // Package events-used counter removed — no packages to track.
 
-        // Auto-create Free tier for free events
         if ($event->payment_mode === 'free') {
             $event->tiers()->create([
                 'tier_name'          => 'Free',
@@ -865,7 +704,6 @@ class CreateEvent extends CreateRecord
             ]);
         }
 
-        // Auto-create Workshop tier for workshop + paid events
         if ($event->event_type === 'workshop' && $event->payment_mode === 'paid') {
             $formData = $this->form->getRawState();
             $event->tiers()->create([
@@ -882,52 +720,6 @@ class CreateEvent extends CreateRecord
             ->body("'{$event->name}' is ready." . ($event->payment_mode === 'free' ? ' Free ticket created automatically.' : ''))
             ->success()
             ->send();
-    }
-
-    // ── PACKAGE SUMMARY HTML ──────────────────────────────────────────
-    private function packageSummaryHtml(?OrganizationPackage $p): HtmlString|string
-    {
-        if (!$p) return '';
-
-        $features = collect($p->getEnabledFeatures())
-            ->map(fn ($f) => '<span class="inline-flex items-center gap-1 text-xs bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">✓ ' . ucwords(str_replace('_', ' ', $f)) . '</span>')
-            ->implode(' ');
-
-        $ticketColor  = $p->remaining_tickets > 20 ? '#10B981' : '#F07F22';
-        $packageColor = match($p->package_type) {
-            'starter'      => '#3B82F6',
-            'standard'     => '#10B981',
-            'professional' => '#8B5CF6',
-            'enterprise'   => '#EF4444',
-            default        => '#6B7280',
-        };
-
-        return new HtmlString("
-            <div class='rounded-xl border border-gray-100 dark:border-white/10 overflow-hidden'>
-                <div class='px-4 py-3 flex items-center gap-3' style='background:{$packageColor}15;border-bottom:1px solid {$packageColor}30'>
-                    <span class='text-sm font-bold' style='color:{$packageColor}'>{$p->display_name}</span>
-                </div>
-                <div class='p-4 grid grid-cols-2 gap-3 sm:grid-cols-4'>
-                    <div class='bg-gray-50 dark:bg-white/5 rounded-lg p-3 text-center'>
-                        <div class='text-xl font-bold' style='color:{$ticketColor}'>{$p->remaining_tickets}</div>
-                        <div class='text-xs text-gray-400 mt-1'>Tickets</div>
-                    </div>
-                    <div class='bg-gray-50 dark:bg-white/5 rounded-lg p-3 text-center'>
-                        <div class='text-xl font-bold text-gray-700 dark:text-gray-200'>{$p->remaining_comp_tickets}</div>
-                        <div class='text-xs text-gray-400 mt-1'>Comp</div>
-                    </div>
-                    <div class='bg-gray-50 dark:bg-white/5 rounded-lg p-3 text-center'>
-                        <div class='text-xl font-bold text-gray-700 dark:text-gray-200'>{$p->max_scanners}</div>
-                        <div class='text-xs text-gray-400 mt-1'>Scanners</div>
-                    </div>
-                    <div class='bg-gray-50 dark:bg-white/5 rounded-lg p-3 text-center'>
-                        <div class='text-xl font-bold text-gray-700 dark:text-gray-200'>{$p->max_users}</div>
-                        <div class='text-xs text-gray-400 mt-1'>Team</div>
-                    </div>
-                </div>
-                <div class='px-4 pb-4 flex flex-wrap gap-2'>{$features}</div>
-            </div>
-        ");
     }
 
     protected function getRedirectUrl(): string

@@ -25,6 +25,12 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\SessionSegmentController;
 use App\Http\Controllers\PublicSessionCheckinController;
 use App\Http\Controllers\SessionParticipantController;
+use App\Http\Controllers\OrganizationMemberController;
+use App\Http\Controllers\OrganizationInviteAcceptController;    
+use App\Http\Controllers\ProgrammeController;
+use App\Http\Controllers\PayLesothoController;
+use App\Http\Controllers\SessionPlanController;
+use App\Http\Controllers\CertificateController;
 
 Route::post('/contact', [ContactInquiryController::class, 'store'])->name('contact.store');
 
@@ -118,6 +124,13 @@ Route::prefix('register/{orgSlug}/{eventSlug}')->group(function () {
     // Confirmation page
     Route::get('/confirmation/{ticketId}', [RegistrationController::class, 'confirmation'])
         ->name('registration.confirmation');
+
+    // Payment screen (Screen 2) — online (PayLesotho) default, manual methods behind a toggle
+    Route::get('/payment/{ticketId}', [RegistrationController::class, 'payment'])
+        ->name('registration.payment');
+
+    Route::post('/payment/{ticketId}/manual', [RegistrationController::class, 'submitManualPayment'])
+        ->name('registration.payment.manual');
 });
 
 // Registration Error Page
@@ -201,7 +214,25 @@ Route::get('/reports/registration-summary/{event}', function (App\Models\Event $
     ))->downloadPdf();
 })->middleware(['auth'])->name('reports.registration-summary');
 
-// Replace the existing mopay routes with these names
+// ── PRIMARY GATEWAY: PayLesotho ──────────────────────────────────
+Route::prefix('payment/paylesotho')->name('paylesotho.')->group(function () {
+    Route::post('/ticket/initiate', [PayLesothoController::class, 'initiateTicketPayment'])
+        ->name('ticket.initiate');
+    Route::get('/status/{session}', [PayLesothoController::class, 'status'])
+        ->name('status');
+    Route::post('/callback/{method}', [PayLesothoController::class, 'callback'])
+        ->name('callback');
+});
+
+Route::middleware(['auth'])->prefix('payment/paylesotho')->name('paylesotho.')->group(function () {
+    Route::post('/package/initiate', [PayLesothoController::class, 'initiatePackagePayment'])
+        ->name('package.initiate'); // kept only until packages are fully removed — see §5
+
+    Route::post('/session-package/initiate', [PayLesothoController::class, 'initiateSessionPackagePayment'])
+        ->name('session-package.initiate');
+});
+
+// ── FALLBACK GATEWAY: MoPay (kept, not removed) ──────────────────
 Route::middleware(['auth'])->prefix('payment')->name('online-payment.')->group(function () {
     Route::get('/package/initiate', [MopayController::class, 'initiatePackagePayment'])
         ->name('package.initiate');
@@ -209,7 +240,7 @@ Route::middleware(['auth'])->prefix('payment')->name('online-payment.')->group(f
 
 Route::get('/payment/ticket/initiate', [MopayController::class, 'initiateTicketPayment'])
     ->name('online-payment.ticket.initiate');
-        
+
 Route::get('/payment/package/callback', [MopayController::class, 'packageCallback'])
     ->name('online-payment.package.callback');
 
@@ -226,17 +257,23 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::get('/', [SessionController::class, 'index'])->name('index');
     Route::get('/create', [SessionController::class, 'create'])->name('create');
     Route::post('/', [SessionController::class, 'store'])->name('store');
+
+    // MUST be above '/{session}' — otherwise Laravel tries to bind
+    // "reports" as a Session ID and 404s before this line is ever reached.
+    Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
+
     Route::get('/{session}', [SessionController::class, 'show'])->name('show');
     Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
     Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
     Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
     Route::post('/{session}/segments/{segment}/finish', [SessionSegmentController::class, 'finish'])->name('segments.finish');
     Route::post('/{session}/segments/{segment}/tag', [SessionSegmentController::class, 'tag'])->name('segments.tag');
-   // Route::post('/{session}/report', [SessionController::class, 'generateReport'])->name('report.generate');
     Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
+    Route::post('/{session}/report/review', [SessionController::class, 'markReviewed'])->name('report.review');
     Route::patch('/{session}/report', [SessionController::class, 'updateReport'])->name('report.update');
     Route::get('/{session}/report/pdf', [SessionController::class, 'reportPdf'])->name('report.pdf');
     Route::get('/{session}/report/status', [SessionController::class, 'reportStatus'])->name('report.status');
+    Route::post('/{session}/report/generate', [SessionController::class, 'generateReport'])->name('report.generate');
     Route::get('/{session}/checkin', [SessionParticipantController::class, 'index'])->name('checkin');
     Route::post('/{session}/checkin', [SessionParticipantController::class, 'store'])->name('checkin.store');
     Route::get('/{session}/checkin-qr.png', [SessionController::class, 'checkinQr'])->name('checkin.qr');
@@ -247,10 +284,24 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::post('/{session}/segments/{segment}/resume', [SessionSegmentController::class, 'resume'])->name('segments.resume');
     Route::patch('/{session}/checkin/{participant}', [SessionParticipantController::class, 'update'])->name('checkin.update');
     Route::get('/{session}/checkin/pdf', [SessionParticipantController::class, 'exportPdf'])->name('checkin.pdf');
+    Route::get('/{session}/participants/{participant}/card', [SessionParticipantController::class, 'card'])->name('checkin.card');
+    Route::get('/{session}/participants/{participant}/card.pdf', [SessionParticipantController::class, 'cardPdf'])->name('checkin.card.pdf');
 });
+
+Route::get('/join', [PublicSessionCheckinController::class, 'join'])->name('public.session-join');
 Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
 
+Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
+    Route::get('/members', [OrganizationMemberController::class, 'index'])->name('members');
+    Route::post('/invite', [OrganizationMemberController::class, 'invite'])->name('invite.store');
+    Route::delete('/invite/{invite}', [OrganizationMemberController::class, 'revoke'])->name('invite.revoke');
+    Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->name('session-plan.payment');
+});
+ 
+// Public — no auth, the invite token itself is the credential
+Route::get('/invite/{token}', [OrganizationInviteAcceptController::class, 'show'])->name('organization.invite.show');
+Route::post('/invite/{token}', [OrganizationInviteAcceptController::class, 'submit'])->name('organization.invite.submit');
 
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
@@ -258,3 +309,21 @@ Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])
 Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->name('login.submit');
 Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'destroy'])->name('logout');
 
+Route::middleware(['auth'])->prefix('programmes')->name('programmes.')->group(function () {
+    Route::get('/', [ProgrammeController::class, 'index'])->name('index');
+    Route::get('/create', [ProgrammeController::class, 'create'])->name('create');
+    Route::post('/', [ProgrammeController::class, 'store'])->name('store');
+    Route::get('/{programme}', [ProgrammeController::class, 'show'])->name('show');
+    Route::post('/{programme}/certificates', [ProgrammeController::class, 'issueCertificates'])->name('certificates.issue');
+    Route::post('/{programme}/report/generate', [ProgrammeController::class, 'generateReport'])->name('report.generate');
+    Route::get('/{programme}/report', [ProgrammeController::class, 'report'])->name('report');
+    Route::get('/{programme}/report/status', [ProgrammeController::class, 'reportStatus'])->name('report.status');
+    Route::get('/{programme}/certificates/{certificate}/download', [CertificateController::class, 'download'])->name('certificates.download');
+});
+
+// Public — the token itself is the credential, same pattern as the session
+// check-in and organization invite links above. The lookup form comes
+// first so a plain "/certify" doesn't get swallowed by the {token} route.
+Route::get('/certify', [CertificateController::class, 'lookup'])->name('certificates.lookup');
+Route::get('/certify/{token}', [CertificateController::class, 'verify'])->name('certificates.verify');
+Route::get('/certify/{token}/download', [CertificateController::class, 'downloadPublic'])->name('certificates.download.public');

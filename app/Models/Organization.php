@@ -260,4 +260,14 @@ class Organization extends Model
     {
         return $this->hasMany(SettlementItem::class);
     }
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(OrganizationInvite::class);
+    }
 }

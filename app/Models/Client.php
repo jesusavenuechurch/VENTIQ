@@ -12,7 +12,7 @@ class Client extends Model
 {
     use Notifiable, HasFactory;
     
-    protected $fillable = ['organization_id', 'full_name', 'email', 'phone', 'created_by', 'notes', 'status'];
+    protected $fillable = ['organization_id', 'full_name', 'email', 'phone', 'photo_path', 'created_by', 'notes', 'status'];
 
     public function organization(): BelongsTo
     {

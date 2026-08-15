@@ -180,41 +180,71 @@
               </button>
             </div>
             <a href="{{ route('sessions.checkin', $session) }}"
-               class="block text-center mt-3 text-[10px] font-bold underline" style="color: var(--muted);">View Roster →</a>
+               class="block text-center mt-3 text-[10px] font-bold underline" style="color: var(--muted);" target="_blank">View Roster →</a>
           </div>
         @endif
-        <template x-for="group in ['active','upcoming','completed']" :key="group">
-          <div x-show="speakers.some(s => s.status === group)">
-            <p class="label px-2 mb-2" x-text="groupLabel(group)"></p>
-            <template x-for="speaker in speakers.filter(s => s.status === group)" :key="speaker.id">
-              <div @click="focusSpeaker(speaker)"
-                   class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1"
-                   :class="selectedSpeaker.id === speaker.id ? 'bg-white shadow-md' : 'hover:bg-white/70'">
-                <div class="relative shrink-0" :class="speaker.status === 'active' ? 'breathe-ring' : ''">
-                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ring-2 ring-white shadow-sm"
-                       :style="`background:${speaker.color}`" x-text="speaker.initials"></div>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p class="text-[11.5px] font-black uppercase truncate" :class="speaker.status==='completed' ? 'line-through opacity-40' : ''" x-text="speaker.name"></p>
-                  <span x-show="speaker.status==='active'" class="badge-pill mt-1" style="background: var(--gold);">Live</span>
-                </div>
-                <span class="text-[9px] font-bold shrink-0" style="color: var(--muted);" x-text="speaker.status==='completed' ? '✓' : formatTime(speaker.duration)"></span>
-              </div>
-            </template>
+        <!-- PRESENTING — capped height, scrolls once it grows past ~6 rows -->
+<div x-show="speakers.some(s => s.isPresenting !== false)">
+  <p class="label px-2 mb-2">Presenting</p>
+  <div class="space-y-1 overflow-y-auto" style="max-height: 280px;">
+    <template x-for="group in ['active','upcoming','completed']" :key="group">
+      <template x-for="speaker in speakers.filter(s => s.isPresenting !== false && s.status === group)" :key="speaker.id">
+        <div @click="focusSpeaker(speaker)"
+             class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1"
+             :class="selectedSpeaker.id === speaker.id ? 'bg-white shadow-md' : 'hover:bg-white/70'">
+          <div class="relative shrink-0" :class="speaker.status === 'active' ? 'breathe-ring' : ''">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ring-2 ring-white shadow-sm"
+                 :style="`background:${speaker.color}`" x-text="speaker.initials"></div>
           </div>
-        </template>
-          <div class="px-2 mt-2">
-            <button type="button" x-show="!showAddPresenter" @click="showAddPresenter = true; $nextTick(() => $refs.newPresenterInput?.focus())"
-                    class="w-full text-left label" style="cursor:pointer; background:none; border:none; padding:8px 0;">
-              + Add Presenter
-            </button>
-            <div x-show="showAddPresenter" class="flex gap-1.5 mt-1">
-              <input x-ref="newPresenterInput" x-model="newPresenterName"
-                    @keydown.enter="addPresenter()" @keydown.escape="showAddPresenter = false; newPresenterName = ''"
-                    placeholder="Name…" class="topic-input text-[12px]" style="background:#fff; border-radius:8px; padding:6px 10px;">
-              <button type="button" @click="addPresenter()" class="label" style="cursor:pointer; background:none; border:none;">✓</button>
-            </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[11.5px] font-black uppercase truncate" :class="speaker.status==='completed' ? 'line-through opacity-40' : ''" x-text="speaker.name"></p>
+            <span x-show="speaker.status==='active'" class="badge-pill mt-1" style="background: var(--gold);">Live</span>
           </div>
+          <span class="text-[9px] font-bold shrink-0" style="color: var(--muted);" x-text="speaker.status==='completed' ? '✓' : formatTime(speaker.duration)"></span>
+        </div>
+      </template>
+    </template>
+  </div>
+</div>
+
+<!-- NON-PRESENTING — no timer, no live badge, own scroll cap -->
+<div x-show="speakers.some(s => s.isPresenting === false)">
+  <p class="label px-2 mb-2 mt-4">Not Presenting</p>
+  <div class="space-y-1 overflow-y-auto" style="max-height: 200px;">
+    <template x-for="speaker in speakers.filter(s => s.isPresenting === false)" :key="speaker.id">
+      <div @click="focusSpeaker(speaker)"
+           class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1"
+           :class="selectedSpeaker.id === speaker.id ? 'bg-white shadow-md' : 'hover:bg-white/70'">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ring-2 ring-white shadow-sm"
+             :style="`background:${speaker.color}`" x-text="speaker.initials"></div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11.5px] font-black uppercase truncate" x-text="speaker.name"></p>
+          <span class="text-[8px] font-bold text-gray-300 uppercase tracking-wide" x-text="speaker.role || 'Non-presenting'"></span>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+  <div class="px-2 mt-2">
+    <button type="button" x-show="!showAddPresenter" @click="showAddPresenter = true; $nextTick(() => $refs.newPresenterInput?.focus())"
+            class="w-full text-left label" style="cursor:pointer; background:none; border:none; padding:8px 0;">
+            + Add Person
+          </button>
+          <div x-show="showAddPresenter" class="flex gap-1.5 mt-1">
+            <input x-ref="newPresenterInput" x-model="newPresenterName"
+                  @keydown.enter="addPresenter()" @keydown.escape="showAddPresenter = false; newPresenterName = ''"
+                  placeholder="Name…" class="topic-input text-[12px]" style="background:#fff; border-radius:8px; padding:6px 10px;">
+            <select x-model="newPresenterRole" class="topic-input text-[11px]" style="background:#fff; border-radius:8px; padding:6px 8px; max-width:100px;">
+              <template x-for="opt in roleOptions" :key="opt.value">
+                <option :value="opt.value" x-text="opt.label + (opt.presenting ? '' : ' (non-presenting)')"></option>
+              </template>
+            </select>
+            <label class="flex items-center gap-1 text-[9px] font-black text-gray-500 uppercase" style="white-space:nowrap;">
+              <input type="checkbox" x-model="newPresenterPresenting" class="accent-[#1D4069]"> Presenting
+            </label>
+            <button type="button" @click="addPresenter()" class="label" style="cursor:pointer; background:none; border:none;">✓</button>
+          </div>
+        </div>
       </div>
 
       <div class="px-5 py-4 flex items-center justify-between" style="border-top: 2px dashed var(--line);">
@@ -238,7 +268,7 @@
           <input x-show="selectedSpeaker.id" x-model="selectedSpeaker.topic"
                  class="topic-input mt-1.5" placeholder="Untitled — click to name this presentation">
           @if($session->event_id)
-            <a href="{{ route('sessions.checkin', $session) }}" class="label mt-2 inline-block hover:underline">Check-in Desk →</a>
+            <a href="{{ route('sessions.checkin', $session) }}" class="label mt-2 inline-block hover:underline" target="_blank">Check-in Desk →</a>
           @endif
         </div>
         <div class="flex items-center gap-4 shrink-0 mt-1">
@@ -397,6 +427,8 @@
         return [
             'id'       => $s->id,
             'name'     => $s->presenter_name,
+            'role'    => $s->role,
+            'is_presenting' => $s->is_presenting,
             'topic'    => $s->title ?? '',
             'status'   => $s->status,
             'duration' => $s->duration_seconds ?? 0,
@@ -405,6 +437,13 @@
             })->values(),
         ];
     });
+@endphp
+@php
+    $roleOptionsData = collect(\App\Support\SessionType::roles($session->type))
+        ->map(function ($r, $k) {
+            return ['value' => $k, 'label' => $r['label'], 'presenting' => $r['presenting']];
+        })
+        ->values();
 @endphp
 function workspace(){
   const sessionId = {{ $session->id }};
@@ -455,15 +494,14 @@ function workspace(){
 
     showAddPresenter: false,
     newPresenterName: '',
-
+    newPresenterRole: '',
+    newPresenterPresenting: true,
+    roleOptions: @json($roleOptionsData),
     speakers: initialSegments.map((s, i) => ({
-      id: s.id, name: s.name, topic: s.topic,
+      id: s.id, name: s.name, topic: s.topic, role: s.role, isPresenting: !!s.is_presenting,
       initials: s.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
       color: palette[i % palette.length],
       status: s.status, duration: s.duration, logs: s.logs, insights: [],
-      // each speaker keeps their own page history — [0] means "page 1 starts at log index 0".
-      // pushing a new number onto this array is what a "flip" does; nothing is ever removed,
-      // so flipping back just means looking at an earlier slice of the same logs.
       pageBreaks: [0], viewPageIndex: 0
     })),
     selectedSpeaker: {},
@@ -601,12 +639,12 @@ function workspace(){
       const name = this.newPresenterName.trim();
       if (!name) return;
 
-      const result = await postJSON(`/sessions/${sessionId}/segments`, { name });
+      const result = await postJSON(`/sessions/${sessionId}/segments`, { name, role: this.newPresenterRole || null, presenting: this.newPresenterPresenting });
       if (!result || result.status !== 'ok') return;
 
       const seg = result.segment;
       const newSpeaker = {
-        id: seg.id, name: seg.name, topic: '',
+        id: seg.id, name: seg.name, topic: '', role: seg.role, isPresenting: !!seg.is_presenting,
         initials: seg.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
         color: palette[this.speakers.length % palette.length],
         status: seg.status, duration: 0, logs: [], insights: [],
@@ -614,17 +652,15 @@ function workspace(){
       };
       this.speakers.push(newSpeaker);
       this.newPresenterName = '';
+      this.newPresenterRole = '';
+      this.newPresenterPresenting = true;
       this.showAddPresenter = false;
 
       if (seg.status === 'active') {
         this.liveSpeakerId = newSpeaker.id;
         this.selectedSpeaker = newSpeaker;
         if (!this.tickHandle) {
-          this.tickHandle = setInterval(() => {
-            this.globalClock++;
-            const live = this.speakers.find(s => s.id === this.liveSpeakerId);
-            if (live) live.duration++;
-          }, 1000);
+          this.tickHandle = setInterval(() => { this.globalClock++; const live = this.speakers.find(s => s.id === this.liveSpeakerId); if (live) live.duration++; }, 1000);
         }
         this.$nextTick(() => this.autoGrow());
       }

@@ -2,15 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SessionThankYouMail;
+use App\Models\Participant;
 use App\Models\Session;
 use App\Models\SessionSegment;
 use App\Services\AI\AIService;
 use App\Services\AI\Prompts\SegmentInsightPrompt;
+use App\Services\AttendanceCardImageService;
+use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SessionSegmentController extends Controller
 {
+    public function __construct(private SessionQuotaService $quota) {}
+
     public function log(Request $request, Session $session, SessionSegment $segment)
     {
         $this->authorizeSegment($session, $segment);
@@ -41,12 +49,52 @@ class SessionSegmentController extends Controller
             // something that's just there next time someone opens Ventiq,
             // not something they had to remember to ask for.
             $session->queueReportGeneration();
+            $this->notifyParticipantsSessionEnded($session);
         }
 
         return response()->json([
             'status'          => 'ok',
             'next_segment_id' => $next?->id,
         ]);
+    }
+
+    // Fires the moment the session ends, not when the report is reviewed —
+    // attendees shouldn't wait hours/days for a "thanks for coming." The
+    // AI report notification is a separate, later touch (see
+    // SessionController::markReviewed()).
+    private function notifyParticipantsSessionEnded(Session $session): void
+    {
+        $organization = $session->organization;
+        $cardService = app(AttendanceCardImageService::class);
+
+        $participants = Participant::where('session_id', $session->id)
+            ->whereNull('notified_at')
+            ->with('client')
+            ->get();
+
+        foreach ($participants as $participant) {
+            // Email is a base feature on every tier, never quota-gated.
+            if ($participant->client?->email) {
+                $cardPath = $cardService->generate($participant);
+                Mail::to($participant->client->email)
+                    ->send(new SessionThankYouMail($participant, $cardPath));
+            }
+
+            // No WhatsApp provider configured yet — simulate on the
+            // frontend/logs so the flow is visible and testable now,
+            // swap this line for a real provider call later without
+            // touching anything else in this method.
+            if ($participant->client?->phone) {
+                if ($this->quota->hasWhatsappQuota($organization)) {
+                    Log::info("[SIMULATED WHATSAPP] To {$participant->client->phone}: Thank you for attending {$session->resolved_title}. Here's your attendance card.");
+                    $this->quota->consumeWhatsapp($organization);
+                } else {
+                    Log::info("[SIMULATED WHATSAPP SKIPPED — quota exhausted] Would have notified {$participant->client->phone}");
+                }
+            }
+
+            $participant->update(['notified_at' => now()]);
+        }
     }
 
     // Synchronous, no queue — this is the live "AI is following along"
@@ -138,29 +186,40 @@ class SessionSegmentController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
-        $validated = $request->validate(['name' => 'required|string|max:255']);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'role' => 'nullable|string|max:255',
+            'presenting' => 'nullable|boolean',
+        ]);
 
         $nextOrder = ($session->segments()->max('order') ?? -1) + 1;
         $hasActive = $session->segments()->where('status', 'active')->exists();
+        $isPresenting = array_key_exists('presenting', $validated)
+            ? filter_var($validated['presenting'], FILTER_VALIDATE_BOOLEAN)
+            : \App\Support\SessionType::roleIsPresenting($session->type, $validated['role'] ?? null);
 
         $segment = $session->segments()->create([
             'presenter_name' => $validated['name'],
+            'role'           => $validated['role'] ?? null,
+            'is_presenting'  => $isPresenting,
             'order'          => $nextOrder,
             'status'         => 'upcoming',
         ]);
 
-        // If the session is already live and nobody's currently on stage,
-        // this new presenter is the one now speaking — no separate "start" click needed.
-        if ($session->status === 'active' && !$hasActive) {
+        // Only presenting roles auto-take-the-stage when added mid-session —
+        // a Secretary added mid-meeting shouldn't suddenly become "live."
+        if ($isPresenting && $session->status === 'active' && !$hasActive) {
             $segment->start();
         }
 
         return response()->json([
             'status'  => 'ok',
             'segment' => [
-                'id'     => $segment->id,
-                'name'   => $segment->presenter_name,
-                'status' => $segment->fresh()->status,
+                'id'            => $segment->id,
+                'name'          => $segment->presenter_name,
+                'role'          => $segment->role,
+                'is_presenting' => $segment->is_presenting,
+                'status'        => $segment->fresh()->status,
             ],
         ]);
     }

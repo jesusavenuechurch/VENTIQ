@@ -65,6 +65,17 @@
                                     <p class="text-[9px] text-gray-400 font-bold truncate">List on Ventiq</p>
                                 </div>
                             </a>
+
+                            <a href="{{ route('public.session-join') }}"
+                            class="flex items-center gap-3 px-2.5 py-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all">
+                                <div class="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-arrow-right-to-bracket text-white text-[11px]"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-[11.5px] font-black text-[#1D4069] uppercase tracking-tight">Join a Session</p>
+                                    <p class="text-[9px] text-gray-400 font-bold truncate">Enter a session code</p>
+                                </div>
+                            </a>
                         </div>
                     </div>
                 </div>

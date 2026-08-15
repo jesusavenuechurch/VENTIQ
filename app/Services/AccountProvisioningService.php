@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Agent;
 use App\Models\Organization;
 use App\Models\OrganizationPackage;
+use App\Models\SessionPackage;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -49,6 +50,7 @@ class AccountProvisioningService
 
             $user->assignRole('org_admin');
             OrganizationPackage::createFreeTrialPackage($organization->id);
+            SessionPackage::createFreePackage($organization->id);
 
             return $user;
         });

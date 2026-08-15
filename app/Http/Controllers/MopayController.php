@@ -349,63 +349,12 @@ class MopayController extends Controller
 
     private function approveTicket(Ticket $ticket, array $verified, PaymentSession $paymentSession): void
     {
-        DB::transaction(function () use ($ticket, $verified, $paymentSession) {
-
-            $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first();
-            if ($pendingPayment) {
-                $pendingPayment->update([
-                    'status'            => 'approved',
-                    'payment_method'    => $verified['selectedPaymentMethod'] ?? 'mopay',
-                    'payment_reference' => $verified['transactionId'] ?? null,
-                    'approved_by'       => null,
-                    'approved_at'       => now(),
-                ]);
-            }
-
-            $ticket->update([
-                'payment_status'    => 'completed',
-                'status'            => 'active',
-                'payment_method'    => $verified['selectedPaymentMethod'] ?? 'mopay',
-                'payment_reference' => $verified['transactionId'] ?? null,
-                'payment_date'      => now(),
-                'amount_paid'       => $ticket->amount,
-            ]);
-
-            if ($ticket->payments()->where('status', 'approved')->count() === 1) {
-                $ticket->tier->increment('quantity_sold');
-            }
-
-            $surchargeRate = config('constants.payment.surcharge_rate');
-            $gatewayRate   = config('constants.payment.gateway_fee_rate');
-
-            $ticketAmount  = $ticket->amount;
-            $grossPaid     = round($ticketAmount * (1 + $surchargeRate), 2);
-            $gatewayFee    = round($grossPaid * $gatewayRate, 2);
-            $amtReceived   = round($grossPaid - $gatewayFee, 2);
-
-            \App\Models\SettlementItem::create([
-                'settlement_id'      => null,
-                'payment_session_id' => $paymentSession->id,
-                'ticket_id'          => $ticket->id,
-                'organization_id'    => $ticket->event->organization_id,
-                'ticket_amount'      => $ticketAmount,
-                'gross_paid'         => $grossPaid,
-                'gateway_fee'        => $gatewayFee,
-                'amount_received'    => $amtReceived,
-                'amount_owed_to_org' => $ticketAmount,
-            ]);
-
-            dispatch(function () use ($ticket) {
-                $ticket->load(['client', 'event', 'tier', 'event.organization']);
-                $ticket->generateQrCode();
-                $ticket->autoDeliverTicket();
-            })->afterResponse();
-
-            if ($ticket->client->email) {
-                dispatch(new \App\Jobs\SendTicketApprovedEmail($ticket->id))->afterResponse();
-            }
-
-            Log::info("MoPay: ticket {$ticket->id} approved, settlement_item created");
-        });
+        app(\App\Services\Payments\TicketApprovalService::class)->approve(
+            ticket: $ticket,
+            gateway: 'mopay',
+            paymentMethod: $verified['selectedPaymentMethod'] ?? 'mopay',
+            gatewayReference: $verified['transactionId'] ?? null,
+            paymentSession: $paymentSession,
+        );
     }
 }

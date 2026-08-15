@@ -34,15 +34,7 @@ class RegistrationController extends Controller
         $selectedTierId = $request->query('tier');
         $selectedTier   = $selectedTierId ? $event->tiers->firstWhere('id', $selectedTierId) : null;
 
-        $enabledIds     = $event->enabled_payment_method_ids; // null = all org methods
-
-        $paymentMethods = $organization->paymentMethods()
-            ->where('is_active', true)
-            ->when($enabledIds, fn ($q) => $q->whereIn('id', $enabledIds))
-            ->orderBy('display_order')
-            ->get();
-
-        return view('public.register', compact('organization', 'event', 'selectedTier', 'paymentMethods'));
+        return view('public.register', compact('organization', 'event', 'selectedTier'));
     }
 
     public function register(Request $request, $orgSlug, $eventSlug)
@@ -58,15 +50,6 @@ class RegistrationController extends Controller
         $tier                = EventTier::findOrFail($request->tier_id);
         $isFree              = $tier->price == 0;
         $quantityPerPurchase = $tier->quantity_per_purchase ?? 1;
-
-        // Resolve the payment method record early — we need it for routing decisions
-        $paymentMethodRecord = null;
-        $isOnlinePayment     = false;
-
-        if (!$isFree && $request->payment_method_id) {
-            $paymentMethodRecord = OrganizationPaymentMethod::find($request->payment_method_id);
-            $isOnlinePayment     = $paymentMethodRecord?->payment_method === 'online';
-        }
 
         // ── Validation ────────────────────────────────────────────────
         $rules = [
@@ -87,38 +70,16 @@ class RegistrationController extends Controller
             }
         }
 
-        if (!$isFree) {
-            $rules['payment_method_id'] = 'required|exists:organization_payment_methods,id';
-
-            if ($event->allow_installments) {
-                $rules['payment_type']    = 'required|in:full,deposit';
-                $rules['deposit_amount']  = 'nullable|numeric|min:0';
-            }
-        }
-
         $validated = $request->validate($rules);
 
         // ── Build payment context ─────────────────────────────────────
-        $paymentMethodName = 'free';
-        $paymentAmount     = $tier->price;
-        $paymentType       = 'full';
-
-        if (!$isFree && $paymentMethodRecord) {
-            $paymentMethodName = $paymentMethodRecord->payment_method; // 'online', 'mpesa', 'cash', etc.
-
-            if (!$isOnlinePayment && $event->allow_installments && $request->payment_type === 'deposit') {
-                $minimumDeposit    = ($tier->price * ($event->minimum_deposit_percentage ?? 30)) / 100;
-                $depositAmount     = $request->deposit_amount ?? $minimumDeposit;
-                $paymentAmount     = max($minimumDeposit, min($depositAmount, $tier->price));
-                $paymentType       = 'deposit';
-            }
-        }
-
-        $pricePerTicket   = $tier->price / $quantityPerPurchase;
-        $paymentPerTicket = $paymentAmount / $quantityPerPurchase;
+        // Payment method/amount are no longer decided here — they're chosen on the
+        // payment screen (Screen 2). Every paid ticket starts pending at the full price.
+        $paymentMethodName = $isFree ? 'free' : null;
+        $pricePerTicket    = $tier->price / $quantityPerPurchase;
 
         $ticketStatus  = $isFree ? 'active' : 'pending';
-        $paymentStatus = $isFree ? 'completed' : ($paymentType === 'deposit' ? 'partial' : 'pending');
+        $paymentStatus = $isFree ? 'completed' : 'pending';
 
         $hasWhatsApp       = $request->has('has_whatsapp') && $request->has_whatsapp;
         $preferredDelivery = $this->determinePreferredDelivery($request, $validated);
@@ -176,7 +137,7 @@ class RegistrationController extends Controller
                     'amount'            => $pricePerTicket,
                     'amount_paid'       => 0,
                     'payment_status'    => $paymentStatus,
-                    'payment_reference' => $request->payment_reference,
+                    'payment_reference' => null,
                     'delivery_method'   => !empty($validated['email']) ? 'email' : 'whatsapp',
                     'delivered_at'      => $isFree ? now() : null,
                     'created_by'        => null,
@@ -188,12 +149,12 @@ class RegistrationController extends Controller
                 if (!$isFree) {
                     TicketPayment::create([
                         'ticket_id'         => $ticket->id,
-                        'amount'            => $paymentPerTicket,
-                        'payment_method'    => $paymentMethodName,
-                        'payment_reference' => $request->payment_reference,
+                        'amount'            => $pricePerTicket,
+                        'payment_method'    => null,
+                        'payment_reference' => null,
                         'status'            => 'pending',
                         'payment_date'      => now(),
-                        'payment_type'      => $paymentType,
+                        'payment_type'      => 'full',
                     ]);
                 }
 
@@ -219,16 +180,18 @@ class RegistrationController extends Controller
 
                 if ($isFree) {
                     \Mail::to($ticket->client->email)->send(new \App\Mail\TicketApprovedMail($ticket));
-                } elseif (!$isOnlinePayment) {
-                    // Online payment sends approval email after MoPay callback
+                } else {
+                    // Approval email is sent once a gateway callback or admin approves payment.
                     \Mail::to($ticket->client->email)->send(new \App\Mail\TicketPendingMail($ticket));
                 }
             }
 
-            // ── Route: online payment → MoPay, manual → confirmation ──
-            if (!$isFree && $isOnlinePayment) {
-                return redirect()->route('online-payment.ticket.initiate', [
-                    'ticket_id' => $createdTickets[0]->id,
+            // ── Route: paid tickets go to the payment screen, free tickets go straight to confirmation ──
+            if (!$isFree) {
+                return redirect()->route('registration.payment', [
+                    'orgSlug'   => $orgSlug,
+                    'eventSlug' => $eventSlug,
+                    'ticketId'  => $createdTickets[0]->id,
                 ]);
             }
 
@@ -268,6 +231,113 @@ class RegistrationController extends Controller
         }
 
         return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets'));
+    }
+
+    /**
+     * Screen 2 — pick a payment method. Online (PayLesotho) is the default and
+     * most prominent option; manual methods (cash/bank/manual mobile money) sit
+     * behind a "pay another way" toggle. Driven entirely by ticket ID + current
+     * payment_status, so it's safe to reload at any point.
+     */
+    public function payment($orgSlug, $eventSlug, $ticketId)
+    {
+        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
+
+        $event = Event::where('slug', $eventSlug)
+            ->where('organization_id', $organization->id)
+            ->firstOrFail();
+
+        $ticket = Ticket::with(['client', 'tier', 'event'])
+            ->where('event_id', $event->id)
+            ->findOrFail($ticketId);
+
+        if ($ticket->payment_status === 'completed') {
+            return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
+        }
+
+        $enabledIds = $event->enabled_payment_method_ids; // null = all org methods
+
+        $paymentMethods = $organization->paymentMethods()
+            ->where('is_active', true)
+            ->where('payment_method', '!=', 'online')
+            ->when($enabledIds, fn ($q) => $q->whereIn('id', $enabledIds))
+            ->orderBy('display_order')
+            ->get();
+
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods'));
+    }
+
+    /**
+     * Manual payment sub-form on Screen 2 (cash/bank/manually-entered mobile money).
+     * Updates the ticket's existing pending TicketPayment in place — the pending row
+     * was already created at registration time, this just records the chosen method,
+     * reference, and (if the event allows installments) the deposit amount.
+     */
+    public function submitManualPayment(Request $request, $orgSlug, $eventSlug, $ticketId)
+    {
+        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
+
+        $event = Event::where('slug', $eventSlug)
+            ->where('organization_id', $organization->id)
+            ->firstOrFail();
+
+        $ticket = Ticket::with(['tier', 'payments'])
+            ->where('event_id', $event->id)
+            ->findOrFail($ticketId);
+
+        if ($ticket->payment_status === 'completed') {
+            return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
+        }
+
+        $rules = [
+            'payment_method_id' => 'required|exists:organization_payment_methods,id',
+            'payment_reference' => 'nullable|string|max:255',
+        ];
+
+        if ($event->allow_installments) {
+            $rules['payment_type']   = 'required|in:full,deposit';
+            $rules['deposit_amount'] = 'nullable|numeric|min:0';
+        }
+
+        $validated = $request->validate($rules);
+
+        $paymentMethodRecord = OrganizationPaymentMethod::where('organization_id', $organization->id)
+            ->where('payment_method', '!=', 'online')
+            ->findOrFail($validated['payment_method_id']);
+
+        $tier                = $ticket->tier;
+        $quantityPerPurchase = $tier->quantity_per_purchase ?? 1;
+        $paymentAmount       = $tier->price;
+        $paymentType         = 'full';
+
+        if ($event->allow_installments && ($validated['payment_type'] ?? 'full') === 'deposit') {
+            $minimumDeposit = ($tier->price * ($event->minimum_deposit_percentage ?? 30)) / 100;
+            $depositAmount  = $validated['deposit_amount'] ?? $minimumDeposit;
+            $paymentAmount  = max($minimumDeposit, min($depositAmount, $tier->price));
+            $paymentType    = 'deposit';
+        }
+
+        $paymentPerTicket = $paymentAmount / $quantityPerPurchase;
+
+        $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first();
+        $pendingPayment?->update([
+            'amount'            => $paymentPerTicket,
+            'payment_method'    => $paymentMethodRecord->payment_method,
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'payment_type'      => $paymentType,
+        ]);
+
+        $ticket->update([
+            'payment_method'    => $paymentMethodRecord->payment_method,
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'payment_status'    => $paymentType === 'deposit' ? 'partial' : 'pending',
+        ]);
+
+        return redirect()->route('registration.confirmation', [
+            'orgSlug'   => $orgSlug,
+            'eventSlug' => $eventSlug,
+            'ticketId'  => $ticket->id,
+        ])->with('all_tickets', [$ticket]);
     }
 
     private function determinePreferredDelivery(Request $request, array $validated): string
