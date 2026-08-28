@@ -19,7 +19,6 @@ use App\Http\Controllers\ContactInquiryController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use App\Models\Organization;
 use App\Http\Controllers\MopayController;
-use App\Livewire\Assist\ChatPage;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\SessionSegmentController;
@@ -247,7 +246,6 @@ Route::get('/payment/package/callback', [MopayController::class, 'packageCallbac
 Route::get('/payment/ticket/callback', [MopayController::class, 'ticketCallback'])
     ->name('online-payment.ticket.callback');
 
-Route::middleware(['auth'])->get('/assist/{conversation?}', ChatPage::class)->name('assist');
 Route::get('/events/search', [PublicEventController::class, 'search'])->name('events.search');
 Route::get('/events/upcoming', [PublicEventController::class, 'upcoming'])->name('events.upcoming');
 Route::get('/events/discover', [PublicEventController::class, 'discover'])->name('events.discover');
@@ -265,7 +263,9 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::get('/{session}', [SessionController::class, 'show'])->name('show');
     Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
     Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
+    Route::delete('/{session}/segments/{segment}', [SessionSegmentController::class, 'destroy'])->name('segments.destroy');
     Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
+    Route::post('/{session}/segments/{segment}/log/undo', [SessionSegmentController::class, 'undoLog'])->name('segments.log.undo');
     Route::post('/{session}/segments/{segment}/finish', [SessionSegmentController::class, 'finish'])->name('segments.finish');
     Route::post('/{session}/segments/{segment}/tag', [SessionSegmentController::class, 'tag'])->name('segments.tag');
     Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
@@ -285,7 +285,6 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::patch('/{session}/checkin/{participant}', [SessionParticipantController::class, 'update'])->name('checkin.update');
     Route::get('/{session}/checkin/pdf', [SessionParticipantController::class, 'exportPdf'])->name('checkin.pdf');
     Route::get('/{session}/participants/{participant}/card', [SessionParticipantController::class, 'card'])->name('checkin.card');
-    Route::get('/{session}/participants/{participant}/card.pdf', [SessionParticipantController::class, 'cardPdf'])->name('checkin.card.pdf');
 });
 
 Route::get('/join', [PublicSessionCheckinController::class, 'join'])->name('public.session-join');

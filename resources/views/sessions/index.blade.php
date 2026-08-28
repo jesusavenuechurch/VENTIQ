@@ -100,6 +100,9 @@
                 📁 Programmes
             </a>
 
+            {{-- Ask Ventiq lives in the floating widget (bottom-right, every
+                 page) now, not a link here — redundant with it otherwise. --}}
+
             {{-- Ticketed events live in the Filament admin, a separate
                  product from Sessions — opens in a new tab so people don't
                  lose their place on the Desk. --}}

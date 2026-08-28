@@ -75,6 +75,28 @@ class SessionSegment extends Model
         $this->refresh();
     }
 
+    // Pulls the most recently committed line back off the log — the "undo
+    // an accidental Enter" path. Only the last line, on purpose: anything
+    // earlier is treated as settled, so this can't rewrite history further
+    // back than the one line someone might have just mistyped.
+    public function popLastLogLine(): ?array
+    {
+        return \DB::transaction(function () {
+            $fresh = static::where('id', $this->id)->lockForUpdate()->first();
+
+            $log = $fresh->raw_log ?? [];
+            if (empty($log)) {
+                return null;
+            }
+
+            $popped = array_pop($log);
+            $fresh->update(['raw_log' => $log]);
+            $this->refresh();
+
+            return $popped;
+        });
+    }
+
     public function getDurationSecondsAttribute(): ?int
     {
         if (!$this->started_at) return null;

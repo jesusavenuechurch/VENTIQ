@@ -30,6 +30,21 @@ class SessionSegmentController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    // "Undo" for an accidental Enter — pulls the last committed line back
+    // off the record so it can be retyped.
+    public function undoLog(Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        $popped = $segment->popLastLogLine();
+
+        if (!$popped) {
+            return response()->json(['status' => 'empty'], 404);
+        }
+
+        return response()->json(['status' => 'ok', 'text' => $popped['text']]);
+    }
+
     public function finish(Session $session, SessionSegment $segment)
     {
         $this->authorizeSegment($session, $segment);
@@ -222,5 +237,24 @@ class SessionSegmentController extends Controller
                 'status'        => $segment->fresh()->status,
             ],
         ]);
+    }
+
+    // A lineup changes — someone drops out before their turn, or turns out
+    // never to have actually presented. Only removable while there's
+    // nothing captured under their name yet: once real notes exist against
+    // a segment it's a source for the report, not a placeholder, and
+    // deleting it would silently drop that content. Not removable while
+    // actively live either — finish or skip them first, same as any other
+    // segment transition.
+    public function destroy(Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        abort_if($segment->status === 'active', 409, 'Finish or skip this presenter before removing them.');
+        abort_unless(empty($segment->raw_log), 409, 'This presenter already has notes captured — they can\'t be removed.');
+
+        $segment->delete();
+
+        return response()->json(['status' => 'ok']);
     }
 }

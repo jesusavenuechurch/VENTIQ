@@ -34,7 +34,16 @@
         @forelse($participants as $p)
             <div x-data="{ editing: false }" class="bg-white rounded-2xl border border-gray-100">
                 <div x-show="!editing" class="flex items-center justify-between px-5 py-3">
-                    <div>
+                    <div class="flex items-center gap-3">
+                        @if($p->client?->photo_path)
+                            <img src="{{ asset('storage/' . $p->client->photo_path) }}" alt="{{ $p->client->full_name }}"
+                                 class="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-100">
+                        @else
+                            <div class="w-10 h-10 rounded-full bg-[#F07F22] text-white text-[11px] font-black flex items-center justify-center shrink-0">
+                                {{ collect(explode(' ', $p->client->full_name ?? '?'))->map(fn ($n) => mb_substr($n, 0, 1))->take(2)->implode('') }}
+                            </div>
+                        @endif
+                        <div>
                         <p class="text-sm font-black text-[#1D4069]">{{ $p->client->full_name }}</p>
                         <p class="text-[9px] font-bold text-gray-400 uppercase tracking-wide">{{ $p->attended_at->format('g:i A') }}</p>
                         <p class="text-[10px] font-bold mt-1 {{ $p->institution ? 'text-gray-500' : 'text-rose-400' }}">
@@ -43,6 +52,7 @@
                         <p class="text-[10px] font-bold {{ $p->position ? 'text-gray-500' : 'text-rose-400' }}">
                             {{ $p->position ?: 'Position missing' }}
                         </p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600">Checked In</span>

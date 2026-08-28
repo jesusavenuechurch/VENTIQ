@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Participant;
 use App\Models\Session;
+use App\Services\AttendanceCardImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class SessionParticipantController extends Controller
 {
@@ -111,29 +113,18 @@ class SessionParticipantController extends Controller
         return $pdf->download("ventiq-participants-{$session->id}.pdf");
     }
 
-    public function card(Session $session, Participant $participant)
+    // The one card design — same PNG generated for the auto-sent thank-you
+    // email (AttendanceCardImageService), viewable/shareable on demand here
+    // instead of a separate, older dompdf card that never had a photo field.
+    public function card(Session $session, Participant $participant, AttendanceCardImageService $cardService)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
         abort_unless($participant->session_id === $session->id, 404);
 
-        return view('sessions.attendance-card', [
-            'session'     => $session,
-            'participant' => $participant,
-            'orgName'     => $session->organization?->name ?? '',
-        ]);
-    }
+        $path = $cardService->generate($participant);
 
-    public function cardPdf(Session $session, Participant $participant)
-    {
-        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
-        abort_unless($participant->session_id === $session->id, 404);
-
-        $pdf = \PDF::loadView('sessions.attendance-card', [
-            'session'     => $session,
-            'participant' => $participant,
-            'orgName'     => $session->organization?->name ?? '',
-        ])->setPaper([0, 0, 595, 335], 'landscape');
-
-        return $pdf->download("ventiq-attendance-{$participant->id}.pdf");
+        return response(Storage::disk('public')->get($path))
+            ->header('Content-Type', 'image/png')
+            ->header('Content-Disposition', 'inline; filename="attendance-card-' . $participant->id . '.png"');
     }
 }

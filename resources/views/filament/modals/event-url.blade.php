@@ -82,21 +82,13 @@
             </button>
         </div>
 
-        <!-- QR Code (Optional) -->
+        <!-- QR Code -->
         <div class="border-t pt-4">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    QR Code for Event Page
-                </span>
-                <button 
-                    onclick="generateQRCode()"
-                    class="text-sm text-blue-600 hover:text-blue-800"
-                >
-                    Generate QR Code
-                </button>
-            </div>
-            <div id="qr-container" class="hidden bg-white p-4 rounded-lg text-center">
-                <div id="qr-code"></div>
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                QR Code for Event Page
+            </span>
+            <div class="bg-white p-4 rounded-lg text-center mt-2">
+                <img src="data:image/png;base64,{{ $qrBase64 }}" alt="QR code for {{ $event->name }}" class="mx-auto" width="200" height="200">
                 <p class="text-xs text-gray-600 mt-2">Scan to view event</p>
             </div>
         </div>
@@ -160,16 +152,5 @@
         }
         
         window.open(shareUrl, '_blank', 'width=600,height=400');
-    }
-
-    function generateQRCode() {
-        const container = document.getElementById('qr-container');
-        const qrDiv = document.getElementById('qr-code');
-        const url = document.getElementById('event-url-input').value;
-        
-        // Using qrcode.js library (you can add this via CDN)
-        // For now, just link to a QR code generator service
-        qrDiv.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" alt="QR Code">`;
-        container.classList.remove('hidden');
     }
 </script>

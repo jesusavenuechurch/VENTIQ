@@ -31,6 +31,13 @@ class DemoAccountSeeder extends Seeder
             ]
         );
 
+        // Without this the account has zero Spatie permissions — Filament
+        // resources gated on them (Events, Tickets, etc.) just vanish from
+        // nav with no visible error, which is exactly what happened here.
+        if (!$user->hasRole('org_admin')) {
+            $user->assignRole('org_admin');
+        }
+
         $this->command->info("Demo account ready — login with demo@ventiq.co.ls / Demo@1234 (org_id: {$organization->id}, user_id: {$user->id})");
 
         // Feed straight into the session seeder so everything lands on

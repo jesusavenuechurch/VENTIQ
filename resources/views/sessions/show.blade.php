@@ -190,7 +190,7 @@
     <template x-for="group in ['active','upcoming','completed']" :key="group">
       <template x-for="speaker in speakers.filter(s => s.isPresenting !== false && s.status === group)" :key="speaker.id">
         <div @click="focusSpeaker(speaker)"
-             class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1"
+             class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1 group"
              :class="selectedSpeaker.id === speaker.id ? 'bg-white shadow-md' : 'hover:bg-white/70'">
           <div class="relative shrink-0" :class="speaker.status === 'active' ? 'breathe-ring' : ''">
             <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ring-2 ring-white shadow-sm"
@@ -200,7 +200,10 @@
             <p class="text-[11.5px] font-black uppercase truncate" :class="speaker.status==='completed' ? 'line-through opacity-40' : ''" x-text="speaker.name"></p>
             <span x-show="speaker.status==='active'" class="badge-pill mt-1" style="background: var(--gold);">Live</span>
           </div>
-          <span class="text-[9px] font-bold shrink-0" style="color: var(--muted);" x-text="speaker.status==='completed' ? '✓' : formatTime(speaker.duration)"></span>
+          <span x-show="!canRemoveSpeaker(speaker)" class="text-[9px] font-bold shrink-0" style="color: var(--muted);" x-text="speaker.status==='completed' ? '✓' : formatTime(speaker.duration)"></span>
+          <button x-show="canRemoveSpeaker(speaker)" type="button" @click.stop="removeSpeaker(speaker)"
+                  class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black opacity-0 group-hover:opacity-100 transition"
+                  style="color: var(--muted); background: rgba(0,0,0,0.05);" title="Remove — no notes captured">×</button>
         </div>
       </template>
     </template>
@@ -213,7 +216,7 @@
   <div class="space-y-1 overflow-y-auto" style="max-height: 200px;">
     <template x-for="speaker in speakers.filter(s => s.isPresenting === false)" :key="speaker.id">
       <div @click="focusSpeaker(speaker)"
-           class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1"
+           class="flex items-center gap-2.5 px-2 py-2 rounded-2xl cursor-pointer transition mb-1 group"
            :class="selectedSpeaker.id === speaker.id ? 'bg-white shadow-md' : 'hover:bg-white/70'">
         <div class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black text-white ring-2 ring-white shadow-sm"
              :style="`background:${speaker.color}`" x-text="speaker.initials"></div>
@@ -221,6 +224,9 @@
           <p class="text-[11.5px] font-black uppercase truncate" x-text="speaker.name"></p>
           <span class="text-[8px] font-bold text-gray-300 uppercase tracking-wide" x-text="speaker.role || 'Non-presenting'"></span>
         </div>
+        <button x-show="canRemoveSpeaker(speaker)" type="button" @click.stop="removeSpeaker(speaker)"
+                class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black opacity-0 group-hover:opacity-100 transition"
+                style="color: var(--muted); background: rgba(0,0,0,0.05);" title="Remove — no notes captured">×</button>
       </div>
     </template>
   </div>
@@ -321,11 +327,19 @@
             </div>
           </template>
 
-          <!-- only the CURRENT page's committed lines render here -->
-          <template x-for="log in visibleLogs" :key="log.id">
-            <div class="py-3 flex gap-4 items-baseline" style="border-bottom: 1px dashed var(--line);">
+          <!-- only the CURRENT page's committed lines render here. The very
+               last line, while still live on its current page, stays
+               reachable — click to pull it back into the draft box and fix
+               a mistyped Enter. Anything before it is settled. -->
+          <template x-for="(log, index) in visibleLogs" :key="log.id">
+            <div class="py-3 flex gap-4 items-baseline group"
+                 style="border-bottom: 1px dashed var(--line);"
+                 :class="canEditLine(index) ? 'cursor-pointer' : ''"
+                 @click="canEditLine(index) && editLastLine()">
               <span class="text-[10px] font-black shrink-0 w-10" style="color: var(--muted-light);" x-text="log.time"></span>
-              <p class="text-[15px] leading-relaxed" style="color: var(--ink); white-space: pre-wrap; word-break: break-word;" x-text="log.text"></p>
+              <p class="text-[15px] leading-relaxed flex-1" style="color: var(--ink); white-space: pre-wrap; word-break: break-word;" x-text="log.text"></p>
+              <span x-show="canEditLine(index)" class="text-[9px] font-black uppercase tracking-widest shrink-0 opacity-0 group-hover:opacity-100 transition"
+                    style="color: var(--gold);">Edit</span>
             </div>
           </template>
 
@@ -461,6 +475,19 @@ function workspace(){
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
         body: JSON.stringify(body)
+      });
+      return await res.json();
+    } catch (e) {
+      console.error('Request failed', url, e);
+      return null;
+    }
+  }
+
+  async function deleteJSON(url) {
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
       });
       return await res.json();
     } catch (e) {
@@ -666,6 +693,28 @@ function workspace(){
       }
     },
 
+    // A lineup changes — someone drops out before their turn, or turns out
+    // never to have actually presented. Only safe to remove while there's
+    // nothing captured under their name: real notes make a segment a
+    // source for the report, not a placeholder.
+    canRemoveSpeaker(speaker){
+      return speaker.status !== 'active' && (!speaker.logs || speaker.logs.length === 0);
+    },
+
+    async removeSpeaker(speaker){
+      if (!this.canRemoveSpeaker(speaker)) return;
+      if (!confirm(`Remove ${speaker.name}? They haven't presented, so nothing is lost.`)) return;
+
+      const result = await deleteJSON(`/sessions/${sessionId}/segments/${speaker.id}`);
+      if (!result || result.status !== 'ok') return;
+
+      this.speakers = this.speakers.filter(s => s.id !== speaker.id);
+
+      if (this.selectedSpeaker.id === speaker.id) {
+        this.selectedSpeaker = this.speakers[0] ?? {};
+      }
+    },
+
     // ---- pause / resume ----
     // Both the manual button and the visibility handler funnel through these
     // two methods, so there's exactly one place the clock actually stops
@@ -746,6 +795,38 @@ function workspace(){
       postJSON(`/sessions/${sessionId}/segments/${live.id}/log`, { text });
 
       this.surface(live, text);
+    },
+
+    // True only for the single most recent committed line, and only while
+    // it's still live and on-screen — the one moment "I just mistyped that"
+    // is still fixable. Everything else in the notebook is settled.
+    canEditLine(index){
+      if (!this.isLive || this.selectedSpeaker.id !== this.liveSpeakerId) return false;
+      if (!this.isViewingLatestPage(this.selectedSpeaker) || this.paused) return false;
+      return index === this.visibleLogs.length - 1;
+    },
+
+    editLastLine(){
+      const live = this.speakers.find(s => s.id === this.liveSpeakerId);
+      if (!live || !live.logs.length) return;
+
+      const last = live.logs[live.logs.length - 1];
+      live.logs.pop();
+      this.draft = last.text;
+
+      this.$nextTick(() => {
+        this.autoGrow();
+        this.$refs.draftInput?.focus();
+        // cursor at the end, not a full re-select — feels like resuming
+        // a thought, not starting over
+        const el = this.$refs.draftInput;
+        if (el) el.setSelectionRange(el.value.length, el.value.length);
+      });
+
+      // Best-effort — if this races with something else touching the log
+      // (rare), the worst case is the popped line lingers server-side and
+      // gets duplicated on next commit, not silently lost.
+      postJSON(`/sessions/${sessionId}/segments/${live.id}/log/undo`, {});
     },
 
     // Measures the notebook page; if the committed lines + draft row no

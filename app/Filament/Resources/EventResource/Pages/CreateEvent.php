@@ -25,30 +25,11 @@ class CreateEvent extends CreateRecord
         $org          = $user?->organization;
         $steps        = [];
 
-        // ── STEP 1: EVENT TYPE ──────────────────────────────────────────
-        // No longer gated behind a package/workshop_enabled flag — every
-        // org can create either kind of event now.
-        $steps[] = Step::make('Event Type')
-            ->icon('heroicon-o-squares-2x2')
-            ->description('What are you creating?')
-            ->schema([
-                Forms\Components\Radio::make('event_type')
-                    ->label('What would you like to create?')
-                    ->options([
-                        'standard' => '📅 Standard Event',
-                        'workshop' => '🎓 Workshop / Training',
-                    ])
-                    ->descriptions([
-                        'standard' => 'Conferences, concerts, church events, galas, community gatherings.',
-                        'workshop' => 'Donor workshops, ministry trainings, funded programmes, HR sessions.',
-                    ])
-                    ->default('standard')
-                    ->required()
-                    ->live()
-                    ->columnSpanFull(),
-            ]);
+        // Event Type step removed — workshop mode moved to Programmes, so
+        // every Event created here is 'standard' now (set in
+        // mutateFormDataBeforeCreate()). No choice left to make.
 
-        // ── STEP 2: EVENT DETAILS ────────────────────────────────────────
+        // ── STEP 1: EVENT DETAILS ────────────────────────────────────────
         $steps[] = Step::make('Event Details')
             ->icon('heroicon-o-information-circle')
             ->description('Basic event information')
@@ -132,7 +113,7 @@ class CreateEvent extends CreateRecord
             ])
             ->columns(2);
 
-        // ── STEP 3: SCHEDULE & LOCATION — unchanged ─────────────────────
+        // ── STEP 2: SCHEDULE & LOCATION ──────────────────────────────────
         $steps[] = Step::make('Schedule & Location')
             ->icon('heroicon-o-calendar')
             ->description('When and where')
@@ -248,7 +229,7 @@ class CreateEvent extends CreateRecord
                     ->collapsible(),
             ]);
 
-        // ── STEP 4: REGISTRATION & PAYMENTS ─────────────────────────────
+        // ── STEP 3: REGISTRATION & PAYMENTS ─────────────────────────────
         $steps[] = Step::make('Registration & Payments')
             ->icon('heroicon-o-credit-card')
             ->description('How will attendees register?')
@@ -428,7 +409,7 @@ class CreateEvent extends CreateRecord
                     ->columnSpanFull(),
             ]);
 
-        // ── STEP 5: TICKET TIERS ─────────────────────────────────────────
+        // ── STEP 4: TICKET TIERS ─────────────────────────────────────────
         // No package quota — every org can add as many tiers as they want.
         $steps[] = Step::make('Ticket Tiers')
             ->icon('heroicon-o-ticket')
@@ -449,51 +430,10 @@ class CreateEvent extends CreateRecord
                     ->visible(fn (Forms\Get $get) => $get('payment_mode') === 'free')
                     ->columnSpanFull(),
 
-                Forms\Components\Section::make('Workshop Ticket')
-                    ->description('Workshops use a single ticket type.')
-                    ->visible(fn (Forms\Get $get) =>
-                        $get('event_type') === 'workshop' && $get('payment_mode') === 'paid'
-                    )
-                    ->schema([
-                        Forms\Components\TextInput::make('workshop_ticket_price')
-                            ->label('Ticket Price')
-                            ->numeric()
-                            ->prefix(config('constants.currency.symbol'))
-                            ->required(fn (Forms\Get $get) =>
-                                $get('event_type') === 'workshop' && $get('payment_mode') === 'paid'
-                            )
-                            ->live()
-                            ->columnSpan(1),
-
-                        Forms\Components\TextInput::make('workshop_capacity')
-                            ->label('Total Capacity')
-                            ->numeric()
-                            ->placeholder('∞ Unlimited')
-                            ->columnSpan(1),
-
-                        Forms\Components\Placeholder::make('workshop_tier_preview')
-                            ->label('What will be created')
-                            ->content(function (Forms\Get $get) {
-                                $price    = $get('workshop_ticket_price') ?? 0;
-                                $capacity = $get('workshop_capacity') ?? '∞';
-                                return new HtmlString("
-                                    <div class='text-sm text-gray-600'>
-                                        Tier: <strong>Workshop</strong> ·
-                                        Price: <strong>" . config('constants.currency.symbol') . number_format((float)$price, 2) . "</strong> ·
-                                        Capacity: <strong>{$capacity}</strong>
-                                    </div>
-                                ");
-                            })
-                            ->columnSpanFull(),
-                    ])
-                    ->columns(2),
-
                 Forms\Components\Repeater::make('tiers')
                     ->label('Ticket Tiers')
                     ->relationship('tiers')
-                    ->visible(fn (Forms\Get $get) =>
-                        $get('event_type') !== 'workshop' && $get('payment_mode') === 'paid'
-                    )
+                    ->visible(fn (Forms\Get $get) => $get('payment_mode') === 'paid')
                     ->schema([
                         Forms\Components\TextInput::make('tier_name')
                             ->label('Tier Name')
@@ -567,7 +507,7 @@ class CreateEvent extends CreateRecord
                     ->columnSpanFull(),
             ]);
 
-        // ── STEP 6: REVIEW & PUBLISH ─────────────────────────────────────
+        // ── STEP 5: REVIEW & PUBLISH ─────────────────────────────────────
         $steps[] = Step::make('Review & Publish')
             ->icon('heroicon-o-eye')
             ->description('Review before publishing')
@@ -645,6 +585,10 @@ class CreateEvent extends CreateRecord
         }
         $data['slug'] = $slug;
 
+        // Workshop mode moved to Programmes — every Event created through
+        // this wizard is 'standard' now.
+        $data['event_type'] = 'standard';
+
         if (isset($data['event_date_only'], $data['event_time_only'])) {
             $data['event_date'] = \Carbon\Carbon::parse($data['event_date_only'])
                 ->setTimeFromTimeString($data['event_time_only'])
@@ -680,8 +624,6 @@ class CreateEvent extends CreateRecord
             $data['registration_deadline_time'],
             $data['tagline_locked'],
             $data['enable_online_payments'],
-            $data['workshop_ticket_price'],
-            $data['workshop_capacity'],
         );
 
         return $data;
@@ -699,17 +641,6 @@ class CreateEvent extends CreateRecord
                 'tier_name'          => 'Free',
                 'price'              => 0,
                 'quantity_available' => null,
-                'is_active'          => true,
-                'quantity_per_purchase' => 1,
-            ]);
-        }
-
-        if ($event->event_type === 'workshop' && $event->payment_mode === 'paid') {
-            $formData = $this->form->getRawState();
-            $event->tiers()->create([
-                'tier_name'          => 'Workshop',
-                'price'              => $formData['workshop_ticket_price'] ?? 0,
-                'quantity_available' => $formData['workshop_capacity'] ?? null,
                 'is_active'          => true,
                 'quantity_per_purchase' => 1,
             ]);

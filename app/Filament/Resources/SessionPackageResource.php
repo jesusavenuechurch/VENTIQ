@@ -139,9 +139,10 @@ class SessionPackageResource extends Resource
                     ->form([
                         static::organizationField(),
 
-                        Forms\Components\Select::make('tier')
+                        Forms\Components\Radio::make('tier')
                             ->label('Plan')
                             ->options($tierOptions)
+                            ->descriptions(SessionPackageDefinition::radioDescriptions())
                             ->required()
                             ->live()
                             ->afterStateUpdated(function (Forms\Set $set, $state) {
@@ -195,16 +196,24 @@ class SessionPackageResource extends Resource
                     ->modalWidth('md')
                     ->modalHeading('Change Session Plan')
                     ->form([
-                        Forms\Components\Select::make('tier')
+                        // Enterprise is quote-based, not self-serve — same
+                        // reasoning as everywhere else in the app: custom
+                        // pricing needs a human conversation, not a card
+                        // charge. Routed to Contact instead, below.
+                        Forms\Components\Radio::make('tier')
                             ->label('Plan')
-                            ->options(collect($tierOptions)->except('free'))
+                            ->options(collect($tierOptions)->except(['free', 'enterprise']))
+                            ->descriptions(collect(SessionPackageDefinition::radioDescriptions())->only(['team', 'business']))
                             ->required()
-                            ->live()
-                            ->helperText(function (Forms\Get $get) {
-                                $tier = $get('tier');
-                                $def = $tier ? SessionPackageDefinition::get($tier) : null;
-                                return $def ? "M{$def['price']}/month — {$def['sessions_included']} sessions, {$def['whatsapp_included']} WhatsApp, {$def['sms_included']} SMS included" : null;
-                            }),
+                            ->live(),
+
+                        Forms\Components\Placeholder::make('enterprise_note')
+                            ->label('')
+                            ->content(new \Illuminate\Support\HtmlString(
+                                'Need more than Business includes? Enterprise is negotiated per organization — '
+                                . 'email <a href="mailto:' . config('ventiq.emails.support') . '" class="underline font-medium text-primary-600">'
+                                . config('ventiq.emails.support') . '</a> to set one up.'
+                            )),
                     ])
                     ->action(function (array $data, \Livewire\Component $livewire) {
                         $livewire->redirect(route('organization.session-plan.payment', [

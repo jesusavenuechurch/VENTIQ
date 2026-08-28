@@ -27,7 +27,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{-- No separate Alpine script here — Livewire 3 bundles and boots its
+         own Alpine instance. Loading a second copy (as this page did) is a
+         documented Livewire footgun: pure-Alpine toggles like x-show can
+         appear to work off whichever instance wins, while wire:submit and
+         other Livewire-Alpine integration points silently stop binding —
+         exactly the "click/Enter do nothing, form falls back to a native
+         submit" symptom this caused for the Ask Ventiq widget. --}}
     <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
     
     <style>
@@ -62,6 +68,11 @@
         // ── Contact modal ──────────────────────────────────────
         showChat: false,
         showTerms: false,
+        // ── Ask Ventiq — docked panel, not a page. Stays open across
+        //    navigation only within this single page load; a fresh load
+        //    re-mounts the component, which picks the user's most recent
+        //    conversation back up (see ChatPage::mount()).
+        showAssist: false,
         submitted: false,
         loading: false,
         name: '',
@@ -323,6 +334,7 @@
                             class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
                             <a href="{{ route('sessions.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Sessions</a>
                             <a href="{{ route('programmes.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Programmes</a>
+                            <button type="button" @click="accountOpen = false; showAssist = true" class="block w-full text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Ask Ventiq</button>
                             <a href="{{ route('organization.members') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Team</a>
                             <div class="border-t border-gray-100"></div>
                             <form method="POST" action="{{ route('logout') }}">
@@ -513,6 +525,43 @@
             </div>
         </div>
     </div>
+
+    {{-- =========================================================
+         ASK VENTIQ — floating, docked panel. Deliberately not a page:
+         a quick lookup shouldn't cost someone their place in whatever
+         they were doing. Org-scoped, so gated the same way the Sessions
+         desk itself is (superadmins have no organization_id).
+         ========================================================= --}}
+    @auth
+        @if(auth()->user()->organization_id)
+            <button @click="showAssist = !showAssist"
+                    class="fixed bottom-6 right-6 z-[55] w-14 h-14 rounded-full bg-[#1D4069] hover:bg-[#F07F22] text-white shadow-xl flex items-center justify-center transition-all active:scale-95">
+                <i class="fas fa-wand-magic-sparkles text-lg" x-show="!showAssist"></i>
+                <i class="fas fa-times text-lg" x-show="showAssist" x-cloak></i>
+            </button>
+
+            <div x-show="showAssist"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-3"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 class="fixed bottom-24 right-6 z-[55] w-[calc(100vw-3rem)] max-w-sm h-[520px] max-h-[70vh] bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+                 x-cloak>
+                <div class="flex items-center justify-between px-5 py-4 border-b shrink-0">
+                    <div>
+                        <p class="text-[13px] font-black text-[#1D4069] uppercase tracking-tight">Ask Ventiq</p>
+                        <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Search your sessions</p>
+                    </div>
+                    <button @click="showAssist = false" class="p-2 hover:bg-gray-50 rounded-full transition-colors text-gray-300">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex-1 min-h-0">
+                    @livewire('assist.chat-page')
+                </div>
+            </div>
+        @endif
+    @endauth
 
     {{-- =========================================================
          TERMS MODAL

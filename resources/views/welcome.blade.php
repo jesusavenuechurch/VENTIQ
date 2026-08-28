@@ -36,14 +36,14 @@
                     background, small-caps group label, icon-circle rows with a
                     hover-to-white-card lift — not the black ticket card. Scoped to
                     this hero slot only, not a site-wide sidebar. --}}
-                <div class="hidden lg:flex lg:col-span-3 flex-col h-[450px]">
+                <div class="order-2 lg:order-none flex lg:col-span-3 flex-col h-auto lg:h-[450px] mt-8 lg:mt-0">
                     <div class="w-full h-full bg-[#F8FAFC] rounded-[2rem] border border-gray-100 flex flex-col overflow-hidden">
                         <div class="px-5 pt-6 pb-4">
                             <p class="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Not here for events?</p>
                             <p class="text-[13px] font-black text-[#1D4069] uppercase tracking-tight mt-1">Quick access</p>
                         </div>
 
-                        <div class="flex-1 px-3 pb-4 space-y-1">
+                        <div class="flex-1 px-3 pb-4 space-y-1 lg:space-y-1">
                             <a href="{{ auth()->check() ? route('sessions.index') : route('login', ['intent' => 'session']) }}"
                             class="flex items-center gap-3 px-2.5 py-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all">
                                 <div class="w-9 h-9 rounded-full bg-[#1D4069] flex items-center justify-center shrink-0">
@@ -80,7 +80,7 @@
                     </div>
                 </div>
 
-                <div class="col-span-1 lg:col-span-6 flex flex-col items-center justify-center px-4 z-10">
+                <div class="order-1 lg:order-none col-span-1 lg:col-span-6 flex flex-col items-center justify-center px-4 z-10">
                     <h1 class="text-4xl md:text-5xl lg:text-5xl font-black text-gray-900 tracking-tight leading-[1.1] mb-6 uppercase text-center">
                         Discover<br>What's<br>Happening<span class="text-[#F07F22] font-sans inline-block transform translate-x-0.5 font-black">.</span>
                     </h1>

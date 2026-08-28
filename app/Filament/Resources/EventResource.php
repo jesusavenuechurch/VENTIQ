@@ -39,10 +39,12 @@ class EventResource extends Resource
 
     public static function canCreate(): bool
     {
-        $user = auth()->user();
-        if (!$user?->hasPermissionTo('create_event')) return false;
-        if ($user->isSuperAdmin()) return true;
-        return $user->organization?->availablePackages()->isNotEmpty() ?? false;
+        // Ticketing packages are deprecated (flat 4.9% + M7.50 fee model
+        // now) — availablePackages() always returns empty per
+        // HasPackageEntitlements, so gating on it here blocked every
+        // non-superadmin org from ever creating an event. Permission is
+        // the only real gate now.
+        return auth()->user()?->hasPermissionTo('create_event') ?? false;
     }
 
     public static function canEdit(Model $record): bool
@@ -567,8 +569,11 @@ class EventResource extends Resource
                     ->visible(fn ($record) => $record->is_public && $record->slug && $record->organization?->slug)
                     ->modalHeading('Public Event URL')
                     ->modalContent(fn ($record) => view('filament.modals.event-url', [
-                        'event' => $record,
-                        'url'   => $record->public_url,
+                        'event'     => $record,
+                        'url'       => $record->public_url,
+                        'qrBase64'  => base64_encode(
+                            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(300)->margin(1)->generate($record->public_url)
+                        ),
                     ]))
                     ->modalSubmitAction(false),
 
