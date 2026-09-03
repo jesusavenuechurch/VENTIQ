@@ -326,15 +326,23 @@ class CreateEvent extends CreateRecord
                                 ->action(function (array $data, Forms\Set $set, Forms\Get $get) use ($org, $isSuperAdmin) {
                                     if ($isSuperAdmin || !$org) return;
 
-                                    $method = OrganizationPaymentMethod::create([
-                                        'organization_id' => $org->id,
-                                        'payment_method'  => $data['payment_method'],
-                                        'account_name'    => $data['account_name'] ?? null,
-                                        'account_number'  => $data['account_number'] ?? null,
-                                        'instructions'    => $data['instructions'] ?? null,
-                                        'is_active'       => true,
-                                        'display_order'   => 0,
-                                    ]);
+                                    // updateOrCreate, not create — the table
+                                    // only allows one row per (org,
+                                    // payment_method), so re-adding a type the
+                                    // org already has updates that row instead
+                                    // of colliding with it.
+                                    $method = OrganizationPaymentMethod::updateOrCreate(
+                                        [
+                                            'organization_id' => $org->id,
+                                            'payment_method'  => $data['payment_method'],
+                                        ],
+                                        [
+                                            'account_name'   => $data['account_name'] ?? null,
+                                            'account_number' => $data['account_number'] ?? null,
+                                            'instructions'   => $data['instructions'] ?? null,
+                                            'is_active'      => true,
+                                        ]
+                                    );
 
                                     $current = $get('enabled_payment_method_ids') ?? [];
                                     $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
