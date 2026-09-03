@@ -54,6 +54,7 @@
         @endif
 
         {{-- ── ONLINE PAYMENT ─────────────────────────────────────── --}}
+        @if($onlineEnabled)
         <div class="bg-white rounded-ventiq shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100 mb-6">
             <div class="p-8 sm:p-10 border-b border-gray-50">
                 <div class="flex items-center gap-3 mb-2">
@@ -148,6 +149,21 @@
 
             </div>
         </div>
+        @else
+        <div class="bg-white rounded-ventiq shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100 mb-6 p-8 sm:p-10 text-center">
+            <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <i class="fas fa-tools text-amber-500 text-xl"></i>
+            </div>
+            <h2 class="text-xl font-black text-gray-900 tracking-tighter uppercase mb-2">Online Payment Unavailable</h2>
+            <p class="text-gray-500 font-medium text-sm mb-6">
+                We're temporarily unable to process online payments for plan upgrades. Reach out and we'll get you sorted directly.
+            </p>
+            <a href="mailto:support@ventiq.co.ls?subject={{ urlencode('Session Plan Upgrade — ' . $label) }}"
+               class="inline-flex items-center gap-2 px-8 py-4 bg-[#1D4069] hover:bg-[#F07F22] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
+                <i class="fas fa-envelope"></i> Contact Us
+            </a>
+        </div>
+        @endif
 
         <a href="{{ \App\Filament\Resources\SessionPackageResource::getUrl('index') }}"
            class="block text-center text-[10px] font-black text-gray-400 hover:text-[#1D4069] uppercase tracking-widest">

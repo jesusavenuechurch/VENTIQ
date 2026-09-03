@@ -33,12 +33,16 @@ class SessionPlanController extends Controller
         }
 
         return view('organization.session-plan-payment', [
-            'organization' => $organization,
-            'type'         => $type,
-            'tier'         => $tier ?? null,
-            'quantity'     => $quantity ?? null,
-            'amount'       => $amount,
-            'label'        => $label,
+            'organization'  => $organization,
+            'type'          => $type,
+            'tier'          => $tier ?? null,
+            'quantity'      => $quantity ?? null,
+            'amount'        => $amount,
+            'label'         => $label,
+            // This flow has no manual/cash fallback (it's Ventiq's own
+            // billing, not the org's) — while the shared gateway is off,
+            // show a "contact us" message instead of a broken form.
+            'onlineEnabled' => config('gateways.paylesotho.enabled'),
         ]);
     }
 }

@@ -264,7 +264,19 @@ class RegistrationController extends Controller
             ->orderBy('display_order')
             ->get();
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods'));
+        // "Pay Online" needs both the platform-wide gateway switched on
+        // (config('gateways.paylesotho.enabled') — shared merchant creds,
+        // so an outage there affects every org at once) AND the org's own
+        // 'online' payment method row active. Either being off drops
+        // straight to manual methods instead of showing a button that
+        // can't actually deliver a push.
+        $onlineEnabled = config('gateways.paylesotho.enabled') && $organization->paymentMethods()
+            ->where('is_active', true)
+            ->where('payment_method', 'online')
+            ->when($enabledIds, fn ($q) => $q->whereIn('id', $enabledIds))
+            ->exists();
+
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled'));
     }
 
     /**

@@ -15,12 +15,12 @@ class PayLesothoEcocashDriver extends AbstractPayLesothoDriver implements Paymen
         $response = $this->client()->post(
             config('gateways.paylesotho.base_url') . '/api/v3/ecocash/deposit',
             [
-                'mobileNumber'     => $data->mobileNumber,
+                'mobileNumber'     => $this->localMobileNumber($data->mobileNumber),
                 'client_reference' => $data->clientReference,
                 'merchantid'       => config('gateways.paylesotho.ecocash.merchant_id'),
                 'callback_url'     => $this->callbackUrlFor('ecocash'),
-                'merchantname'     => config('gateways.paylesotho.merchant_name'),
-                'amount'           => number_format($data->amount, 2, '.', ''),
+                'merchantname'     => config('gateways.paylesotho.ecocash.merchant_name'),
+                'amount'           => $this->formatAmount($data->amount),
             ]
         );
 

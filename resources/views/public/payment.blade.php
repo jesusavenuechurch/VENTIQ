@@ -62,6 +62,7 @@
         @endif
 
         {{-- ── ONLINE PAYMENT (DEFAULT) ───────────────────────────── --}}
+        @if($onlineEnabled)
         <div class="bg-white rounded-ventiq shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100 mb-6">
             <div class="p-8 sm:p-10 border-b border-gray-50">
                 <div class="flex items-center gap-3 mb-2">
@@ -156,15 +157,22 @@
 
             </div>
         </div>
+        @endif
 
-        {{-- ── OR PAY ANOTHER WAY (COLLAPSED) ─────────────────────── --}}
+        {{-- ── OR PAY ANOTHER WAY (COLLAPSED — expanded by default when online isn't offered) ── --}}
         <div class="bg-white rounded-ventiq shadow-lg shadow-gray-200/40 overflow-hidden border border-gray-100">
-            <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
-                <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Or pay another way</span>
-                <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" id="manual-toggle-icon"></i>
-            </button>
+            @if($onlineEnabled)
+                <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
+                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Or pay another way</span>
+                    <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" id="manual-toggle-icon"></i>
+                </button>
+            @else
+                <div class="p-6 sm:p-8 pb-0">
+                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Payment Method</span>
+                </div>
+            @endif
 
-            <div id="manual-panel" class="accordion-panel">
+            <div id="manual-panel" class="accordion-panel {{ $onlineEnabled ? '' : 'open' }}">
                 <form method="POST" action="{{ route('registration.payment.manual', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" class="p-6 sm:p-8 pt-0 space-y-6">
                     @csrf
 

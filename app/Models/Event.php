@@ -37,6 +37,7 @@ class Event extends Model
         'event_type',
         'payment_mode',
         'is_sponsored',
+        'enabled_payment_method_ids',
     ];
 
     protected $casts = [
@@ -45,6 +46,7 @@ class Event extends Model
         'is_programme' => 'boolean',
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
+        'enabled_payment_method_ids' => 'array',
     ];
 
     /* ------------------------------------------------------------

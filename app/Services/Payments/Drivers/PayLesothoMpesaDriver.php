@@ -13,13 +13,13 @@ class PayLesothoMpesaDriver extends AbstractPayLesothoDriver implements PaymentD
     public function initiate(PaymentInitiationData $data): PaymentInitiationResult
     {
         $response = $this->client()->post(
-            config('gateways.paylesotho.base_url') . '/api/v2/mpesa-deposit/payment',
+            config('gateways.paylesotho.base_url') . '/api/v1/vcl/payment',
             [
-                'merchantName'    => config('gateways.paylesotho.merchant_name'),
-                'mobileNumber'    => $data->mobileNumber,
+                'amount'          => $this->formatAmount($data->amount),
+                'mobileNumber'    => $this->localMobileNumber($data->mobileNumber),
+                'merchantid'      => config('gateways.paylesotho.mpesa.merchant_number'),
+                'merchantname'    => config('gateways.paylesotho.mpesa.merchant_name'),
                 'clientReference' => $data->clientReference,
-                'amount'          => number_format($data->amount, 2, '.', ''),
-                'merchantNumber'  => config('gateways.paylesotho.mpesa.merchant_number'),
                 'callback_url'    => $this->callbackUrlFor('mpesa'),
             ]
         );

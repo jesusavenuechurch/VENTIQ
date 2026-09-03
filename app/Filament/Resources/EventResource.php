@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Models\Event;
 use App\Models\OrganizationPackage;
+use App\Models\OrganizationPaymentMethod;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -431,6 +433,97 @@ class EventResource extends Resource
                         ->visible(fn (Forms\Get $get) => $get('status') === 'draft')
                         ->columnSpanFull(),
                 ]),
+
+            // ── PAYMENT METHODS ───────────────────────────────────────
+            // Same fields the Create wizard offers, but this was missing
+            // entirely from the Edit form — meaning enabled_payment_method_ids
+            // was a permanent snapshot taken at creation time with no way to
+            // add newly-created org payment methods to an existing event
+            // afterward, even though they show as active at the org level.
+            Forms\Components\Section::make('Payment Methods')
+                ->description('Choose how attendees pay for this event.')
+                ->schema([
+                    Forms\Components\Checkbox::make('enable_online_payments')
+                        ->label('💳 Online Payments')
+                        ->helperText('Attendees pay via M-Pesa, EcoCash, or Card.')
+                        ->live()
+                        ->columnSpanFull(),
+
+                    Forms\Components\CheckboxList::make('enabled_payment_method_ids')
+                        ->label('Manual Payment Methods')
+                        ->options(fn ($record) => OrganizationPaymentMethod::where('organization_id', $record?->organization_id)
+                            ->where('is_active', true)
+                            ->where('payment_method', '!=', 'online')
+                            ->orderBy('display_order')
+                            ->get()
+                            ->mapWithKeys(fn ($m) => [$m->id => $m->label . ($m->account_number ? ' — ' . $m->account_number : '')])
+                            ->toArray())
+                        ->helperText('Attendees pay manually and submit a reference number. You approve payments in the admin panel.')
+                        ->live()
+                        ->columnSpanFull(),
+
+                    Forms\Components\Actions::make([
+                        FormAction::make('add_payment_method')
+                            ->label('+ Add Payment Method')
+                            ->icon('heroicon-o-plus-circle')
+                            ->color('gray')
+                            ->modalHeading('Add a Payment Method')
+                            ->modalWidth('lg')
+                            ->form([
+                                Forms\Components\Select::make('payment_method')
+                                    ->label('Method')
+                                    ->options(collect(config('constants.payment_methods'))
+                                        ->only(['cash', 'ecocash', 'mpesa', 'bank_transfer'])
+                                        ->mapWithKeys(fn ($m, $key) => [$key => $m['label'] ?? ucfirst($key)])
+                                        ->toArray())
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn ($set) => $set('account_number', null)),
+
+                                Forms\Components\TextInput::make('account_name')
+                                    ->label('Account Name / Label')
+                                    ->maxLength(255)
+                                    ->visible(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    ),
+
+                                Forms\Components\TextInput::make('account_number')
+                                    ->label(fn (Forms\Get $get) =>
+                                        config("constants.payment_methods.{$get('payment_method')}.account_label", 'Account Number')
+                                    )
+                                    ->required(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    )
+                                    ->visible(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    ),
+
+                                Forms\Components\Textarea::make('instructions')
+                                    ->label('Payment Instructions (optional)')
+                                    ->rows(2),
+                            ])
+                            ->action(function (array $data, Forms\Set $set, Forms\Get $get, $record) {
+                                $method = OrganizationPaymentMethod::create([
+                                    'organization_id' => $record->organization_id,
+                                    'payment_method'  => $data['payment_method'],
+                                    'account_name'    => $data['account_name'] ?? null,
+                                    'account_number'  => $data['account_number'] ?? null,
+                                    'instructions'    => $data['instructions'] ?? null,
+                                    'is_active'       => true,
+                                    'display_order'   => 0,
+                                ]);
+
+                                $current = $get('enabled_payment_method_ids') ?? [];
+                                $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
+
+                                Notification::make()->title('Payment method added')->success()->send();
+                            }),
+                    ])
+                        ->visible(fn () => !$isSuperAdmin)
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->collapsible(),
 
             // ── PAYMENT OPTIONS ───────────────────────────────────────
             Forms\Components\Section::make('Payment Options')
