@@ -168,7 +168,7 @@
                 </button>
             @else
                 <div class="p-6 sm:p-8 pb-0">
-                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Payment Method</span>
+                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Online payment is currently unavailable — pay using one of the options below</span>
                 </div>
             @endif
 
