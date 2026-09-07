@@ -47,6 +47,7 @@ class ProgrammeController extends Controller
             'end_date'              => 'nullable|date|after_or_equal:start_date',
             'venue'                 => 'nullable|string|max:255',
             'certificates_enabled'  => 'nullable|boolean',
+            'signature_capture_enabled' => 'nullable|boolean',
         ]);
 
         $start = \Carbon\Carbon::parse($validated['start_date']);
@@ -62,6 +63,7 @@ class ProgrammeController extends Controller
             'is_public'            => false,
             'is_programme'         => true,
             'certificates_enabled' => $request->boolean('certificates_enabled'),
+            'signature_capture_enabled' => $request->boolean('signature_capture_enabled'),
         ]);
 
         return redirect()->route('programmes.show', $programme)

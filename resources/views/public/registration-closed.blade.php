@@ -91,5 +91,6 @@
             </div>
         </div>
     </footer>
+@include('partials.cookie-notice')
 </body>
 </html>

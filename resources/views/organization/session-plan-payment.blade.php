@@ -320,5 +320,6 @@
         });
     });
     </script>
+@include('partials.cookie-notice')
 </body>
 </html>

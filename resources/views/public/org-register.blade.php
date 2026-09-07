@@ -283,5 +283,6 @@
             </div>
         </div>
     </div>
+@include('partials.cookie-notice')
 </body>
 </html>

@@ -119,5 +119,6 @@
                 <p>&copy; {{ date('Y') }} Event Ticketing. All rights reserved.</p>
             </div>
         </footer>
+@include('partials.cookie-notice')
 </body>
 </html>

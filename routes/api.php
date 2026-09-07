@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\Api\VoucherScanController;
 use App\Http\Controllers\Api\WorkshopController;
+use App\Http\Controllers\Api\ProgrammeScannerController;
 
 
 // Check-in routes
@@ -41,6 +42,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/workshop/ticket/{ticketId}/details', [WorkshopController::class, 'updateDetails']);
     Route::post('/workshop/ticket/{ticketId}/signature-status', [WorkshopController::class, 'updateSignatureStatus']);
     Route::get('/workshop/event/{eventId}/summary', [WorkshopController::class, 'eventSummary']);
+
+    // Programme scanner endpoints
+    Route::get('/programme/sessions', [ProgrammeScannerController::class, 'sessions']);
+    Route::get('/programme/session/{sessionId}/search', [ProgrammeScannerController::class, 'search']);
+    Route::get('/programme/session/{sessionId}/summary', [ProgrammeScannerController::class, 'summary']);
+    Route::post('/programme/session/{sessionId}/checkin', [ProgrammeScannerController::class, 'checkin']);
+    Route::post('/programme/participant/{participantId}/sign', [ProgrammeScannerController::class, 'saveSignature']);
+    Route::patch('/programme/participant/{participantId}/details', [ProgrammeScannerController::class, 'updateDetails']);
+    Route::post('/programme/participant/{participantId}/signature-status', [ProgrammeScannerController::class, 'updateSignatureStatus']);
 });
 
 // WhatsApp webhook

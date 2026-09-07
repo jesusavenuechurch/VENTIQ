@@ -229,5 +229,6 @@
             window.location.href = `/register/{{ $organization->slug }}/{{ $event->slug }}?tier=${tierId}`;
         }
     </script>
+@include('partials.cookie-notice')
 </body>
 </html>

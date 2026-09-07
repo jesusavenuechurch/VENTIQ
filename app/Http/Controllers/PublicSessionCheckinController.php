@@ -77,43 +77,24 @@ class PublicSessionCheckinController extends Controller
             'photo'       => 'nullable|image|max:5120',
         ]);
 
-        $client = Client::firstOrCreate(
-            ['email' => $validated['email'], 'organization_id' => $session->organization_id],
-            ['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null, 'status' => 'active']
-        );
-
-        if (!$client->wasRecentlyCreated) {
-            $client->update([
-                'full_name' => $validated['full_name'],
-                'phone'     => $validated['phone'] ?? $client->phone,
-            ]);
-        }
+        $participant = $session->checkInAttendee([
+            'full_name'   => $validated['full_name'],
+            'email'       => $validated['email'],
+            'phone'       => $validated['phone'] ?? null,
+            'institution' => $validated['institution'] ?? null,
+            'position'    => $validated['position'] ?? null,
+            'source'      => 'walk_in',
+        ]);
 
         // Optional — skippable at check-in. A new upload replaces the old
         // one; skipping leaves whatever photo the client already has.
         if ($request->hasFile('photo')) {
-            $client->update([
+            $participant->client->update([
                 'photo_path' => $request->file('photo')->store('client-photos', 'public'),
             ]);
         }
 
-        // FIX: uniqueness key was (event_id, client_id) — meaning a
-        // returning attendee on Day 2 of a Programme would silently
-        // overwrite their Day 1 record instead of getting a new one,
-        // since both days share the same event_id. Keyed on session_id
-        // now, so every session's check-in is genuinely independent.
-        $participant = Participant::firstOrNew([
-            'session_id' => $session->id,
-            'client_id'  => $client->id,
-        ]);
-        $participant->organization_id = $session->organization_id;
-        $participant->event_id        = $session->event_id; // kept for event-wide queries, no longer the uniqueness key
-        $participant->role            = 'attendee';
-        $participant->source          = 'walk_in';
-        $participant->attended_at     = now();
-        $participant->institution     = $validated['institution'] ?? $participant->institution;
-        $participant->position        = $validated['position']    ?? $participant->position;
-        $participant->save();
+        $client = $participant->client;
 
         return view('public.session-checkin', [
             'session' => $session,

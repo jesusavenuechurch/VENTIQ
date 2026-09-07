@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Client;
+use App\Models\Participant;
 use App\Support\SessionType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -128,6 +130,78 @@ class Session extends Model
         $this->update(['report_job_id' => $jobId]);
 
         \App\Jobs\GenerateSessionReport::dispatch($jobId, $this->created_by, $this->id);
+    }
+
+    // ── Attendee check-in ────────────────────────────────────────────────
+    // Canonical "find-or-create Client, find-or-create Participant scoped
+    // to this session, mark attended" logic. Shared by the public
+    // self-service form (PublicSessionCheckinController) and the
+    // authenticated scanner API (ProgrammeScannerController) so the two
+    // never drift into different rules for what a "check-in" means.
+    //
+    // Accepts either an existing `client_id` (picked from a search result)
+    // or raw `full_name`/`email` for a brand-new walk-in — `email` is
+    // required either way since it's how Client is deduped org-wide.
+    //
+    // Idempotent: re-checking in someone already marked present for this
+    // session does not overwrite their original attended_at — the caller
+    // can tell this happened via $participant->wasRecentlyCheckedIn.
+    public function checkInAttendee(array $data): Participant
+    {
+        if (!empty($data['client_id'])) {
+            $client = Client::where('organization_id', $this->organization_id)
+                ->findOrFail($data['client_id']);
+
+            $client->update([
+                'full_name' => $data['full_name'] ?? $client->full_name,
+                'phone'     => $data['phone'] ?? $client->phone,
+            ]);
+        } else {
+            $client = Client::firstOrCreate(
+                ['email' => $data['email'], 'organization_id' => $this->organization_id],
+                ['full_name' => $data['full_name'], 'phone' => $data['phone'] ?? null, 'status' => 'active']
+            );
+
+            if (!$client->wasRecentlyCreated) {
+                $client->update([
+                    'full_name' => $data['full_name'],
+                    'phone'     => $data['phone'] ?? $client->phone,
+                ]);
+            }
+        }
+
+        // Keyed on session_id — see the fix note on the participants
+        // migration. A returning attendee on Day 2 gets their own row here
+        // instead of colliding with (or silently reusing) their Day 1 one.
+        $participant = Participant::firstOrNew([
+            'session_id' => $this->id,
+            'client_id'  => $client->id,
+        ]);
+
+        $wasAlreadyCheckedIn = $participant->exists && $participant->attended_at !== null;
+        $isNew = !$participant->exists;
+
+        $participant->organization_id = $this->organization_id;
+        $participant->event_id        = $this->event_id;
+        $participant->role            = $participant->role ?? 'attendee';
+        $participant->source          = $isNew ? ($data['source'] ?? 'walk_in') : $participant->source;
+        $participant->institution     = $data['institution'] ?? $participant->institution;
+        $participant->position        = $data['position']    ?? $participant->position;
+        if ($isNew) {
+            // Set explicitly rather than relying on the DB column default —
+            // the in-memory model wouldn't reflect that default until a
+            // fresh fetch, and callers read $participant straight off this
+            // method's return value.
+            $participant->signature_status = 'pending';
+        }
+        if (!$wasAlreadyCheckedIn) {
+            $participant->attended_at = now();
+        }
+        $participant->save();
+
+        $participant->wasAlreadyCheckedIn = $wasAlreadyCheckedIn;
+
+        return $participant;
     }
 
     // ── Public check-in code ────────────────────────────────────────────

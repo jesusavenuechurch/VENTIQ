@@ -196,5 +196,6 @@
         <p class="mt-8 text-center text-[9px] font-black text-slate-300 uppercase tracking-[1em] ml-[1em] opacity-50">Ventiq Protocol</p>
     </main>
 
+@include('partials.cookie-notice')
 </body>
 </html>

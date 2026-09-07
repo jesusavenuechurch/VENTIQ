@@ -41,6 +41,14 @@
             <input type="checkbox" name="certificates_enabled" value="1" class="w-5 h-5 accent-[#1D4069]">
         </label>
 
+        <label class="flex items-center justify-between px-5 py-4 bg-gray-50 rounded-2xl cursor-pointer">
+            <div>
+                <p class="text-[11px] font-black text-[#1D4069] uppercase tracking-wide">Capture Signatures at Check-in</p>
+                <p class="text-[9px] text-gray-400 font-bold mt-0.5">Gate staff using the scanner app will collect a signature plus role/institution/district for each attendee.</p>
+            </div>
+            <input type="checkbox" name="signature_capture_enabled" value="1" class="w-5 h-5 accent-[#1D4069]">
+        </label>
+
         @if($errors->any())
             <div class="p-4 bg-rose-50 text-rose-600 rounded-2xl text-[11px] font-bold">
                 <ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>

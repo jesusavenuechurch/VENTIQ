@@ -40,5 +40,6 @@
         Ventiq · ventiq.co.ls
     </p>
 </div>
+@include('partials.cookie-notice')
 </body>
 </html>
