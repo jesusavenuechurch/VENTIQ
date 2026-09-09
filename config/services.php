@@ -41,15 +41,23 @@ return [
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', '+14155238886'),
     ],
 
+    // Meta WhatsApp Cloud API — replacing Twilio. Use a permanent System
+    // User access token (Business Settings), not the 24h quick-start token.
+    // (There used to be a second, duplicate 'whatsapp' key further down
+    // this file — PHP silently keeps the LAST duplicate array key, so it
+    // was overwriting this entire block; removed, nothing referenced it.)
+    'whatsapp' => [
+        'phone_number_id'     => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'access_token'        => env('WHATSAPP_ACCESS_TOKEN'),
+        'app_id'              => env('WHATSAPP_APP_ID'),
+        'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
+        'api_version'         => env('WHATSAPP_API_VERSION', 'v25.0'),
+    ],
+
     'mopay' => [
         'api_key' => env('MOPAY_API_KEY'),
     ],
 
-    'whatsapp' => [
-        'token' => env('WHATSAPP_ACCESS_TOKEN'),
-        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
-        'api_version' => env('WHATSAPP_API_VERSION', 'v25.0'),
-    ],
     'google' => [
         'client_id'     => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

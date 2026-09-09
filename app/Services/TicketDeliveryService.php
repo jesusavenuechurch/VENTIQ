@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Ticket;
-use App\Services\WhatsAppService;
+use App\Services\WhatsAppCloudService;
 use Illuminate\Support\Facades\Log;
 
 class TicketDeliveryService
@@ -12,10 +12,11 @@ class TicketDeliveryService
     {
         Log::info("🚀 Delivering ticket {$ticket->ticket_number}");
 
-        // WhatsApp
+        // WhatsApp — Meta Cloud API, "ticket_approved" template (Twilio
+        // retired for this flow; still referenced elsewhere until fully
+        // migrated).
         if ($ticket->shouldDeliverViaWhatsApp()) {
-            $sent = app(WhatsAppService::class)
-                ->sendTicket($ticket, $ticket->client->phone);
+            $sent = app(WhatsAppCloudService::class)->sendTicketApproved($ticket);
 
             if (!$sent) {
                 $ticket->logDeliveryFailure('whatsapp', 'Failed to send via Meta WhatsApp Cloud API');

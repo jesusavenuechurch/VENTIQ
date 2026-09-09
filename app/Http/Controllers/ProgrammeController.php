@@ -30,6 +30,15 @@ class ProgrammeController extends Controller
 
     public function create()
     {
+        // Gate before they ever see the form — filling out a whole
+        // Programme only to be told on submit that their plan doesn't
+        // allow it is the wrong place to find that out.
+        if (!$this->quota->meetsMinimumTier(Auth::user()->organization, 'business')) {
+            return redirect()->route('programmes.index')->withErrors([
+                'plan' => 'Programmes require the Business plan or above. Upgrade to unlock this feature.',
+            ]);
+        }
+
         return view('programmes.create');
     }
 

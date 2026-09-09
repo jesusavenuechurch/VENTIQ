@@ -23,6 +23,14 @@
         </div>
     @endif
 
+    @if($errors->any())
+        <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[11px] font-bold text-rose-600">
+            @foreach($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
+
     <div class="space-y-3">
         @forelse($programmes as $programme)
             <a href="{{ route('programmes.show', $programme) }}"

@@ -222,6 +222,18 @@ class RegistrationController extends Controller
 
         $allTickets = collect(session('all_tickets', [$ticket]));
 
+        // This "protocol status" page exists to explain a still-pending
+        // ticket (payment instructions, waiting on approval, etc). Once a
+        // ticket is actually completed there's nothing left to explain —
+        // send them straight to the ticket itself instead of making them
+        // click through a "Verified" holding screen first. Group purchases
+        // (companions listed in $allTickets) are the one exception: that's
+        // the only place all of a party's tickets are shown together, so
+        // keep those on this page even once completed.
+        if ($ticket->payment_status === 'completed' && $allTickets->count() <= 1) {
+            return redirect()->route('ticket.download', $ticket->qr_code);
+        }
+
         $paymentMethodDetails = null;
         if ($ticket->payment_status !== 'completed' && $ticket->payment_method !== 'free') {
             $paymentMethodDetails = OrganizationPaymentMethod::where('organization_id', $organization->id)

@@ -10,6 +10,7 @@ use App\Services\AI\AIService;
 use App\Services\AI\Prompts\SegmentInsightPrompt;
 use App\Services\AttendanceCardImageService;
 use App\Services\SessionQuotaService;
+use App\Services\WhatsAppCloudService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -88,23 +89,34 @@ class SessionSegmentController extends Controller
             ->get();
 
         foreach ($participants as $participant) {
+            // Generated once, reused for both channels — previously this
+            // only ran inside the email branch, so a phone-only participant
+            // (no email) never got a card generated for them at all.
+            $cardPath = ($participant->client?->email || $participant->client?->phone)
+                ? $cardService->generate($participant)
+                : null;
+
             // Email is a base feature on every tier, never quota-gated.
-            if ($participant->client?->email) {
-                $cardPath = $cardService->generate($participant);
+            if ($participant->client?->email && $cardPath) {
                 Mail::to($participant->client->email)
                     ->send(new SessionThankYouMail($participant, $cardPath));
             }
 
-            // No WhatsApp provider configured yet — simulate on the
-            // frontend/logs so the flow is visible and testable now,
-            // swap this line for a real provider call later without
-            // touching anything else in this method.
-            if ($participant->client?->phone) {
+            // Real Meta Cloud API send now — "session_thank_you" template.
+            // Safe to leave wired even before the template's approved: a
+            // rejected/unknown template name just fails and logs, same as
+            // any other delivery failure, non-blocking either way.
+            if ($participant->client?->phone && $cardPath) {
                 if ($this->quota->hasWhatsappQuota($organization)) {
-                    Log::info("[SIMULATED WHATSAPP] To {$participant->client->phone}: Thank you for attending {$session->resolved_title}. Here's your attendance card.");
-                    $this->quota->consumeWhatsapp($organization);
+                    $sent = app(WhatsAppCloudService::class)->sendSessionThankYou($participant, $cardPath);
+
+                    if ($sent) {
+                        $this->quota->consumeWhatsapp($organization);
+                    } else {
+                        Log::warning("WhatsApp session thank-you failed for participant {$participant->id}");
+                    }
                 } else {
-                    Log::info("[SIMULATED WHATSAPP SKIPPED — quota exhausted] Would have notified {$participant->client->phone}");
+                    Log::info("[WHATSAPP SKIPPED — quota exhausted] Would have notified {$participant->client->phone}");
                 }
             }
 
