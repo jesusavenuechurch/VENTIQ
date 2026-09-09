@@ -57,15 +57,6 @@
                     @csrf
                     <input type="hidden" name="tier_id" value="{{ $selectedTier->id ?? '' }}">
 
-                    {{--
-                        WhatsApp delivery is temporarily disabled while the Meta
-                        Cloud API integration is finished. Defaulting everyone
-                        to email delivery for now. Re-enable the toggle block
-                        below once WhatsApp pull-delivery is live.
-                    --}}
-                    <input type="hidden" name="has_whatsapp" value="0">
-                    <input type="hidden" name="preferred_delivery" value="email">
-
                     {{-- ── PERSONAL INFO ─────────────────────────────────── --}}
                     <div class="space-y-6">
                         <div>
@@ -117,38 +108,34 @@
                             </div>
                         </div>
 
-                        {{--
-                            WhatsApp toggle — DISABLED, kept here for re-enabling later.
-                            Uncomment once Meta WhatsApp Cloud API pull-delivery is wired up.
-
-                            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
-                                <div class="flex items-center mb-6">
-                                    <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
-                                        <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
-                                        <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
-                                    </div>
+                        {{-- WhatsApp toggle — re-enabled now that the Meta Cloud API integration is live. --}}
+                        <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
+                                    <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
                                 </div>
-
-                                <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
-                                    <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
-                                        class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
-                                    <div class="ml-4">
-                                        <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
-                                        <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
-                                    </div>
-                                </label>
-
-                                <div id="whatsapp-confirmation" class="mt-4 hidden">
-                                    <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
-                                        <i class="fas fa-check-circle mr-3"></i>
-                                        <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
-                                    </div>
+                                <div>
+                                    <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
+                                    <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
                                 </div>
                             </div>
-                        --}}
+
+                            <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
+                                <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
+                                    class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
+                                <div class="ml-4">
+                                    <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
+                                    <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
+                                </div>
+                            </label>
+
+                            <div id="whatsapp-confirmation" class="mt-4 hidden">
+                                <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
+                                    <i class="fas fa-check-circle mr-3"></i>
+                                    <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- ── WORKSHOP FIELDS ───────────────────────────────── --}}
@@ -324,7 +311,26 @@
             if (value.length > 8) value = value.substring(0, 8);
             if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
             e.target.value = value;
+            updateWhatsAppConfirmation();
         });
+
+        // WhatsApp confirmation banner — shows/hides with the checkbox,
+        // and keeps the displayed number in sync as the phone field changes.
+        const whatsappCheckbox = document.getElementById('has_whatsapp_checkbox');
+        const whatsappConfirmation = document.getElementById('whatsapp-confirmation');
+        const phoneDisplayConfirm = document.getElementById('phone-display-confirm');
+
+        function updateWhatsAppConfirmation() {
+            if (!whatsappCheckbox || !whatsappConfirmation) return;
+            if (whatsappCheckbox.checked) {
+                whatsappConfirmation.classList.remove('hidden');
+                if (phoneDisplayConfirm) phoneDisplayConfirm.textContent = phoneInput?.value || '';
+            } else {
+                whatsappConfirmation.classList.add('hidden');
+            }
+        }
+
+        window.toggleWhatsAppConfirmation = updateWhatsAppConfirmation;
 
         // Auto-format companion phones
         document.querySelectorAll('.companion-phone').forEach(input => {

@@ -172,17 +172,35 @@ class RegistrationController extends Controller
 
             DB::commit();
 
-            // ── Emails ────────────────────────────────────────────────
+            // ── Emails + WhatsApp ────────────────────────────────────────
             foreach ($createdTickets as $ticket) {
                 $ticket->load(['client', 'event', 'tier', 'event.organization']);
 
-                if (!$ticket->client->email) continue;
+                if ($ticket->client->email) {
+                    if ($isFree) {
+                        \Mail::to($ticket->client->email)->send(new \App\Mail\TicketApprovedMail($ticket));
+                    } else {
+                        // Approval email is sent once a gateway callback or admin approves payment.
+                        \Mail::to($ticket->client->email)->send(new \App\Mail\TicketPendingMail($ticket));
+                    }
+                }
 
-                if ($isFree) {
-                    \Mail::to($ticket->client->email)->send(new \App\Mail\TicketApprovedMail($ticket));
-                } else {
-                    // Approval email is sent once a gateway callback or admin approves payment.
-                    \Mail::to($ticket->client->email)->send(new \App\Mail\TicketPendingMail($ticket));
+                // WhatsApp. Free tickets are created already
+                // payment_status=completed (never go through an update), so
+                // Ticket::autoDeliverTicket()'s isDirty('payment_status')
+                // hook never fires for them — they need their own explicit
+                // send here, same as the email branch above. Paid/pending
+                // tickets get "ticket_registered" now and "ticket_ready"
+                // later once approved (via autoDeliverTicket()).
+                if ($ticket->shouldDeliverViaWhatsApp()) {
+                    $whatsapp = app(\App\Services\WhatsAppCloudService::class);
+                    $sent = $isFree
+                        ? $whatsapp->sendTicketApproved($ticket)
+                        : $whatsapp->sendTicketPending($ticket);
+
+                    if (!$sent) {
+                        $ticket->logDeliveryFailure('whatsapp', 'Failed to send registration WhatsApp message via Meta Cloud API');
+                    }
                 }
             }
 
