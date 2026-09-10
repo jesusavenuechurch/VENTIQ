@@ -25,7 +25,7 @@ class PayLesothoController extends Controller
             'mobile_number' => 'required|string',
         ]);
 
-        $ticket = Ticket::with('event')->findOrFail($data['ticket_id']);
+        $ticket = Ticket::with(['event.organization', 'client'])->findOrFail($data['ticket_id']);
 
         $session = $this->payments->initiate(
             payableType: 'ticket',
@@ -35,6 +35,18 @@ class PayLesothoController extends Controller
             mobileNumber: $data['mobile_number'],
             organizationId: $ticket->event->organization_id,
         );
+
+        // WhatsApp "ticket_registered" fires here, not at initial details
+        // submission — this is the moment the customer has actually
+        // submitted their number and a push went out, not just filled in
+        // their name. Same reasoning as submitManualPayment().
+        if ($ticket->shouldDeliverViaWhatsApp()) {
+            $sent = app(\App\Services\WhatsAppCloudService::class)->sendTicketPending($ticket);
+
+            if (!$sent) {
+                $ticket->logDeliveryFailure('whatsapp', 'Failed to send ticket_registered via Meta WhatsApp Cloud API');
+            }
+        }
 
         return response()->json([
             'session_id' => $session->id,

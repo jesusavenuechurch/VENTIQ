@@ -185,18 +185,23 @@ class RegistrationController extends Controller
                     }
                 }
 
-                // WhatsApp. Free tickets are created already
-                // payment_status=completed (never go through an update), so
-                // Ticket::autoDeliverTicket()'s isDirty('payment_status')
-                // hook never fires for them — they need their own explicit
-                // send here, same as the email branch above. Paid/pending
-                // tickets get "ticket_registered" now and "ticket_ready"
-                // later once approved (via autoDeliverTicket()).
-                if ($ticket->shouldDeliverViaWhatsApp()) {
-                    $whatsapp = app(\App\Services\WhatsAppCloudService::class);
-                    $sent = $isFree
-                        ? $whatsapp->sendTicketApproved($ticket)
-                        : $whatsapp->sendTicketPending($ticket);
+                // WhatsApp — free tickets only here. Free tickets are
+                // created already payment_status=completed (never go
+                // through an update), so Ticket::autoDeliverTicket()'s
+                // isDirty('payment_status') hook never fires for them —
+                // they need their own explicit send, same as the email
+                // branch above.
+                //
+                // Paid/pending tickets deliberately do NOT get
+                // "ticket_registered" here — at this point the customer has
+                // only filled in their details and hasn't even reached the
+                // payment screen yet, let alone chosen how they're paying.
+                // That send happens once they've actually acted on the
+                // payment screen instead: submitManualPayment() for the
+                // manual path, PayLesothoController::initiateTicketPayment()
+                // for the online push.
+                if ($isFree && $ticket->shouldDeliverViaWhatsApp()) {
+                    $sent = app(\App\Services\WhatsAppCloudService::class)->sendTicketApproved($ticket);
 
                     if (!$sent) {
                         $ticket->logDeliveryFailure('whatsapp', 'Failed to send registration WhatsApp message via Meta Cloud API');
@@ -379,6 +384,19 @@ class RegistrationController extends Controller
             'payment_reference' => $validated['payment_reference'] ?? null,
             'payment_status'    => $paymentType === 'deposit' ? 'partial' : 'pending',
         ]);
+
+        // WhatsApp "ticket_registered" fires here, not at initial details
+        // submission — this is the moment the customer has actually acted
+        // on the payment screen (picked a manual method, submitted a
+        // reference), not just filled in their name.
+        $ticket->loadMissing(['client', 'event.organization']);
+        if ($ticket->shouldDeliverViaWhatsApp()) {
+            $sent = app(\App\Services\WhatsAppCloudService::class)->sendTicketPending($ticket);
+
+            if (!$sent) {
+                $ticket->logDeliveryFailure('whatsapp', 'Failed to send ticket_registered via Meta WhatsApp Cloud API');
+            }
+        }
 
         return redirect()->route('registration.confirmation', [
             'orgSlug'   => $orgSlug,
