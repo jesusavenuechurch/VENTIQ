@@ -62,13 +62,6 @@ class RolesAndPermissionsSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'scan_qr']);
         Permission::firstOrCreate(['name' => 'view_checkins']);
 
-        // Partner Management (Sponsors)
-        Permission::firstOrCreate(['name' => 'create_partner']);
-        Permission::firstOrCreate(['name' => 'edit_partner']);
-        Permission::firstOrCreate(['name' => 'view_partner']);
-        Permission::firstOrCreate(['name' => 'delete_partner']);
-        Permission::firstOrCreate(['name' => 'email_partners']);
-
         // Reporting
         Permission::firstOrCreate(['name' => 'view_reports']);
         Permission::firstOrCreate(['name' => 'export_reports']);
@@ -137,11 +130,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_payments',
             'scan_qr',
             'view_checkins',
-            'create_partner',
-            'edit_partner',
-            'view_partner',
-            'delete_partner',
-            'email_partners',
             'view_reports',
             'export_reports',
             'view_dashboard',

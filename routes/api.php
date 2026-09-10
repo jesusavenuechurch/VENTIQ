@@ -3,7 +3,6 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\CheckInController;
 use App\Http\Controllers\Api\TicketScanController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\WhatsAppController;
@@ -11,13 +10,6 @@ use App\Http\Controllers\Api\VoucherScanController;
 use App\Http\Controllers\Api\WorkshopController;
 use App\Http\Controllers\Api\ProgrammeScannerController;
 
-
-// Check-in routes
-Route::post('/checkin/bulk', [CheckInController::class, 'bulkCheckIn']);
-Route::post('/checkin', [CheckInController::class, 'checkIn']);
-Route::get('/checkins', [CheckInController::class, 'index']);
-Route::get('/checkins/stats', [CheckInController::class, 'stats']);
-Route::get('/checkins/status/{partnerId}', [CheckInController::class, 'checkStatus']);
 
 // ===== MOBILE APP AUTHENTICATION (NO AUTH REQUIRED) =====
 Route::post('/auth/login', [AuthController::class, 'login']);

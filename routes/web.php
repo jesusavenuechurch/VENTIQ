@@ -1,8 +1,5 @@
 <?php
 use Illuminate\Support\Facades\Route;
-use App\Models\Partner;
-use App\Http\Controllers\PartnerRegistrationController;
-use App\Http\Controllers\PartnerVerificationController;
 use App\Http\Controllers\TicketDownloadController;
 use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\RegistrationController;
