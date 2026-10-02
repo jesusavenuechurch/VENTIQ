@@ -18,7 +18,7 @@ class PayLesothoEcocashDriver extends AbstractPayLesothoDriver implements Paymen
                 'mobileNumber'     => $this->localMobileNumber($data->mobileNumber),
                 'client_reference' => $data->clientReference,
                 'merchantid'       => config('gateways.paylesotho.ecocash.merchant_id'),
-                'callback_url'     => $this->callbackUrlFor('ecocash'),
+             //   'callback_url'     => $this->callbackUrlFor('ecocash'),
                 'merchantname'     => config('gateways.paylesotho.ecocash.merchant_name'),
                 'amount'           => $this->formatAmount($data->amount),
             ]
