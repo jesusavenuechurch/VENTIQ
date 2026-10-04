@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Clusters\OrganizationCluster;
 use App\Models\OrganizationPaymentMethod;
+use App\Services\Payments\PaymentAccountService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -120,8 +121,8 @@ class OrganizationPaymentMethodResource extends Resource
                     Forms\Components\TextInput::make('account_name')
                         ->label('Account Name / Label')
                         ->maxLength(255)
-                        ->placeholder('e.g., Expressions Conference')
-                        ->helperText('Optional: Name shown on payment account')
+                        ->placeholder('e.g., Events Account')
+                        ->helperText('Tells your accounts apart, e.g. "Events Account" or "Main Account". Shown to attendees.')
                         ->visible(fn (Forms\Get $get) =>
                             (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         ),
@@ -147,6 +148,12 @@ class OrganizationPaymentMethodResource extends Resource
                         ->required(fn (Forms\Get $get) =>
                             (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
                         )
+                        // Attendees have paid into this number; a new
+                        // number is a new account.
+                        ->disabled(fn ($record) => $record && app(PaymentAccountService::class)->hasPayments($record))
+                        ->hint(fn ($record) => $record && app(PaymentAccountService::class)->hasPayments($record)
+                            ? 'Locked: this account has received payments. Add a new account to use a different number.'
+                            : null)
                         ->maxLength(255)
                         ->visible(fn (Forms\Get $get) =>
                             (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
@@ -176,6 +183,11 @@ class OrganizationPaymentMethodResource extends Resource
                         ->label('Active')
                         ->default(true)
                         ->helperText('Only active payment methods are shown to customers'),
+
+                    Forms\Components\Toggle::make('is_default')
+                        ->label('Default for new events')
+                        ->default(false)
+                        ->helperText('New events start with this account selected. One default per method.'),
                 ])
                 ->columns(2),
         ]);
@@ -217,6 +229,10 @@ class OrganizationPaymentMethodResource extends Resource
                     ->label('Active')
                     ->boolean(),
 
+                Tables\Columns\IconColumn::make('is_default')
+                    ->label('Default')
+                    ->boolean(),
+
                 Tables\Columns\TextColumn::make('display_order')
                     ->label('Order')
                     ->sortable(),
@@ -250,13 +266,10 @@ class OrganizationPaymentMethodResource extends Resource
                         $record->update(['is_active' => !$record->is_active]);
                     }),
 
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->hidden(fn ($record) => app(PaymentAccountService::class)->hasPayments($record)),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ])
+            ->bulkActions([])
             ->defaultSort('display_order');
     }
 

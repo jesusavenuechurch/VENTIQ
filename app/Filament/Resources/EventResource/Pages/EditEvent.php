@@ -149,6 +149,24 @@ class EditEvent extends EditRecord
         return $data;
     }
 
+    protected function afterSave(): void
+    {
+        if (!$this->record->wasChanged('enabled_payment_method_ids')) {
+            return;
+        }
+
+        $unpaid = app(\App\Services\Payments\PaymentAccountService::class)->unpaidTicketCount($this->record);
+
+        if ($unpaid > 0) {
+            Notification::make()
+                ->title('Payment options changed')
+                ->body("{$unpaid} attendee(s) haven't paid yet. Their payment page now shows the new options. Payments already submitted keep the account they were made to.")
+                ->warning()
+                ->persistent()
+                ->send();
+        }
+    }
+
     protected function getSavedNotification(): ?Notification
     {
         return Notification::make()

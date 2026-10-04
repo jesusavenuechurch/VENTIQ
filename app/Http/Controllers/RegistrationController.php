@@ -248,12 +248,20 @@ class RegistrationController extends Controller
             return redirect()->route('ticket.download', $ticket->qr_code);
         }
 
+        // The account the attendee actually paid into. Looking it up by
+        // method name picked an arbitrary one once an organization had two
+        // EcoCash accounts; older payments without a stored account fall
+        // back to that lookup.
         $paymentMethodDetails = null;
         if ($ticket->payment_status !== 'completed' && $ticket->payment_method !== 'free') {
-            $paymentMethodDetails = OrganizationPaymentMethod::where('organization_id', $organization->id)
-                ->where('payment_method', $ticket->payment_method)
-                ->where('is_active', true)
-                ->first();
+            $paymentMethodDetails = $ticket->payments
+                ->where('status', 'pending')
+                ->sortByDesc('id')
+                ->first()?->paymentAccount
+                ?? OrganizationPaymentMethod::where('organization_id', $organization->id)
+                    ->where('payment_method', $ticket->payment_method)
+                    ->where('is_active', true)
+                    ->first();
         }
 
         return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets'));
@@ -281,32 +289,13 @@ class RegistrationController extends Controller
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
         }
 
-        // Not filtering by $event->enabled_payment_method_ids here on
-        // purpose — that field silently failed to save on every event for
-        // as long as it's existed (missing from Event::$fillable, fixed
-        // separately), so in practice this page has always shown every
-        // active org method regardless of any per-event selection. Now that
-        // it can actually persist, filtering by it here would suddenly
-        // start hiding methods on events that were never deliberately
-        // restricted. Keeping this page's behavior exactly as it's always
-        // been — all active org methods, always — until per-event
-        // restriction is deliberately designed and tested as its own
-        // feature.
-        $paymentMethods = $organization->paymentMethods()
-            ->where('is_active', true)
-            ->where('payment_method', '!=', 'online')
-            ->orderBy('display_order')
-            ->get();
-
-        // "Pay Online" needs both the platform-wide gateway switched on
-        // (config('gateways.paylesotho.enabled') — shared merchant creds,
-        // so an outage there affects every org at once) AND the org's own
-        // 'online' payment method row active.
-        $onlineMethods = \App\Services\Payments\PaymentGatewayFactory::enabledMethods();
-        $onlineEnabled = !empty($onlineMethods) && $organization->paymentMethods()
-            ->where('is_active', true)
-            ->where('payment_method', 'online')
-            ->exists();
+        // The event's own choice of accounts and whether it offers online
+        // payment; an event that never chose offers every active account
+        // (see PaymentAccountService).
+        $accounts       = app(\App\Services\Payments\PaymentAccountService::class);
+        $paymentMethods = $accounts->directAccountsForEvent($event);
+        $onlineMethods  = $accounts->onlineMethodsForEvent($event);
+        $onlineEnabled  = !empty($onlineMethods);
 
         return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods'));
     }
@@ -345,8 +334,13 @@ class RegistrationController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Any active account of the organization is accepted, not only the
+        // event's current ones, so an attendee paying from instructions sent
+        // before the organizer changed accounts is still recorded correctly.
+        // Archived (inactive) accounts take no new payments.
         $paymentMethodRecord = OrganizationPaymentMethod::where('organization_id', $organization->id)
             ->where('payment_method', '!=', 'online')
+            ->where('is_active', true)
             ->findOrFail($validated['payment_method_id']);
 
         // A reference is the only thing the organizer can check a mobile

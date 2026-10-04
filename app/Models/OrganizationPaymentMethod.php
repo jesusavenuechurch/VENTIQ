@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Payments\PaymentAccountService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -47,6 +48,36 @@ class OrganizationPaymentMethod extends Model
                     'Account number is required for ' . $model->payment_method . ' payment method.'
                 );
             }
+
+            // Attendees' payments point at this row, so changing what it
+            // is would rewrite where they paid. A new number is a new
+            // account; the old one gets archived (is_active = false).
+            if ($model->exists
+                && $model->isDirty(['payment_method', 'account_number'])
+                && app(PaymentAccountService::class)->hasPayments($model)) {
+                throw new \Exception(
+                    'This account has received payments, so its number can\'t be changed. Add a new account and deactivate this one instead.'
+                );
+            }
+        });
+
+        static::deleting(function ($model) {
+            if (app(PaymentAccountService::class)->hasPayments($model)) {
+                throw new \Exception(
+                    'This account has received payments, so it can\'t be deleted. Deactivate it instead.'
+                );
+            }
+        });
+
+        // One default per method within an organization.
+        static::saved(function ($model) {
+            if ($model->is_default) {
+                static::where('organization_id', $model->organization_id)
+                    ->where('payment_method', $model->payment_method)
+                    ->where('id', '!=', $model->id)
+                    ->where('is_default', true)
+                    ->update(['is_default' => false]);
+            }
         });
     }
 
@@ -81,6 +112,12 @@ class OrganizationPaymentMethod extends Model
         
         // Return the label from config, or fallback to uppercase method name
         return $config['label'] ?? strtoupper(str_replace('_', ' ', $this->payment_method));
+    }
+
+    /** Method plus the organizer's own label, e.g. "EcoCash — Events Account". */
+    public function getDisplayLabelAttribute(): string
+    {
+        return $this->account_name ? "{$this->label} — {$this->account_name}" : $this->label;
     }
 
     public function getIconAttribute(): string

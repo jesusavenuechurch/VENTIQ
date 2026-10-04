@@ -71,7 +71,7 @@
                     </div>
                     <h2 class="text-2xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">Pay Online</h2>
                 </div>
-                <p class="text-gray-500 font-medium text-sm">Instant ticket activation via M-Pesa or EcoCash.</p>
+                <p class="text-gray-500 font-medium text-sm">Payment processed securely through VENTIQ. Your ticket activates as soon as the payment goes through.</p>
             </div>
 
             <div class="p-8 sm:p-10">
@@ -167,12 +167,16 @@
         <div class="bg-white rounded-ventiq shadow-lg shadow-gray-200/40 overflow-hidden border border-gray-100">
             @if($onlineEnabled)
                 <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
-                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Or pay another way</span>
+                    <span>
+                        <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Or pay directly to the organizer</span>
+                        <span class="block text-[11px] font-medium text-gray-400 mt-1 normal-case">Payment is made directly to the event organizer, who confirms it before your ticket activates.</span>
+                    </span>
                     <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" id="manual-toggle-icon"></i>
                 </button>
             @else
                 <div class="p-6 sm:p-8 pb-0">
-                    <span class="text-xs font-black text-gray-500 uppercase tracking-widest">Online payment is currently unavailable — pay using one of the options below</span>
+                    <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Pay directly to the organizer</span>
+                    <span class="block text-[11px] font-medium text-gray-400 mt-1">Payment is made directly to the event organizer, who confirms it before your ticket activates.</span>
                 </div>
             @endif
 
@@ -241,7 +245,7 @@
                                     $config = config('constants.payment_methods.' . $method->payment_method, []);
                                     $icon = $config['icon'] ?? 'fa-money-bill';
                                     $color = $config['color'] ?? 'text-gray-600';
-                                    $label = $config['label'] ?? ucfirst($method->payment_method);
+                                    $label = $method->display_label;
                                 @endphp
                                 <label class="relative cursor-pointer group">
                                     <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\EventResource\Pages;
 
 use App\Filament\Resources\EventResource;
 use App\Models\OrganizationPaymentMethod;
+use App\Services\Payments\{PaymentAccountService, PaymentGatewayFactory};
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Wizard\Step;
@@ -261,14 +262,14 @@ class CreateEvent extends CreateRecord
                         // Settlement, and PayLesotho is the primary gateway
                         // with MoPay as fallback — not a flat 5% either way.
                         Forms\Components\Checkbox::make('enable_online_payments')
-                            ->label('💳 Online Payments (Recommended)')
-                            ->helperText('Attendees pay via M-Pesa, EcoCash, or Card. Ventiq\'s ticketing fee (4.9% + M7.50/ticket) is settled separately — not added at checkout. Tickets activate instantly.')
+                            ->label('💳 Pay online through VENTIQ (Recommended)')
+                            ->helperText('VENTIQ collects the payment and the ticket activates automatically. Ventiq\'s ticketing fee (4.9% + M7.50/ticket) is settled separately — not added at checkout.')
                             ->default(true)
                             ->live()
                             ->columnSpanFull(),
 
                         Forms\Components\CheckboxList::make('enabled_payment_method_ids')
-                            ->label('Manual Payment Methods')
+                            ->label('Pay directly to you')
                             ->options(function () use ($org, $isSuperAdmin) {
                                 $orgId = $isSuperAdmin ? null : $org?->id;
                                 if (!$orgId) return [];
@@ -277,10 +278,13 @@ class CreateEvent extends CreateRecord
                                     ->where('payment_method', '!=', 'online')
                                     ->orderBy('display_order')
                                     ->get()
-                                    ->mapWithKeys(fn ($m) => [$m->id => $m->label . ($m->account_number ? ' — ' . $m->account_number : '')])
+                                    ->mapWithKeys(fn ($m) => [$m->id => $m->display_label . ($m->account_number ? ' — ' . $m->account_number : '')])
                                     ->toArray();
                             })
-                            ->helperText('Attendees pay manually and submit a reference number. You approve payments in the admin panel.')
+                            // Start from the organization's default accounts.
+                            ->default(fn () => ($isSuperAdmin || !$org) ? [] : app(PaymentAccountService::class)->defaultAccountIds($org))
+                            ->helperText('Attendees pay you and submit their reference. You confirm the payment, then the ticket activates.')
+                            ->live()
                             ->columnSpanFull(),
 
                         Forms\Components\Actions::make([
@@ -326,23 +330,18 @@ class CreateEvent extends CreateRecord
                                 ->action(function (array $data, Forms\Set $set, Forms\Get $get) use ($org, $isSuperAdmin) {
                                     if ($isSuperAdmin || !$org) return;
 
-                                    // updateOrCreate, not create — the table
-                                    // only allows one row per (org,
-                                    // payment_method), so re-adding a type the
-                                    // org already has updates that row instead
-                                    // of colliding with it.
-                                    $method = OrganizationPaymentMethod::updateOrCreate(
-                                        [
-                                            'organization_id' => $org->id,
-                                            'payment_method'  => $data['payment_method'],
-                                        ],
-                                        [
-                                            'account_name'   => $data['account_name'] ?? null,
-                                            'account_number' => $data['account_number'] ?? null,
-                                            'instructions'   => $data['instructions'] ?? null,
-                                            'is_active'      => true,
-                                        ]
-                                    );
+                                    // Always a new account: an organization can
+                                    // hold several per method, and updating an
+                                    // existing one would silently change where
+                                    // other events' attendees pay.
+                                    $method = OrganizationPaymentMethod::create([
+                                        'organization_id' => $org->id,
+                                        'payment_method'  => $data['payment_method'],
+                                        'account_name'    => $data['account_name'] ?? null,
+                                        'account_number'  => $data['account_number'] ?? null,
+                                        'instructions'    => $data['instructions'] ?? null,
+                                        'is_active'       => true,
+                                    ]);
 
                                     $current = $get('enabled_payment_method_ids') ?? [];
                                     $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
@@ -371,33 +370,11 @@ class CreateEvent extends CreateRecord
 
                         Forms\Components\Placeholder::make('payment_selection_notice')
                             ->label('')
-                            ->content(function (Forms\Get $get) {
-                                $online  = $get('enable_online_payments');
-                                $manual  = $get('enabled_payment_method_ids');
-                                $hasSome = $online || !empty($manual);
-
-                                if (!$hasSome) {
-                                    return new HtmlString('
-                                        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                                            ⚠️ Please enable at least one payment method so attendees can pay.
-                                        </div>
-                                    ');
-                                }
-
-                                $parts = [];
-                                if ($online) $parts[] = 'Online (M-Pesa / EcoCash / Card)';
-                                if (!empty($manual)) {
-                                    $methods = OrganizationPaymentMethod::whereIn('id', $manual)->pluck('payment_method')->toArray();
-                                    $parts = array_merge($parts, array_map('ucfirst', $methods));
-                                }
-
-                                return new HtmlString('
-                                    <div class="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                                        ✅ Attendees can pay via: <strong>' . implode(', ', $parts) . '</strong>
-                                    </div>
-                                ');
-                            })
-                            ->live()
+                            ->content(fn (Forms\Get $get) => static::paymentPreview(
+                                $org?->id,
+                                (bool) $get('enable_online_payments'),
+                                (array) ($get('enabled_payment_method_ids') ?? []),
+                            ))
                             ->columnSpanFull(),
                     ])
                     ->columnSpanFull(),
@@ -579,6 +556,24 @@ class CreateEvent extends CreateRecord
     }
 
     // ── MUTATE DATA BEFORE SAVE ───────────────────────────────────────
+    /**
+     * The attendee-facing summary shown under the payment options. Online
+     * appears only when VENTIQ has at least one driver switched on.
+     */
+    public static function paymentPreview(?int $orgId, bool $online, array $accountIds): HtmlString
+    {
+        $accounts = OrganizationPaymentMethod::where('organization_id', $orgId)
+            ->whereIn('id', $accountIds)
+            ->where('payment_method', '!=', 'online')
+            ->orderBy('display_order')
+            ->get();
+
+        return new HtmlString(view('filament.partials.payment-preview', [
+            'onlineMethods' => $online ? PaymentGatewayFactory::enabledMethods() : [],
+            'accounts'      => $accounts,
+        ])->render());
+    }
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // Slug is never user-editable — generated here from the name so it

@@ -27,6 +27,11 @@ class PayLesothoController extends Controller
 
         $ticket = Ticket::with(['event.organization', 'client'])->findOrFail($data['ticket_id']);
 
+        // The event decides whether online payment is offered at all.
+        if (!in_array($data['method'], app(\App\Services\Payments\PaymentAccountService::class)->onlineMethodsForEvent($ticket->event), true)) {
+            return response()->json(['message' => 'Online payment is not available for this event.'], 422);
+        }
+
         $session = $this->payments->initiate(
             payableType: 'ticket',
             payableId: $ticket->id,

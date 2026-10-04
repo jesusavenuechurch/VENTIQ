@@ -444,21 +444,21 @@ class EventResource extends Resource
                 ->description('Choose how attendees pay for this event.')
                 ->schema([
                     Forms\Components\Checkbox::make('enable_online_payments')
-                        ->label('💳 Online Payments')
-                        ->helperText('Attendees pay via M-Pesa, EcoCash, or Card.')
+                        ->label('💳 Pay online through VENTIQ')
+                        ->helperText('VENTIQ collects the payment and the ticket activates automatically.')
                         ->live()
                         ->columnSpanFull(),
 
                     Forms\Components\CheckboxList::make('enabled_payment_method_ids')
-                        ->label('Manual Payment Methods')
+                        ->label('Pay directly to you')
                         ->options(fn ($record) => OrganizationPaymentMethod::where('organization_id', $record?->organization_id)
                             ->where('is_active', true)
                             ->where('payment_method', '!=', 'online')
                             ->orderBy('display_order')
                             ->get()
-                            ->mapWithKeys(fn ($m) => [$m->id => $m->label . ($m->account_number ? ' — ' . $m->account_number : '')])
+                            ->mapWithKeys(fn ($m) => [$m->id => $m->display_label . ($m->account_number ? ' — ' . $m->account_number : '')])
                             ->toArray())
-                        ->helperText('Attendees pay manually and submit a reference number. You approve payments in the admin panel.')
+                        ->helperText('Attendees pay you and submit their reference. You confirm the payment, then the ticket activates. Payments already submitted keep the account they were made to.')
                         ->live()
                         ->columnSpanFull(),
 
@@ -503,23 +503,18 @@ class EventResource extends Resource
                                     ->rows(2),
                             ])
                             ->action(function (array $data, Forms\Set $set, Forms\Get $get, $record) {
-                                // updateOrCreate, not create — the table only
-                                // allows one row per (org, payment_method), so
-                                // re-adding a type the org already has (e.g.
-                                // to update the account number) must update
-                                // that row instead of colliding with it.
-                                $method = OrganizationPaymentMethod::updateOrCreate(
-                                    [
-                                        'organization_id' => $record->organization_id,
-                                        'payment_method'  => $data['payment_method'],
-                                    ],
-                                    [
-                                        'account_name'   => $data['account_name'] ?? null,
-                                        'account_number' => $data['account_number'] ?? null,
-                                        'instructions'   => $data['instructions'] ?? null,
-                                        'is_active'      => true,
-                                    ]
-                                );
+                                // Always a new account: an organization can
+                                // hold several per method, and updating an
+                                // existing one would silently change where
+                                // other events' attendees pay.
+                                $method = OrganizationPaymentMethod::create([
+                                    'organization_id' => $record->organization_id,
+                                    'payment_method'  => $data['payment_method'],
+                                    'account_name'    => $data['account_name'] ?? null,
+                                    'account_number'  => $data['account_number'] ?? null,
+                                    'instructions'    => $data['instructions'] ?? null,
+                                    'is_active'       => true,
+                                ]);
 
                                 $current = $get('enabled_payment_method_ids') ?? [];
                                 $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
@@ -528,6 +523,15 @@ class EventResource extends Resource
                             }),
                     ])
                         ->visible(fn () => !$isSuperAdmin)
+                        ->columnSpanFull(),
+
+                    Forms\Components\Placeholder::make('payment_preview')
+                        ->label('')
+                        ->content(fn (Forms\Get $get, $record) => \App\Filament\Resources\EventResource\Pages\CreateEvent::paymentPreview(
+                            $record?->organization_id,
+                            (bool) $get('enable_online_payments'),
+                            (array) ($get('enabled_payment_method_ids') ?? []),
+                        ))
                         ->columnSpanFull(),
                 ])
                 ->columns(2)
