@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\TicketRegistrationNotification;
@@ -37,7 +38,7 @@ class Ticket extends Model
         'preferred_delivery', 'has_whatsapp', 'delivery_status',
         'whatsapp_delivered_at', 'email_delivered_at', 'delivery_log', 'amount_paid',
         'is_complimentary', 'complimentary_issued_by', 'complimentary_reason', 'organization_package_id',
-        'voucher_code',
+        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at',
     ];
 
     protected $casts = [
@@ -54,6 +55,9 @@ class Ticket extends Model
         'email_delivered_at' => 'datetime',
         'delivery_log' => 'array',
         'is_complimentary' => 'boolean',
+        'admissions' => 'integer',
+        'admitted_count' => 'integer',
+        'payment_due_at' => 'datetime',
     ];
 
     public function isComplimentary(): bool
@@ -645,7 +649,7 @@ class Ticket extends Model
         }
 
         return match ($this->status) {
-            'active'             => self::SCAN_VALID,
+            'active'             => $this->admissionsRemaining() > 0 ? self::SCAN_VALID : self::SCAN_ALREADY_USED,
             'pending'            => self::SCAN_PAYMENT_NOT_CONFIRMED,
             'checked_in'         => self::SCAN_ALREADY_USED,
             'expired'            => self::SCAN_EXPIRED,
@@ -654,21 +658,51 @@ class Ticket extends Model
         };
     }
 
+    public function admissionsRemaining(): int
+    {
+        return max(0, (int) ($this->admissions ?? 1) - (int) $this->admitted_count);
+    }
+
     /**
-     * Check in a ticket (mark as used)
+     * Count one person through the gate. A group ticket stays 'active'
+     * until its last admission and only then becomes 'checked_in', so a
+     * single ticket behaves exactly as before: first scan uses it.
+     *
+     * @return bool false when the ticket can't admit anyone (not active,
+     *              or every admission already used).
+     */
+    public function admit(?int $userId = null, $at = null): bool
+    {
+        return DB::transaction(function () use ($userId, $at) {
+            $locked = static::whereKey($this->id)->lockForUpdate()->first();
+
+            if (!$locked || $locked->scanOutcome() !== self::SCAN_VALID) {
+                return false;
+            }
+
+            $admitted = $locked->admitted_count + 1;
+
+            $locked->update([
+                'admitted_count' => $admitted,
+                'status'         => $admitted >= $locked->admissions ? 'checked_in' : 'active',
+                'checked_in_at'  => $locked->checked_in_at ?? ($at ?? now()),
+                'checked_in_by'  => $locked->checked_in_by ?? $userId,
+            ]);
+
+            $this->setRawAttributes($locked->getAttributes(), true);
+
+            Log::info("Ticket {$this->ticket_number} admitted {$admitted}/{$locked->admissions} by user {$userId}");
+            return true;
+        });
+    }
+
+    /**
+     * Check in a ticket (one admission)
      */
     public function checkIn(?int $userId = null): bool
     {
         try {
-            $this->update([
-                'status' => 'checked_in',
-                'checked_in_at' => now(),
-                'checked_in_by' => $userId,
-            ]);
-
-            Log::info("Ticket {$this->ticket_number} checked in by user {$userId}");
-            return true;
-
+            return $this->admit($userId);
         } catch (\Exception $e) {
             Log::error("Failed to check in ticket {$this->id}: {$e->getMessage()}");
             return false;

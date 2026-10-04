@@ -82,16 +82,20 @@
                         <div>
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Choose Provider</label>
                             <div class="grid grid-cols-2 gap-4">
+                                @if(in_array('mpesa', $onlineMethods))
                                 <button type="button" id="provider-mpesa" data-method="mpesa"
-                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 border-[#F07F22] bg-[#F07F22]/5">
+                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 {{ $onlineMethods[0] === 'mpesa' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
                                     <i class="fas fa-mobile-alt text-xl text-red-600"></i>
                                     <span class="text-xs font-black uppercase tracking-tight text-gray-900">M-Pesa</span>
                                 </button>
+                                @endif
+                                @if(in_array('ecocash', $onlineMethods))
                                 <button type="button" id="provider-ecocash" data-method="ecocash"
-                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 border-slate-100 bg-slate-50">
+                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 {{ $onlineMethods[0] === 'ecocash' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
                                     <i class="fas fa-mobile-alt text-xl text-blue-600"></i>
                                     <span class="text-xs font-black uppercase tracking-tight text-gray-900">EcoCash</span>
                                 </button>
+                                @endif
                             </div>
                         </div>
 
@@ -361,7 +365,7 @@
         document.querySelector('input[name="payment_method_id"]:checked')?.dispatchEvent(new Event('change'));
 
         // ── Online: provider selection ───────────────────────────
-        let selectedMethod = 'mpesa';
+        let selectedMethod = @json($onlineMethods[0] ?? null);
         const providerButtons = document.querySelectorAll('.provider-btn');
         providerButtons.forEach(btn => {
             btn.addEventListener('click', function() {

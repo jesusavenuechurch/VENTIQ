@@ -97,7 +97,13 @@
                         <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 sm:p-8 transition-all hover:border-[#F07F22] hover:shadow-lg">
                             <div class="flex items-center justify-between mb-6">
                                 <div>
-                                    <p class="text-[8px] font-black text-[#F07F22] uppercase mb-1">Attendee 0{{ $index + 1 }}</p>
+                                    <p class="text-[8px] font-black text-[#F07F22] uppercase mb-1">
+                                        @if(($singleTicket->admissions ?? 1) > 1)
+                                            Group ticket &middot; {{ $singleTicket->admissions }} people
+                                        @else
+                                            Attendee 0{{ $index + 1 }}
+                                        @endif
+                                    </p>
                                     <h4 class="text-2xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
                                         {{ $singleTicket->client->full_name }}
                                     </h4>

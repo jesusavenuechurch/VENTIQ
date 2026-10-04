@@ -375,6 +375,7 @@ class TicketResource extends Resource
                                 'created_by'         => $user->id,
                                 'is_complimentary'   => true,
                                 'amount'             => 0,
+                                'admissions'         => max(1, (int) (\App\Models\EventTier::find($data['tier_id'])?->quantity_per_purchase ?? 1)),
                                 'has_whatsapp'       => $data['has_whatsapp'] ?? false,
                                 'preferred_delivery' => $data['has_whatsapp'] ? 'both' : 'email',
                             ]);

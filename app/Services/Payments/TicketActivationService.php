@@ -58,6 +58,7 @@ class TicketActivationService
 
             $payment->fill([
                 'status'            => 'approved',
+                'source'            => $source,
                 'payment_method'    => $paymentMethod ?? $payment->payment_method,
                 'payment_reference' => $paymentReference ?? $payment->payment_reference,
                 'approved_by'       => $confirmedBy,
@@ -73,6 +74,7 @@ class TicketActivationService
                 'payment_reference' => $payment->payment_reference,
                 'payment_date'      => now(),
                 'amount_paid'       => $locked->payments()->approved()->sum('amount'),
+                'payment_due_at'    => null,
             ]);
 
             if ($approvedCount === 1) {

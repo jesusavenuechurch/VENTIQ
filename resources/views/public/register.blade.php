@@ -179,56 +179,16 @@
                     </div>
                     @endif
 
-                    {{-- ── ADDITIONAL ATTENDEES ──────────────────────────── --}}
+                    {{-- ── GROUP TICKET ─────────────────────────────────── --}}
+                    {{-- One purchase is one ticket: the same QR admits every
+                         person in the group, so no companion details are
+                         collected. --}}
                     @if($selectedTier && $selectedTier->quantity_per_purchase > 1)
-                    <div class="pt-6 border-t border-gray-50 space-y-6">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-8 h-8 bg-[#1D4069]/10 rounded-lg flex items-center justify-center text-[#1D4069]">
-                                <i class="fas fa-users text-sm"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Additional Attendees</h3>
-                                <p class="text-[10px] font-bold text-[#F07F22] uppercase mt-1">This ticket covers {{ $selectedTier->quantity_per_purchase }} guests</p>
-                            </div>
-                        </div>
-
-                        @for($i = 2; $i <= $selectedTier->quantity_per_purchase; $i++)
-                        <div class="bg-slate-50 border-2 border-slate-50 rounded-[2rem] p-6 sm:p-8 relative hover:border-[#1D4069]/20 hover:bg-white transition-all">
-                            <div class="absolute -top-3 left-8 px-4 py-1 bg-[#1D4069] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">
-                                Guest #{{ $i }}
-                            </div>
-                            <div class="space-y-4 mt-2">
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="companion_{{ $i }}_name" value="{{ old('companion_' . $i . '_name') }}" required
-                                        class="w-full bg-white border border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-[#F07F22] outline-none transition-all"
-                                        placeholder="e.g., Jane Smith">
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Phone <span class="lowercase text-gray-300">(optional)</span></label>
-                                        <div class="flex">
-                                            <span class="inline-flex items-center px-4 bg-gray-50 border border-r-0 border-gray-100 rounded-l-xl font-bold text-gray-400 text-xs">+266</span>
-                                            <input type="tel" name="companion_{{ $i }}_phone" value="{{ old('companion_' . $i . '_phone') }}"
-                                                class="flex-1 bg-white border border-gray-100 rounded-r-xl px-4 py-3 text-sm font-bold focus:border-[#F07F22] outline-none companion-phone"
-                                                placeholder="5949 4756" maxlength="9">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email <span class="lowercase text-gray-300">(optional)</span></label>
-                                        <input type="email" name="companion_{{ $i }}_email" value="{{ old('companion_' . $i . '_email') }}"
-                                            class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:border-[#F07F22] outline-none"
-                                            placeholder="jane@example.com">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @endfor
-
+                    <div class="pt-6 border-t border-gray-50">
                         <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3">
-                            <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
+                            <i class="fas fa-users text-amber-500 mt-0.5"></i>
                             <p class="text-[11px] font-black text-amber-800 uppercase tracking-tight leading-relaxed">
-                                Each person will receive their own ticket with a unique QR code for event entry.
+                                Group ticket for {{ $selectedTier->quantity_per_purchase }} people. You'll get one QR code &mdash; each person in your group is scanned with the same code.
                             </p>
                         </div>
                     </div>
@@ -332,16 +292,6 @@
 
         window.toggleWhatsAppConfirmation = updateWhatsAppConfirmation;
 
-        // Auto-format companion phones
-        document.querySelectorAll('.companion-phone').forEach(input => {
-            input.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length > 8) value = value.substring(0, 8);
-                if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
-                e.target.value = value;
-            });
-        });
-
         // Form submit logic
         document.querySelector('form')?.addEventListener('submit', function(e) {
             const emailInput = document.querySelector('input[name="email"]');
@@ -354,12 +304,6 @@
                 phoneInput.value = '+266' + cleanPhone;
             }
 
-            document.querySelectorAll('.companion-phone').forEach(input => {
-                if (input.value.trim()) {
-                    let cleanPhone = input.value.replace(/\D/g, '');
-                    input.value = '+266' + cleanPhone;
-                }
-            });
         });
 
     });

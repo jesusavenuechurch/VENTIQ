@@ -23,11 +23,15 @@ return [
         // with PayLesotho — EcoCash and M-Pesa are separate merchant
         // accounts, not the same "Ventiq" account, so the name sent has to
         // match whichever one the request is for.
+        // Each driver is switched on separately: PayLesotho being available
+        // doesn't mean every method it offers should be shown to attendees.
         'ecocash' => [
+            'enabled'       => env('PAYLESOTHO_ECOCASH_ENABLED', true),
             'merchant_id'   => env('PAYLESOTHO_ECOCASH_MERCHANT_ID'),
             'merchant_name' => env('PAYLESOTHO_ECOCASH_MERCHANT_NAME'),
         ],
         'mpesa' => [
+            'enabled'         => env('PAYLESOTHO_MPESA_ENABLED', true),
             'merchant_number' => env('PAYLESOTHO_MPESA_MERCHANT_NUMBER'),
             'merchant_name'   => env('PAYLESOTHO_MPESA_MERCHANT_NAME'),
         ],

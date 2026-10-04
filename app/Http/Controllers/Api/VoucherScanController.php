@@ -43,7 +43,10 @@ class VoucherScanController extends Controller
                 'tier_name'      => $ticket->tier?->tier_name,
                 'status'         => $ticket->status,
                 'payment_status' => $ticket->payment_status,
-                'is_valid'       => $ticket->isValid() || $ticket->is_complimentary,
+                'is_valid'       => $ticket->isValid(),
+                'scan_outcome'   => $ticket->scanOutcome(),
+                'admissions'     => $ticket->admissions,
+                'admitted_count' => $ticket->admitted_count,
                 'is_checked_in'  => $ticket->isCheckedIn(),
                 'is_complimentary' => $ticket->is_complimentary,
             ],
@@ -80,7 +83,9 @@ class VoucherScanController extends Controller
             ], 409);
         }
  
-        if (!$ticket->isValid() && !$ticket->is_complimentary) {
+        // Complimentary tickets are created active, so isValid() covers
+        // them; a cancelled complimentary ticket must not get through.
+        if (!$ticket->isValid()) {
             return response()->json([
                 'success' => false,
                 'message' => "Ticket status is '{$ticket->status}'. Cannot check in.",

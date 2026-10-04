@@ -62,21 +62,15 @@ class RegistrationController extends Controller
             'preferred_delivery' => 'nullable|in:email,whatsapp,both',
         ];
 
-        if ($quantityPerPurchase > 1) {
-            for ($i = 2; $i <= $quantityPerPurchase; $i++) {
-                $rules["companion_{$i}_name"]  = 'required|string|max:255';
-                $rules["companion_{$i}_phone"] = 'nullable|string';
-                $rules["companion_{$i}_email"] = 'nullable|email';
-            }
-        }
-
         $validated = $request->validate($rules);
 
         // ── Build payment context ─────────────────────────────────────
         // Payment method/amount are no longer decided here — they're chosen on the
         // payment screen (Screen 2). Every paid ticket starts pending at the full price.
+        // One purchase is one ticket: a group tier's price covers the whole
+        // group, and the ticket carries one admission per person.
         $paymentMethodName = $isFree ? 'free' : null;
-        $pricePerTicket    = $tier->price / $quantityPerPurchase;
+        $ticketPrice       = $tier->price;
 
         $ticketStatus  = $isFree ? 'active' : 'pending';
         $paymentStatus = $isFree ? 'completed' : 'pending';
@@ -105,70 +99,49 @@ class RegistrationController extends Controller
                 ]);
             }
 
-            $createdTickets = [];
+            $ticket = Ticket::create([
+                'event_id'          => $event->id,
+                'client_id'         => $primaryClient->id,
+                'event_tier_id'     => $tier->id,
+                'qr_code'           => 'QR-' . Str::uuid(),
+                'status'            => $ticketStatus,
+                'payment_method'    => $paymentMethodName,
+                'amount'            => $ticketPrice,
+                'amount_paid'       => 0,
+                'admissions'        => max(1, (int) $quantityPerPurchase),
+                'payment_due_at'    => $isFree ? null : $this->paymentDueAt($event),
+                'payment_status'    => $paymentStatus,
+                'payment_reference' => null,
+                'delivery_method'   => !empty($validated['email']) ? 'email' : 'whatsapp',
+                'delivered_at'      => $isFree ? now() : null,
+                'created_by'        => null,
+                'has_whatsapp'      => $hasWhatsApp,
+                'preferred_delivery'=> $preferredDelivery,
+                'delivery_status'   => 'pending',
+            ]);
 
-            for ($i = 1; $i <= $quantityPerPurchase; $i++) {
-                if ($i === 1) {
-                    $client = $primaryClient;
-                } else {
-                    $companionPhone = $request->input("companion_{$i}_phone")
-                        ? $this->normalizePhone($request->input("companion_{$i}_phone"))
-                        : $validated['phone'];
-
-                    $client = Client::firstOrCreate(
-                        ['phone' => $companionPhone, 'organization_id' => $organization->id],
-                        [
-                            'full_name'  => $request->input("companion_{$i}_name"),
-                            'email'      => $request->input("companion_{$i}_email"),
-                            'status'     => 'active',
-                            'notes'      => "Companion ticket purchased by {$validated['full_name']}",
-                            'created_by' => null,
-                        ]
-                    );
-                }
-
-                $ticket = Ticket::create([
-                    'event_id'          => $event->id,
-                    'client_id'         => $client->id,
-                    'event_tier_id'     => $tier->id,
-                    'qr_code'           => 'QR-' . Str::uuid(),
-                    'status'            => $ticketStatus,
-                    'payment_method'    => $paymentMethodName,
-                    'amount'            => $pricePerTicket,
-                    'amount_paid'       => 0,
-                    'payment_status'    => $paymentStatus,
+            if (!$isFree) {
+                TicketPayment::create([
+                    'ticket_id'         => $ticket->id,
+                    'amount'            => $ticketPrice,
+                    'payment_method'    => null,
                     'payment_reference' => null,
-                    'delivery_method'   => !empty($validated['email']) ? 'email' : 'whatsapp',
-                    'delivered_at'      => $isFree ? now() : null,
-                    'created_by'        => null,
-                    'has_whatsapp'      => $hasWhatsApp,
-                    'preferred_delivery'=> $preferredDelivery,
-                    'delivery_status'   => 'pending',
+                    'status'            => 'pending',
+                    'payment_date'      => now(),
+                    'payment_type'      => 'full',
                 ]);
-
-                if (!$isFree) {
-                    TicketPayment::create([
-                        'ticket_id'         => $ticket->id,
-                        'amount'            => $pricePerTicket,
-                        'payment_method'    => null,
-                        'payment_reference' => null,
-                        'status'            => 'pending',
-                        'payment_date'      => now(),
-                        'payment_type'      => 'full',
-                    ]);
-                }
-
-                if ($event->event_type === 'workshop') {
-                    $ticket->workshopDetail()->updateOrCreate([], [
-                        'position'         => $request->position,
-                        'institution'      => $request->institution,
-                        'district'         => $request->district,
-                        'signature_status' => 'pending',
-                    ]);
-                }
-
-                $createdTickets[] = $ticket;
             }
+
+            if ($event->event_type === 'workshop') {
+                $ticket->workshopDetail()->updateOrCreate([], [
+                    'position'         => $request->position,
+                    'institution'      => $request->institution,
+                    'district'         => $request->district,
+                    'signature_status' => 'pending',
+                ]);
+            }
+
+            $createdTickets = [$ticket];
 
             DB::commit();
 
@@ -229,6 +202,24 @@ class RegistrationController extends Controller
             \Log::error('Registration failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', 'Registration failed. Please try again. Error: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * When an unpaid ticket stops holding its place: the event's payment
+     * window (or the platform default), never later than the event itself.
+     * Null when no window is configured — the ticket simply waits.
+     */
+    private function paymentDueAt(Event $event): ?\Illuminate\Support\Carbon
+    {
+        $hours = $event->payment_window_hours ?? config('ventiq.payment_window_hours');
+
+        if (!$hours) {
+            return null;
+        }
+
+        $due = now()->addHours($hours);
+
+        return $event->event_date && $event->event_date->lt($due) ? $event->event_date->copy() : $due;
     }
 
     public function confirmation($orgSlug, $eventSlug, $ticketId)
@@ -311,12 +302,13 @@ class RegistrationController extends Controller
         // (config('gateways.paylesotho.enabled') — shared merchant creds,
         // so an outage there affects every org at once) AND the org's own
         // 'online' payment method row active.
-        $onlineEnabled = config('gateways.paylesotho.enabled') && $organization->paymentMethods()
+        $onlineMethods = \App\Services\Payments\PaymentGatewayFactory::enabledMethods();
+        $onlineEnabled = !empty($onlineMethods) && $organization->paymentMethods()
             ->where('is_active', true)
             ->where('payment_method', 'online')
             ->exists();
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled'));
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods'));
     }
 
     /**
@@ -378,7 +370,10 @@ class RegistrationController extends Controller
             $paymentType    = 'deposit';
         }
 
-        $paymentPerTicket = $paymentAmount / $quantityPerPurchase;
+        // A group ticket (admissions = N) pays the whole tier price. Older
+        // group purchases were split into one ticket per person, each
+        // paying its share.
+        $paymentPerTicket = $paymentAmount * max(1, (int) $ticket->admissions) / max(1, $quantityPerPurchase);
 
         // Registration leaves one pending row to fill in. After a
         // rejection there isn't one, so resubmitting starts a new row
@@ -387,19 +382,25 @@ class RegistrationController extends Controller
             ?? $ticket->payments()->make(['status' => 'pending']);
 
         $pendingPayment->fill([
-            'amount'            => $paymentPerTicket,
-            'payment_method'    => $paymentMethodRecord->payment_method,
-            'payment_reference' => $validated['payment_reference'] ?? null,
-            'payment_type'      => $paymentType,
-            'payment_date'      => now(),
+            'amount'                         => $paymentPerTicket,
+            'payment_method'                 => $paymentMethodRecord->payment_method,
+            'organization_payment_method_id' => $paymentMethodRecord->id,
+            'source'                         => \App\Services\Payments\TicketActivationService::SOURCE_ORGANIZER_DIRECT,
+            'payment_reference'              => $validated['payment_reference'] ?? null,
+            'payment_type'                   => $paymentType,
+            'payment_date'                   => now(),
+            'submitted_at'                   => now(),
         ])->save();
 
         // Stays 'pending' even for a deposit: this is only the attendee's
         // claim. 'partial' is for money the organizer has confirmed.
+        // Clearing payment_due_at stops the ticket expiring while it waits
+        // for the organizer to check the payment.
         $ticket->update([
             'payment_method'    => $paymentMethodRecord->payment_method,
             'payment_reference' => $validated['payment_reference'] ?? null,
             'payment_status'    => 'pending',
+            'payment_due_at'    => null,
         ]);
 
         // WhatsApp "ticket_registered" fires here, not at initial details

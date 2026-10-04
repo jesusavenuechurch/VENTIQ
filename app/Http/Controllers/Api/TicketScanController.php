@@ -101,6 +101,8 @@ public function getEvents(Request $request)
                         // interpreting status/payment_status itself.
                         'is_scannable' => $ticket->isValid(),
                         'scan_outcome' => $ticket->scanOutcome(),
+                        'admissions' => $ticket->admissions,
+                        'admitted_count' => $ticket->admitted_count,
                         'payment_status' => $ticket->payment_status,
                         'amount' => (float) $ticket->amount,
                         'amount_paid' => (float) $ticket->amount_paid,
@@ -176,6 +178,8 @@ public function getEvents(Request $request)
                     'status' => $ticket->status,
                     'is_scannable' => $ticket->isValid(),
                     'scan_outcome' => $ticket->scanOutcome(),
+                    'admissions' => $ticket->admissions,
+                    'admitted_count' => $ticket->admitted_count,
                     'payment_status' => $ticket->payment_status,
                     'checked_in_at' => $ticket->checked_in_at,
                     'client' => [
@@ -237,32 +241,26 @@ public function getEvents(Request $request)
                         continue;
                     }
 
-                    // Already checked in (e.g. the same scan synced twice) —
-                    // nothing to do, and not an error.
-                    if ($ticket->checked_in_at) {
-                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_ALREADY_USED, 'checked_in' => false];
-                        continue;
-                    }
-
                     // The server decides, not the app: an inactive,
                     // expired or cancelled ticket is never recorded as
-                    // checked in, whatever the app sent.
+                    // checked in, whatever the app sent. Each entry is one
+                    // admission; a group ticket accepts as many as it has.
                     $outcome = $ticket->scanOutcome();
-                    if ($outcome !== Ticket::SCAN_VALID) {
-                        $errors[] = "Ticket {$ticket->ticket_number} not checked in: {$outcome}";
-                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => $outcome, 'checked_in' => false];
+
+                    if ($outcome === Ticket::SCAN_VALID && $ticket->admit($user->id, $checkinData['checked_in_at'])) {
+                        $synced++;
+                        $results[] = $this->checkinResult($ticket, Ticket::SCAN_VALID, true);
                         continue;
                     }
 
-                    // Update ticket
-                    $ticket->update([
-                        'status' => 'checked_in',
-                        'checked_in_at' => $checkinData['checked_in_at'],
-                        'checked_in_by' => $user->id,
-                    ]);
+                    $outcome = $ticket->fresh()->scanOutcome();
 
-                    $synced++;
-                    $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_VALID, 'checked_in' => true];
+                    // Fully used (e.g. the same scan synced twice) is
+                    // reported but isn't an error, as before.
+                    if ($outcome !== Ticket::SCAN_ALREADY_USED) {
+                        $errors[] = "Ticket {$ticket->ticket_number} not checked in: {$outcome}";
+                    }
+                    $results[] = $this->checkinResult($ticket->fresh(), $outcome, false);
 
                 } catch (\Exception $e) {
                     $errors[] = "Error with ticket {$checkinData['ticket_id']}: " . $e->getMessage();
@@ -285,6 +283,17 @@ public function getEvents(Request $request)
                 'error' => 'Bulk check-in failed',
             ], 500);
         }
+    }
+
+    private function checkinResult(Ticket $ticket, string $outcome, bool $checkedIn): array
+    {
+        return [
+            'ticket_id'      => $ticket->id,
+            'outcome'        => $outcome,
+            'checked_in'     => $checkedIn,
+            'admissions'     => $ticket->admissions,
+            'admitted_count' => $ticket->admitted_count,
+        ];
     }
 
     /**

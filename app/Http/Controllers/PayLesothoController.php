@@ -21,7 +21,7 @@ class PayLesothoController extends Controller
     {
         $data = $request->validate([
             'ticket_id'     => 'required|exists:tickets,id',
-            'method'        => 'required|in:mpesa,ecocash',
+            'method'        => ['required', \Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())],
             'mobile_number' => 'required|string',
         ]);
 
@@ -60,7 +60,7 @@ class PayLesothoController extends Controller
             'type'          => 'required|in:plan,payg',
             'tier'          => 'required_if:type,plan|nullable|string',
             'quantity'      => 'required_if:type,payg|nullable|integer|min:1',
-            'method'        => 'required|in:mpesa,ecocash',
+            'method'        => ['required', \Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())],
             'mobile_number' => 'required|string',
         ]);
 

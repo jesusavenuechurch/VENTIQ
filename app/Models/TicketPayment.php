@@ -18,12 +18,17 @@ class TicketPayment extends Model
         'approved_at',
         'notes',
         'payment_type',
+        'organization_payment_method_id',
+        'source',
+        'proof_path',
+        'submitted_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_date' => 'datetime',
         'approved_at' => 'datetime',
+        'submitted_at' => 'datetime',
     ];
 
     /**
@@ -32,6 +37,12 @@ class TicketPayment extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    /** The organizer account the attendee paid into (organizer-direct only). */
+    public function paymentAccount(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationPaymentMethod::class, 'organization_payment_method_id');
     }
 
     public function approver(): BelongsTo

@@ -18,11 +18,13 @@ class OrganizationPaymentMethod extends Model
         'account_number',
         'instructions',
         'is_active',
+        'is_default',
         'display_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_default' => 'boolean',
         'display_order' => 'integer',
     ];
 
