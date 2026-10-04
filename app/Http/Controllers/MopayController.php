@@ -349,11 +349,11 @@ class MopayController extends Controller
 
     private function approveTicket(Ticket $ticket, array $verified, PaymentSession $paymentSession): void
     {
-        app(\App\Services\Payments\TicketApprovalService::class)->approve(
+        app(\App\Services\Payments\TicketActivationService::class)->activate(
             ticket: $ticket,
-            gateway: 'mopay',
+            source: \App\Services\Payments\TicketActivationService::SOURCE_VENTIQ_ONLINE,
             paymentMethod: $verified['selectedPaymentMethod'] ?? 'mopay',
-            gatewayReference: $verified['transactionId'] ?? null,
+            paymentReference: $verified['transactionId'] ?? null,
             paymentSession: $paymentSession,
         );
     }

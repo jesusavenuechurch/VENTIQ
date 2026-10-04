@@ -96,6 +96,11 @@ public function getEvents(Request $request)
                         'ticket_number' => $ticket->ticket_number,
                         'qr_code' => $ticket->qr_code,
                         'status' => $ticket->status,
+                        // The server's gate decision; the app should admit
+                        // only when is_scannable is true rather than
+                        // interpreting status/payment_status itself.
+                        'is_scannable' => $ticket->isValid(),
+                        'scan_outcome' => $ticket->scanOutcome(),
                         'payment_status' => $ticket->payment_status,
                         'amount' => (float) $ticket->amount,
                         'amount_paid' => (float) $ticket->amount_paid,
@@ -122,7 +127,7 @@ public function getEvents(Request $request)
                 'event' => [
                     'id' => $event->id,
                     'name' => $event->name,
-                    'date' => $event->date,
+                    'date' => $event->event_date,
                 ],
             ], 200);
 
@@ -169,6 +174,8 @@ public function getEvents(Request $request)
                     'ticket_number' => $ticket->ticket_number,
                     'qr_code' => $ticket->qr_code,
                     'status' => $ticket->status,
+                    'is_scannable' => $ticket->isValid(),
+                    'scan_outcome' => $ticket->scanOutcome(),
                     'payment_status' => $ticket->payment_status,
                     'checked_in_at' => $ticket->checked_in_at,
                     'client' => [
@@ -181,7 +188,7 @@ public function getEvents(Request $request)
                     ],
                     'event' => [
                         'name' => $ticket->event->name,
-                        'date' => $ticket->event->date,
+                        'date' => $ticket->event->event_date,
                     ],
                 ],
             ], 200);
@@ -211,6 +218,7 @@ public function getEvents(Request $request)
             $user = $request->user();
             $synced = 0;
             $errors = [];
+            $results = [];
 
             foreach ($validated['checkins'] as $checkinData) {
                 try {
@@ -218,17 +226,31 @@ public function getEvents(Request $request)
 
                     if (!$ticket) {
                         $errors[] = "Ticket ID {$checkinData['ticket_id']} not found";
+                        $results[] = ['ticket_id' => $checkinData['ticket_id'], 'outcome' => Ticket::SCAN_INVALID, 'checked_in' => false];
                         continue;
                     }
 
                     // Check permissions
                     if (!$user->hasRole('super_admin') && $ticket->event->organization_id !== $user->organization_id) {
                         $errors[] = "Unauthorized for ticket {$ticket->ticket_number}";
+                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_INVALID, 'checked_in' => false];
                         continue;
                     }
 
-                    // Skip if already checked in
+                    // Already checked in (e.g. the same scan synced twice) —
+                    // nothing to do, and not an error.
                     if ($ticket->checked_in_at) {
+                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_ALREADY_USED, 'checked_in' => false];
+                        continue;
+                    }
+
+                    // The server decides, not the app: an inactive,
+                    // expired or cancelled ticket is never recorded as
+                    // checked in, whatever the app sent.
+                    $outcome = $ticket->scanOutcome();
+                    if ($outcome !== Ticket::SCAN_VALID) {
+                        $errors[] = "Ticket {$ticket->ticket_number} not checked in: {$outcome}";
+                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => $outcome, 'checked_in' => false];
                         continue;
                     }
 
@@ -240,6 +262,7 @@ public function getEvents(Request $request)
                     ]);
 
                     $synced++;
+                    $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_VALID, 'checked_in' => true];
 
                 } catch (\Exception $e) {
                     $errors[] = "Error with ticket {$checkinData['ticket_id']}: " . $e->getMessage();
@@ -251,6 +274,7 @@ public function getEvents(Request $request)
                 'success' => true,
                 'synced' => $synced,
                 'errors' => $errors,
+                'results' => $results,
             ], 200);
 
         } catch (\Exception $e) {
@@ -304,7 +328,7 @@ public function getEvents(Request $request)
                 'event' => [
                     'id' => $event->id,
                     'name' => $event->name,
-                    'date' => $event->date,
+                    'date' => $event->event_date,
                 ],
             ], 200);
 
@@ -328,7 +352,7 @@ public function getEvents(Request $request)
 
             // Get events that have tickets needing sync
             $eventsQuery = Event::where('status', 'published')
-                ->where('date', '>=', now()->subDays(1));
+                ->where('event_date', '>=', now()->subDays(1));
 
             if (!$user->hasRole('super_admin')) {
                 $eventsQuery->where('organization_id', $user->organization_id);

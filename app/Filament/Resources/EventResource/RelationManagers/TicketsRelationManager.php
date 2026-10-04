@@ -204,7 +204,7 @@ class TicketsRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\Action::make('approve_payment')
-                    ->label('Approve')
+                    ->label('Activate')
                     ->icon('heroicon-m-check-badge')
                     ->color('success')
                     ->button()
@@ -224,7 +224,7 @@ class TicketsRelationManager extends RelationManager
 
                         return [
                             Forms\Components\Placeholder::make('pay')
-                                ->label('To Approve')
+                                ->label('Amount')
                                 ->content('M ' . number_format($pendingPayment->amount, 2)),
                             Forms\Components\Select::make('payment_method')
                                 ->options($paymentOptions)
@@ -235,37 +235,17 @@ class TicketsRelationManager extends RelationManager
                                 ->required(),
                         ];
                     })
+                    ->modalHeading('Has this payment been received?')
                     ->action(function ($record, array $data) {
-                        $pendingPayment = $record->payments()->pending()->latest()->first();
-                        if (!$pendingPayment) return;
+                        $activated = app(\App\Services\Payments\TicketActivationService::class)->activate(
+                            ticket: $record,
+                            source: \App\Services\Payments\TicketActivationService::SOURCE_ORGANIZER_DIRECT,
+                            paymentMethod: $data['payment_method'],
+                            paymentReference: $data['payment_reference'],
+                            confirmedBy: auth()->id(),
+                        );
 
-                        DB::beginTransaction();
-                        try {
-                            $pendingPayment->update([
-                                'status' => 'approved',
-                                'payment_method' => $data['payment_method'],
-                                'payment_reference' => $data['payment_reference'],
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
-                            ]);
-                            $record->update(['payment_status' => 'completed', 'status' => 'active']);
-
-                            if ($record->payments()->approved()->count() === 1) {
-                                $record->tier->increment('quantity_sold');
-                            }
-                            if ($record->client->email) {
-                                dispatch(new SendTicketApprovedEmail($record->id))->afterResponse();
-                            }
-                            if ($record->has_whatsapp && $record->client->phone) {
-                                dispatch(fn () => app(\App\Services\TicketDeliveryService::class)->deliver($record))->afterResponse();
-                            }
-
-                            Notification::make()->title('Payment Approved')->success()->send();
-                            DB::commit();
-                        } catch (\Exception $e) {
-                            DB::rollBack();
-                            Notification::make()->title('Approval Error')->body($e->getMessage())->danger()->send();
-                        }
+                        Notification::make()->title($activated ? 'Ticket activated' : 'Ticket was already active')->success()->send();
                     }),
 
                 Tables\Actions\Action::make('preview_pass')

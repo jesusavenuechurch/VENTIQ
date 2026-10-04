@@ -4,7 +4,7 @@ namespace App;
 
 /**
  * DEPRECATED — package/quota system removed in favor of the flat
- * 4.9% + M7.50/ticket model (see TicketApprovalService).
+ * 4.9% + M7.50/ticket model (see TicketActivationService).
  *
  * Kept as permissive no-ops so existing call sites (TicketResource
  * bulk import, comp ticket issuance, EventResource) don't fatal while

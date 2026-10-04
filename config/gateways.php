@@ -14,6 +14,11 @@ return [
         'base_url' => env('PAYLESOTHO_BASE_URL', 'https://api.paylesotho.co.ls'),
         'token'    => env('PAYLESOTHO_API_TOKEN'),
 
+        // Appended as ?token= to the callback URL we send PayLesotho and
+        // checked on every callback. Leave unset until the callback URL
+        // PayLesotho holds includes it, or callbacks will be rejected.
+        'callback_secret' => env('PAYLESOTHO_CALLBACK_SECRET'),
+
         // Each merchant id/number is registered under its own business name
         // with PayLesotho — EcoCash and M-Pesa are separate merchant
         // accounts, not the same "Ventiq" account, so the name sent has to

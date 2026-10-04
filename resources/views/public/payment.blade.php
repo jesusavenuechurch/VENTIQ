@@ -282,7 +282,7 @@
 
                         {{-- Payment Reference --}}
                         <div>
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference <span class="lowercase text-gray-300">(optional)</span></label>
+                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference <span class="lowercase text-gray-300">(not needed for cash)</span></label>
                             <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Enter transaction reference"
                                 class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
                         </div>

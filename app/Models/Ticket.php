@@ -19,6 +19,14 @@ class Ticket extends Model
 {
     use Notifiable;
 
+    public const SCAN_VALID                 = 'valid';
+    public const SCAN_PAYMENT_NOT_CONFIRMED = 'payment_not_confirmed';
+    public const SCAN_EXPIRED               = 'expired';
+    public const SCAN_CANCELLED             = 'cancelled';
+    public const SCAN_ALREADY_USED          = 'already_used';
+    public const SCAN_WRONG_EVENT           = 'wrong_event';
+    public const SCAN_INVALID               = 'invalid';
+
     protected $fillable = [
         'event_id', 'client_id', 'event_tier_id', 'ticket_number', 'qr_code',
         'qr_code_path', 'status', 'payment_method', 'amount', 'payment_status',
@@ -617,30 +625,33 @@ class Ticket extends Model
      */
     public function validateQrCode(string $providedQrCode): bool
     {
-        // Check if QR matches
         if ($this->qr_code !== $providedQrCode) {
             Log::warning("Invalid QR code for ticket {$this->id}");
             return false;
         }
 
-        // Check if already used
-        if ($this->status === 'checked_in') {
-            Log::warning("Ticket {$this->id} already checked in");
-            return false;
+        return $this->isValid();
+    }
+
+    /**
+     * Gate decision for this ticket, as a code the scanner app shows a
+     * message for. Payment details deliberately play no part: once a
+     * ticket is active, how it was paid is not the gate's concern.
+     */
+    public function scanOutcome(?int $eventId = null): string
+    {
+        if ($eventId !== null && $this->event_id !== $eventId) {
+            return self::SCAN_WRONG_EVENT;
         }
 
-        // Check if ticket is active
-        if ($this->status !== 'active' && $this->status !== 'pending') {
-            Log::warning("Ticket {$this->id} status is {$this->status}");
-            return false;
-        }
-
-        // Check if payment is pending (can still check in but flag it)
-        if ($this->payment_status === 'pending') {
-            Log::info("Ticket {$this->id} has pending payment but is valid");
-        }
-
-        return true;
+        return match ($this->status) {
+            'active'             => self::SCAN_VALID,
+            'pending'            => self::SCAN_PAYMENT_NOT_CONFIRMED,
+            'checked_in'         => self::SCAN_ALREADY_USED,
+            'expired'            => self::SCAN_EXPIRED,
+            'cancelled', 'void', 'refunded' => self::SCAN_CANCELLED,
+            default              => self::SCAN_INVALID,
+        };
     }
 
     /**
@@ -689,7 +700,7 @@ class Ticket extends Model
      */
     public function isValid(): bool
     {
-        return $this->status === 'active' && $this->payment_status === 'completed';
+        return $this->scanOutcome() === self::SCAN_VALID;
     }
 
     /**

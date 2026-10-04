@@ -5,7 +5,6 @@ use App\Http\Controllers\PublicEventController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\EventsBrowseController;
 use App\Http\Controllers\InstallmentController;
-use App\Http\Controllers\WhatsAppController;
 use Spatie\Sitemap\Sitemap;
 use Spatie\Sitemap\Tags\Url;
 use Illuminate\Support\Facades\Mail;
@@ -150,8 +149,6 @@ Route::prefix('installment')->name('installment.')->group(function () {
     Route::post('/{ticket}/pay', [InstallmentController::class, 'pay'])->name('pay');
 });
 
-Route::post('/whatsapp/webhook', [WhatsAppController::class, 'webhook'])
-    ->name('whatsapp.webhook');
 
 Route::get('/pricing', function () {
     return view('public.pricing');

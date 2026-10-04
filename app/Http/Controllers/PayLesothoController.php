@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{PaymentSession, Ticket};
-use App\Services\Payments\{PaymentSessionService, TicketApprovalService};
+use App\Services\Payments\{PaymentSessionService, TicketActivationService};
 use App\Services\SessionPackageService;
 use App\Support\SessionPackageDefinition;
 use Illuminate\Http\Request;
@@ -13,7 +13,7 @@ class PayLesothoController extends Controller
 {
     public function __construct(
         private PaymentSessionService $payments,
-        private TicketApprovalService $approval,
+        private TicketActivationService $activation,
         private SessionPackageService $sessionPackages,
     ) {}
 
@@ -113,7 +113,17 @@ class PayLesothoController extends Controller
 
     public function callback(Request $request, string $method)
     {
-        Log::info("PayLesotho callback [{$method}]", $request->all());
+        Log::info("PayLesotho callback [{$method}]", $request->except('token'));
+
+        // Shared secret carried in the callback URL (see
+        // AbstractPayLesothoDriver::callbackUrlFor). Only enforced once
+        // PAYLESOTHO_CALLBACK_SECRET is set, so callbacks configured on
+        // PayLesotho's side without it keep arriving until it's rolled out.
+        $secret = config('gateways.paylesotho.callback_secret');
+        if ($secret && !hash_equals($secret, (string) $request->query('token'))) {
+            Log::warning('PayLesotho callback rejected: bad token', ['method' => $method]);
+            return response()->json(['received' => false], 403);
+        }
 
         $reference = $request->input('transaction_reference') ?? $request->input('client_reference');
 
@@ -126,12 +136,39 @@ class PayLesothoController extends Controller
             return response()->json(['received' => true], 200);
         }
 
+        // A completed session is final: a late or replayed "failed"
+        // callback must not reopen it, and a replayed "completed" one has
+        // nothing left to do.
+        if ($session->isCompleted()) {
+            return response()->json(['received' => true]);
+        }
+
+        // Don't trust a "completed" callback for a different amount than
+        // was charged. PayLesotho's payload field names are still
+        // unconfirmed (see resolveStatus), so this only applies when an
+        // amount is actually present.
+        $callbackAmount = $request->input('amount');
+        if ($callbackAmount !== null && abs((float) $callbackAmount - (float) $session->amount) > 0.009) {
+            Log::error('PayLesotho callback: amount mismatch, not activating', [
+                'session' => $session->id,
+                'expected' => $session->amount,
+                'received' => $callbackAmount,
+            ]);
+            return response()->json(['received' => true]);
+        }
+
         $session = $this->payments->handleCallback($request, $method, $session);
 
         if ($session->isCompleted() && $session->payable_type === 'ticket') {
             $ticket = Ticket::with(['client', 'event', 'tier'])->find($session->payable_id);
             if ($ticket) {
-                $this->approval->approve($ticket, 'paylesotho', $method, $session->transaction_id, $session);
+                $this->activation->activate(
+                    ticket: $ticket,
+                    source: TicketActivationService::SOURCE_VENTIQ_ONLINE,
+                    paymentMethod: $method,
+                    paymentReference: $session->transaction_id,
+                    paymentSession: $session,
+                );
             }
         } elseif ($session->isCompleted() && $session->payable_type === 'session_package') {
             $meta = $session->purchase_meta ?? [];

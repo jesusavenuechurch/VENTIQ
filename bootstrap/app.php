@@ -13,6 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+            // Server-to-server gateway callbacks carry no CSRF token, so
+            // without this every PayLesotho callback was refused with a 419
+            // before reaching the controller.
+            $middleware->validateCsrfTokens(except: [
+                'payment/paylesotho/callback/*',
+            ]);
+
             $middleware->replace('api', HandleCors::class, function ($middleware) {
             return $middleware->setOptions([
                 'paths' => ['api/*', 'sanctum/csrf-cookie'],

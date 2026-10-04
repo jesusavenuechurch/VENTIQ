@@ -10,6 +10,15 @@ return [
         'decimals' => 2,
     ],
 
+    // Ventiq's fee on VENTIQ-collected (gateway) ticket money: 4.9% +
+    // M7.50 per ticket, excl. VAT, taken at settlement. Was read by the
+    // settlement code but never defined, so every SettlementItem recorded
+    // a M0 fee.
+    'ticketing_fee' => [
+        'percent' => (float) env('VENTIQ_TICKETING_FEE_PERCENT', 0.049),
+        'flat'    => (float) env('VENTIQ_TICKETING_FEE_FLAT', 7.50),
+    ],
+
     'payment_methods' => [
         'cash' => [
             'label' => 'Cash Payment',

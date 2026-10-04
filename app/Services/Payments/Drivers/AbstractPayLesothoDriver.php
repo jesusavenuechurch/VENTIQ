@@ -15,7 +15,13 @@ abstract class AbstractPayLesothoDriver
 
     protected function callbackUrlFor(string $method): string
     {
-        return route('paylesotho.callback', ['method' => $method]);
+        $params = ['method' => $method];
+
+        if ($secret = config('gateways.paylesotho.callback_secret')) {
+            $params['token'] = $secret;
+        }
+
+        return route('paylesotho.callback', $params);
     }
 
     // PayLesotho expects the bare local number (e.g. "62552155"), not E.164

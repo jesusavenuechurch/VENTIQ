@@ -357,6 +357,15 @@ class RegistrationController extends Controller
             ->where('payment_method', '!=', 'online')
             ->findOrFail($validated['payment_method_id']);
 
+        // A reference is the only thing the organizer can check a mobile
+        // money or bank payment against, so it's required for everything
+        // except cash. Becomes "reference or proof" once proof uploads exist.
+        if ($paymentMethodRecord->payment_method !== 'cash' && blank($validated['payment_reference'] ?? null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'payment_reference' => 'Please enter the transaction reference from your payment confirmation.',
+            ]);
+        }
+
         $tier                = $ticket->tier;
         $quantityPerPurchase = $tier->quantity_per_purchase ?? 1;
         $paymentAmount       = $tier->price;
@@ -371,18 +380,26 @@ class RegistrationController extends Controller
 
         $paymentPerTicket = $paymentAmount / $quantityPerPurchase;
 
-        $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first();
-        $pendingPayment?->update([
+        // Registration leaves one pending row to fill in. After a
+        // rejection there isn't one, so resubmitting starts a new row
+        // instead of silently doing nothing.
+        $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first()
+            ?? $ticket->payments()->make(['status' => 'pending']);
+
+        $pendingPayment->fill([
             'amount'            => $paymentPerTicket,
             'payment_method'    => $paymentMethodRecord->payment_method,
             'payment_reference' => $validated['payment_reference'] ?? null,
             'payment_type'      => $paymentType,
-        ]);
+            'payment_date'      => now(),
+        ])->save();
 
+        // Stays 'pending' even for a deposit: this is only the attendee's
+        // claim. 'partial' is for money the organizer has confirmed.
         $ticket->update([
             'payment_method'    => $paymentMethodRecord->payment_method,
             'payment_reference' => $validated['payment_reference'] ?? null,
-            'payment_status'    => $paymentType === 'deposit' ? 'partial' : 'pending',
+            'payment_status'    => 'pending',
         ]);
 
         // WhatsApp "ticket_registered" fires here, not at initial details
