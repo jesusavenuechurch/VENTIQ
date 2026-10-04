@@ -52,6 +52,19 @@ return [
         'app_id'              => env('WHATSAPP_APP_ID'),
         'business_account_id' => env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
         'api_version'         => env('WHATSAPP_API_VERSION', 'v25.0'),
+
+        // Payment-workflow templates. Each stays off (null) until Meta has
+        // approved it; set the env var to the approved template's name to
+        // switch that message on. Email covers the same moments meanwhile.
+        'templates' => [
+            // To the organizer: {{1}} attendee, {{2}} amount, {{3}} account,
+            // {{4}} reference; URL button suffix = signed review link token.
+            'payment_submitted' => env('WHATSAPP_TEMPLATE_PAYMENT_SUBMITTED'),
+            // To the attendee: {{1}} name, {{2}} event; URL button = ticket.
+            'payment_rejected'  => env('WHATSAPP_TEMPLATE_PAYMENT_REJECTED'),
+            'payment_reminder'  => env('WHATSAPP_TEMPLATE_PAYMENT_REMINDER'),
+            'payment_expired'   => env('WHATSAPP_TEMPLATE_PAYMENT_EXPIRED'),
+        ],
     ],
 
     'mopay' => [

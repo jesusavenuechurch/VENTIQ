@@ -4,21 +4,27 @@ namespace App\Services\Payments;
 
 use App\Jobs\SendTicketApprovedEmail;
 use App\Models\{PaymentSession, SettlementItem, Ticket, TicketPayment};
+use App\Services\Notifications\AttendeeNotifier;
+use App\Support\PaymentWindow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 
 /**
- * The one place a ticket goes from inactive to active.
+ * The one place a payment is confirmed or rejected and a ticket goes from
+ * inactive to active.
  *
- * Every path that confirms a payment — the PayLesotho and MoPay callbacks,
- * and the organizer's Activate action — calls activate(). Before this,
- * four copies of the logic disagreed: one never updated the payment row,
- * one counted the sale twice, and repeated gateway callbacks each created
- * a fresh SettlementItem.
+ * Every path calls in here: the PayLesotho and MoPay callbacks, the
+ * Filament Activate action, and the organizer's review page and payments
+ * list. Before this, four copies of the logic disagreed: one never updated
+ * the payment row, one counted the sale twice, and repeated gateway
+ * callbacks each created a fresh SettlementItem.
  *
- * Attendee delivery is NOT dispatched here: Ticket's `updated` hook
- * already sends the ticket when payment_status becomes 'completed', and
- * dispatching it again here was sending every WhatsApp twice.
+ * Attendee delivery for fully paid tickets is left to Ticket's `updated`
+ * hook, which sends the ticket when payment_status becomes 'completed';
+ * dispatching it here as well was sending every WhatsApp twice. A ticket
+ * activated with a balance still due never reaches 'completed', so it is
+ * sent explicitly.
  */
 class TicketActivationService
 {
@@ -26,9 +32,17 @@ class TicketActivationService
     public const SOURCE_ORGANIZER_DIRECT = 'organizer_direct';
 
     /**
+     * Confirm a payment and activate the ticket. Without $payment, the
+     * ticket's latest pending payment is used (or one is recorded for the
+     * outstanding amount, as the Filament action and gateways expect).
+     *
+     * A payment smaller than what's owed activates the ticket with a
+     * balance due (payment_status 'partial'): only the organizer gets here
+     * with a deposit, and Activate is their explicit choice.
+     *
      * @return bool true if this call activated the ticket, false if it was
-     *              already active (repeated callback, double click) and
-     *              nothing was changed.
+     *              already fully activated (repeated callback, double click)
+     *              and nothing was changed.
      */
     public function activate(
         Ticket $ticket,
@@ -37,18 +51,23 @@ class TicketActivationService
         ?string $paymentReference = null,
         ?int $confirmedBy = null,
         ?PaymentSession $paymentSession = null,
+        ?TicketPayment $payment = null,
     ): bool {
-        $activated = DB::transaction(function () use ($ticket, $source, $paymentMethod, $paymentReference, $confirmedBy, $paymentSession) {
+        $wasActive = false;
+
+        $activated = DB::transaction(function () use ($ticket, $source, $paymentMethod, $paymentReference, $confirmedBy, $paymentSession, $payment, &$wasActive) {
             // Lock the row so two callbacks (or a callback and an organizer
             // click) arriving together can't both pass the check below.
             $locked = Ticket::whereKey($ticket->id)->lockForUpdate()->first();
 
-            if (!$locked || $this->isAlreadyActivated($locked)) {
+            if (!$locked || $this->isFullyActivated($locked)) {
                 Log::info("Ticket {$ticket->id} already active, activation skipped", ['source' => $source]);
                 return false;
             }
 
-            $payment = $locked->payments()->pending()->latest()->first()
+            $wasActive = $locked->status === 'active';
+
+            $payment = $this->pendingPaymentFor($locked, $payment)
                 ?? new TicketPayment([
                     'ticket_id'    => $locked->id,
                     'amount'       => max(0, (float) $locked->amount - (float) $locked->amount_paid),
@@ -56,28 +75,22 @@ class TicketActivationService
                     'payment_date' => now(),
                 ]);
 
-            $payment->fill([
-                'status'            => 'approved',
-                'source'            => $source,
-                'payment_method'    => $paymentMethod ?? $payment->payment_method,
-                'payment_reference' => $paymentReference ?? $payment->payment_reference,
-                'approved_by'       => $confirmedBy,
-                'approved_at'       => now(),
-            ])->save();
+            $this->approve($payment, $source, $confirmedBy, $paymentMethod, $paymentReference);
 
-            $approvedCount = $locked->payments()->approved()->count();
+            $paid = (float) $locked->payments()->approved()->sum('amount');
 
             $locked->update([
-                'status'            => 'active',
-                'payment_status'    => 'completed',
+                'status'            => $locked->status === 'checked_in' ? 'checked_in' : 'active',
+                'payment_status'    => $paid >= (float) $locked->amount ? 'completed' : 'partial',
                 'payment_method'    => $payment->payment_method,
                 'payment_reference' => $payment->payment_reference,
                 'payment_date'      => now(),
-                'amount_paid'       => $locked->payments()->approved()->sum('amount'),
+                'amount_paid'       => $paid,
                 'payment_due_at'    => null,
             ]);
 
-            if ($approvedCount === 1) {
+            // Counted once, when the ticket first becomes active.
+            if (!$wasActive && $locked->wasChanged('status')) {
                 $locked->tier->increment('quantity_sold');
             }
 
@@ -90,7 +103,12 @@ class TicketActivationService
             return true;
         });
 
-        if ($activated) {
+        if ($activated && !$wasActive) {
+            if ($ticket->payment_status !== 'completed') {
+                // Balance still due: the 'completed' hook won't fire.
+                dispatch(fn () => $ticket->fresh()->autoDeliverTicket())->afterResponse();
+            }
+
             if ($ticket->client?->email) {
                 dispatch(new SendTicketApprovedEmail($ticket->id))->afterResponse();
             }
@@ -101,7 +119,86 @@ class TicketActivationService
         return $activated;
     }
 
-    private function isAlreadyActivated(Ticket $ticket): bool
+    /**
+     * Record a deposit the organizer has received while keeping the ticket
+     * inactive: the money is confirmed, entry isn't (yet).
+     */
+    public function confirmDeposit(TicketPayment $payment, ?int $confirmedBy = null): void
+    {
+        DB::transaction(function () use ($payment, $confirmedBy) {
+            $ticket = Ticket::whereKey($payment->ticket_id)->lockForUpdate()->firstOrFail();
+            $payment = $this->pendingPaymentFor($ticket, $payment)
+                ?? throw new InvalidArgumentException('This payment has already been decided.');
+
+            $this->approve($payment, self::SOURCE_ORGANIZER_DIRECT, $confirmedBy);
+
+            $paid = (float) $ticket->payments()->approved()->sum('amount');
+
+            $ticket->update([
+                'amount_paid'    => $paid,
+                'payment_status' => $paid >= (float) $ticket->amount ? 'completed' : 'partial',
+                // Money has arrived, so the place is no longer at risk.
+                'payment_due_at' => null,
+            ]);
+        });
+
+        Log::info("Deposit confirmed on ticket {$payment->ticket_id}", ['payment' => $payment->id, 'by' => $confirmedBy]);
+    }
+
+    /**
+     * The organizer says this money never arrived. The ticket stays
+     * inactive, the attendee is told and can submit again, and the payment
+     * window restarts so the place is held while they do.
+     */
+    public function reject(TicketPayment $payment, ?int $decidedBy = null, ?string $reason = null): void
+    {
+        $ticket = DB::transaction(function () use ($payment, $decidedBy, $reason) {
+            $ticket = Ticket::with('event')->whereKey($payment->ticket_id)->lockForUpdate()->firstOrFail();
+            $payment = $this->pendingPaymentFor($ticket, $payment)
+                ?? throw new InvalidArgumentException('This payment has already been decided.');
+
+            $payment->update([
+                'status'      => 'rejected',
+                'approved_by' => $decidedBy,
+                'approved_at' => now(),
+                'notes'       => $reason,
+            ]);
+
+            if ($ticket->status === 'pending') {
+                $ticket->update(['payment_due_at' => PaymentWindow::dueAt($ticket->event)]);
+            }
+
+            return $ticket;
+        });
+
+        app(AttendeeNotifier::class)->paymentRejected($ticket, $reason);
+
+        Log::info("Payment {$payment->id} rejected on ticket {$payment->ticket_id}", ['by' => $decidedBy]);
+    }
+
+    /** The given payment if it's still pending on this ticket, else the latest pending one. */
+    private function pendingPaymentFor(Ticket $ticket, ?TicketPayment $payment): ?TicketPayment
+    {
+        $pending = $ticket->payments()->pending();
+
+        return $payment
+            ? $pending->whereKey($payment->id)->first()
+            : $pending->latest()->first();
+    }
+
+    private function approve(TicketPayment $payment, string $source, ?int $by, ?string $method = null, ?string $reference = null): void
+    {
+        $payment->fill([
+            'status'            => 'approved',
+            'source'            => $source,
+            'payment_method'    => $method ?? $payment->payment_method,
+            'payment_reference' => $reference ?? $payment->payment_reference,
+            'approved_by'       => $by,
+            'approved_at'       => now(),
+        ])->save();
+    }
+
+    private function isFullyActivated(Ticket $ticket): bool
     {
         return in_array($ticket->status, ['active', 'checked_in'], true)
             && $ticket->payment_status === 'completed';

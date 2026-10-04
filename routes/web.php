@@ -75,13 +75,22 @@ Route::view('/about', 'public.about')->name('about');
 // 1. The handler for the email link (Fixes your 'verification.verify' error)
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
-    return redirect('/admin'); 
+    return redirect()->to(\App\Support\IntentRedirect::resolve('host'));
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
-// 2. The page users see if they try to access /admin without verifying first
-Route::get('/email/verify', function () {
+// 2. The page users see until they verify (after signing up, or when a
+//    page that needs a verified email sends them here)
+Route::get('/email/verify', function (Illuminate\Http\Request $request) {
+    if ($request->user()->hasVerifiedEmail()) {
+        return redirect()->to(\App\Support\IntentRedirect::resolve('host'));
+    }
     return view('auth.verify-email');
 })->middleware('auth')->name('verification.notice');
+
+Route::post('/email/verification-notification', function (Illuminate\Http\Request $request) {
+    $request->user()->sendEmailVerificationNotification();
+    return back()->with('status', 'verification-link-sent');
+})->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 
 Route::get('/events', [PublicEventController::class, 'browseAll'])
     ->name('events.browse');
@@ -301,6 +310,30 @@ Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->
 Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])->name('login');
 Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->name('login.submit');
 Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'destroy'])->name('logout');
+
+// ── Organizer area ───────────────────────────────────────────────
+// Where org users land: their events and the payments waiting on them.
+// Super admins reach it by picking an organization in Filament.
+Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Organizer\HomeController::class, 'index'])->name('home');
+    Route::get('/payments', [App\Http\Controllers\Organizer\PaymentsController::class, 'index'])->name('payments.index');
+    Route::post('/payments/{payment}', [App\Http\Controllers\Organizer\PaymentsController::class, 'decide'])->name('payments.decide');
+    Route::get('/events/{event}/attendees', [App\Http\Controllers\Organizer\AttendeesController::class, 'index'])->name('events.attendees');
+    Route::post('/tickets/{ticket}/reinstate', [App\Http\Controllers\Organizer\AttendeesController::class, 'reinstate'])->name('tickets.reinstate');
+    Route::post('/tickets/{ticket}/cancel', [App\Http\Controllers\Organizer\AttendeesController::class, 'cancel'])->name('tickets.cancel');
+});
+
+Route::middleware(['auth'])->prefix('organizer/act-as')->name('organizer.act-as.')->group(function () {
+    Route::get('/{organization}', [App\Http\Controllers\Organizer\ActAsController::class, 'start'])->name('start');
+    Route::post('/exit', [App\Http\Controllers\Organizer\ActAsController::class, 'stop'])->name('stop');
+});
+
+// The organizer's one-tap review link (email / WhatsApp). The signature
+// is the credential, so no login; it expires after a week.
+Route::middleware('signed')->group(function () {
+    Route::get('/payment-review/{payment}', [App\Http\Controllers\PaymentReviewController::class, 'show'])->name('payment-review.show');
+    Route::post('/payment-review/{payment}', [App\Http\Controllers\PaymentReviewController::class, 'decide'])->name('payment-review.decide');
+});
 
 Route::middleware(['auth'])->prefix('programmes')->name('programmes.')->group(function () {
     Route::get('/', [ProgrammeController::class, 'index'])->name('index');

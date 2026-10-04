@@ -38,7 +38,7 @@ class Ticket extends Model
         'preferred_delivery', 'has_whatsapp', 'delivery_status',
         'whatsapp_delivered_at', 'email_delivered_at', 'delivery_log', 'amount_paid',
         'is_complimentary', 'complimentary_issued_by', 'complimentary_reason', 'organization_package_id',
-        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at',
+        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at', 'payment_reminder_sent_at',
     ];
 
     protected $casts = [
@@ -58,6 +58,7 @@ class Ticket extends Model
         'admissions' => 'integer',
         'admitted_count' => 'integer',
         'payment_due_at' => 'datetime',
+        'payment_reminder_sent_at' => 'datetime',
     ];
 
     public function isComplimentary(): bool
@@ -409,16 +410,9 @@ class Ticket extends Model
             }
         });
 
-        static::created(function ($ticket) {
-            // ✅ Don't notify admins for complimentary tickets (they just created it!)
-            if (!$ticket->is_complimentary && $ticket->payment_status === 'pending') {
-                Log::info("🔔 Payment is PENDING - calling notifyAdminsOfNewRegistration()");
-                $ticket->notifyAdminsOfNewRegistration();
-            } else {
-                Log::info("⏭️ Skipping notification (complimentary or not pending)");
-            }
-            
-        });
+        // Organizers are no longer notified when a ticket is created: an
+        // unpaid registration gives them nothing to do. They're told when
+        // the attendee submits a payment (OrganizerNotifier).
 
         static::updated(function ($ticket) {
             // ✅ Auto-deliver complimentary tickets immediately

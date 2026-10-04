@@ -17,9 +17,21 @@ class TicketDownloadController extends Controller
             ->with(['client', 'event', 'tier'])
             ->firstOrFail();
 
-        // Check if ticket is active
-        if ($ticket->status !== 'active' && $ticket->status !== 'checked_in') {
-            abort(403, 'Ticket is not available for download');
+        // Attendees get their ticket at registration, before it's paid for:
+        // an inactive, expired or cancelled ticket still has a page, which
+        // says plainly that it won't scan yet (or any more) and what to do.
+        if (!in_array($ticket->status, ['active', 'checked_in'], true)) {
+            $ticket->loadMissing(['event.organization', 'payments']);
+
+            return view('tickets.inactive', [
+                'ticket'     => $ticket,
+                'submitted'  => $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at),
+                'paymentUrl' => route('registration.payment', [
+                    'orgSlug'   => $ticket->event->organization->slug,
+                    'eventSlug' => $ticket->event->slug,
+                    'ticketId'  => $ticket->id,
+                ]),
+            ]);
         }
 
             // Generate QR code if not exists (on-demand)

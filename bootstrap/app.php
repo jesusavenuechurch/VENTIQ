@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // Server-to-server gateway callbacks carry no CSRF token, so
             // without this every PayLesotho callback was refused with a 419
             // before reaching the controller.
+            $middleware->alias([
+                'organizer' => \App\Http\Middleware\EnsureOrganizerAccess::class,
+            ]);
+
             $middleware->validateCsrfTokens(except: [
                 'payment/paylesotho/callback/*',
             ]);

@@ -55,7 +55,7 @@
                                 </div>
                             </a>
 
-                            <a href="{{ auth()->check() ? route('filament.admin.pages.dashboard') : route('login', ['intent' => 'host']) }}"
+                            <a href="{{ auth()->check() ? \App\Support\IntentRedirect::resolve('host') : route('login', ['intent' => 'host']) }}"
                             class="flex items-center gap-3 px-2.5 py-3 rounded-2xl hover:bg-white hover:shadow-sm transition-all">
                                 <div class="w-9 h-9 rounded-full bg-[#F07F22] flex items-center justify-center shrink-0">
                                     <i class="fas fa-calendar-plus text-white text-[11px]"></i>

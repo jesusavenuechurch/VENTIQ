@@ -6,3 +6,7 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Payment windows: release unpaid places and send halfway reminders.
+// Needs the scheduler running (`php artisan schedule:run` every minute).
+\Illuminate\Support\Facades\Schedule::command('tickets:expire-unpaid')->everyFifteenMinutes()->withoutOverlapping();

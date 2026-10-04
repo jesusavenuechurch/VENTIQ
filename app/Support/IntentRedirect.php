@@ -8,22 +8,20 @@ class IntentRedirect
 {
     /**
      * 'session' is always explicit and always wins. Otherwise ("host", or no
-     * intent at all) the default now depends on who's logging in: org users
-     * land on the Sessions desk — the Filament dashboard has nothing for them
-     * day-to-day, and Sessions itself already bounces anyone with no
-     * organization_id (super admins) straight back to /admin. Super admins
-     * keep landing on the Filament dashboard, same as before.
+     * intent at all) org users land in the organizer area (their events and
+     * payments to confirm). Users with no organization — super admins and
+     * sales agents — keep landing on the Filament dashboard.
      */
     public static function resolve(?string $intent): string
     {
+        $user = Auth::user();
+
         if ($intent === 'session') {
             return route('sessions.index');
         }
 
-        $user = Auth::user();
-
-        if ($user && !$user->isSuperAdmin()) {
-            return route('sessions.index');
+        if ($user?->organization_id) {
+            return route('organizer.home');
         }
 
         return route('filament.admin.pages.dashboard');

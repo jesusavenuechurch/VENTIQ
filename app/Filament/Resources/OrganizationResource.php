@@ -151,6 +151,14 @@ class OrganizationResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')->dateTime(),
             ])
             ->actions([
+                // Super admins step into the organizer area for this
+                // organization to help or correct things on its behalf.
+                Tables\Actions\Action::make('open_organizer_view')
+                    ->label('Open organizer view')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('gray')
+                    ->visible(fn () => auth()->user()?->isSuperAdmin())
+                    ->url(fn ($record) => route('organizer.act-as.start', $record)),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])

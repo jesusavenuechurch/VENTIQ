@@ -48,6 +48,6 @@ class OrganizationInviteAcceptController extends Controller
         Auth::login($user, true);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('sessions.index'));
+        return redirect()->intended(route('organizer.home'));
     }
 }

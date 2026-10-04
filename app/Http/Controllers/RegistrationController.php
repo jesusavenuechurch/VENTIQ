@@ -81,6 +81,15 @@ class RegistrationController extends Controller
         // ── Create tickets ────────────────────────────────────────────
         DB::beginTransaction();
         try {
+            // Unpaid tickets hold their place, so the tier is full once held
+            // and paid tickets reach its quantity. The lock stops two people
+            // taking the last place at the same moment.
+            $lockedTier = EventTier::whereKey($tier->id)->lockForUpdate()->first();
+            if (!\App\Support\TierCapacity::hasRoom($lockedTier)) {
+                DB::rollBack();
+                return back()->withInput()->with('error', "Sorry, {$tier->tier_name} is sold out.");
+            }
+
             $primaryClient = Client::firstOrCreate(
                 ['phone' => $validated['phone'], 'organization_id' => $organization->id],
                 [
@@ -109,7 +118,7 @@ class RegistrationController extends Controller
                 'amount'            => $ticketPrice,
                 'amount_paid'       => 0,
                 'admissions'        => max(1, (int) $quantityPerPurchase),
-                'payment_due_at'    => $isFree ? null : $this->paymentDueAt($event),
+                'payment_due_at'    => $isFree ? null : \App\Support\PaymentWindow::dueAt($event),
                 'payment_status'    => $paymentStatus,
                 'payment_reference' => null,
                 'delivery_method'   => !empty($validated['email']) ? 'email' : 'whatsapp',
@@ -202,24 +211,6 @@ class RegistrationController extends Controller
             \Log::error('Registration failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', 'Registration failed. Please try again. Error: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * When an unpaid ticket stops holding its place: the event's payment
-     * window (or the platform default), never later than the event itself.
-     * Null when no window is configured — the ticket simply waits.
-     */
-    private function paymentDueAt(Event $event): ?\Illuminate\Support\Carbon
-    {
-        $hours = $event->payment_window_hours ?? config('ventiq.payment_window_hours');
-
-        if (!$hours) {
-            return null;
-        }
-
-        $due = now()->addHours($hours);
-
-        return $event->event_date && $event->event_date->lt($due) ? $event->event_date->copy() : $due;
     }
 
     public function confirmation($orgSlug, $eventSlug, $ticketId)
@@ -396,6 +387,9 @@ class RegistrationController extends Controller
             'payment_status'    => 'pending',
             'payment_due_at'    => null,
         ]);
+
+        // Now there's something for the organizer to do: check the money.
+        app(\App\Services\Notifications\OrganizerNotifier::class)->paymentSubmitted($pendingPayment);
 
         // WhatsApp "ticket_registered" fires here, not at initial details
         // submission — this is the moment the customer has actually acted

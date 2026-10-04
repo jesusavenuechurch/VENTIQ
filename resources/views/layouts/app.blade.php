@@ -332,6 +332,13 @@
                             x-transition:enter-start="opacity-0 -translate-y-1"
                             x-transition:enter-end="opacity-100 translate-y-0"
                             class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                            @if(\App\Support\CurrentOrganization::id())
+                                <a href="{{ route('organizer.home') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Events</a>
+                                <a href="{{ route('organizer.payments.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Payments</a>
+                            @endif
+                            @if(auth()->user()->isSuperAdmin())
+                                <a href="{{ route('filament.admin.pages.dashboard') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Admin</a>
+                            @endif
                             <a href="{{ route('sessions.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Sessions</a>
                             <a href="{{ route('programmes.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Programmes</a>
                             <button type="button" @click="accountOpen = false; showAssist = true" class="block w-full text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Ask Ventiq</button>
