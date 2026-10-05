@@ -21,7 +21,7 @@
             ])
         @empty
             <div class="bg-white rounded-[1.5rem] border border-dashed border-gray-200 p-10 text-center">
-                <i class="fas fa-check-circle text-emerald-400 text-3xl mb-3"></i>
+                <i class="fas fa-check-circle text-mint-ink text-3xl mb-3"></i>
                 <p class="text-[13px] font-bold text-gray-600">Nothing waiting. New payments appear here, and you'll get an email for each one.</p>
             </div>
         @endforelse

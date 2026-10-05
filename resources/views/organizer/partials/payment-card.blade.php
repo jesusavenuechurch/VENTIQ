@@ -18,9 +18,9 @@
             </p>
         </div>
         <div class="text-right">
-            <p class="text-2xl font-black text-[#F07F22]">M{{ number_format((float) $payment->amount, 2) }}</p>
+            <p class="text-2xl font-black text-brand">M{{ number_format((float) $payment->amount, 2) }}</p>
             @if($partial)
-                <p class="text-[11px] font-bold text-amber-600">Deposit · M{{ number_format($owed, 2) }} owed in total</p>
+                <p class="text-[11px] font-bold text-action-ink">Deposit · M{{ number_format($owed, 2) }} owed in total</p>
             @endif
         </div>
     </div>
@@ -48,11 +48,11 @@
         <form method="POST" action="{{ $action }}" class="mt-3 space-y-3">
             @csrf
             <div class="flex flex-wrap gap-2" x-show="!rejecting">
-                <button name="decision" value="activate" class="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest">
+                <button name="decision" value="activate" class="px-5 py-3 rounded-2xl bg-mint-ink hover:bg-brand text-white text-[10px] font-black uppercase tracking-widest">
                     <i class="fas fa-check mr-1"></i>{{ $partial ? 'Yes — activate with balance due' : 'Yes — activate ticket' }}
                 </button>
                 @if($partial)
-                    <button name="decision" value="deposit" class="px-5 py-3 rounded-2xl bg-white border-2 border-emerald-600 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
+                    <button name="decision" value="deposit" class="px-5 py-3 rounded-2xl bg-mint border-2 border-mint-ink text-mint-ink text-[10px] font-black uppercase tracking-widest">
                         Yes — record deposit, keep inactive
                     </button>
                 @endif

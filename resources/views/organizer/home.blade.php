@@ -8,7 +8,7 @@
 
     @if($toConfirm > 0)
         <a href="{{ route('organizer.payments.index') }}"
-           class="mb-6 flex items-center justify-between gap-4 p-5 rounded-[1.5rem] bg-[#F07F22] text-white shadow-lg hover:bg-[#d96f1a] transition-all">
+           class="mb-6 flex items-center justify-between gap-4 p-5 rounded-[1.5rem] bg-action text-white shadow-lg hover:bg-action-ink transition-all">
             <span class="text-[13px] font-black">
                 <i class="fas fa-receipt mr-2"></i>{{ $toConfirm }} {{ Str::plural('payment', $toConfirm) }} waiting for you to confirm
             </span>
@@ -33,19 +33,22 @@
                         {{ $event->event_date?->format('d M Y') }} · {{ ucfirst($event->status) }}
                     </p>
                     <p class="text-lg font-black text-[#1D4069] leading-tight mt-1 truncate">{{ $event->name }}</p>
-                    <div class="flex flex-wrap gap-3 mt-2 text-[11px] font-bold">
-                        <span class="text-emerald-700">{{ $event->active_count }} active</span>
-                        <span class="text-amber-600">{{ $event->awaiting_count }} awaiting payment</span>
-                        @if($event->collected_total > 0)
-                            <span class="text-[#1D4069]">M{{ number_format($event->collected_total, 2) }} collected</span>
-                        @endif
+                    <div class="flex flex-wrap gap-2 mt-3 text-[11px] font-bold">
+                        <span class="px-2.5 py-1 rounded-full bg-mint text-mint-ink">{{ $event->active_count }} active</span>
+                        <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">{{ $event->awaiting_count }} awaiting payment</span>
                         @if($event->to_confirm_count)
-                            <a href="{{ route('organizer.payments.index', ['event' => $event->id]) }}" class="text-[#F07F22] underline">{{ $event->to_confirm_count }} to confirm</a>
+                            <a href="{{ route('organizer.payments.index', ['event' => $event->id]) }}" class="px-2.5 py-1 rounded-full bg-action-soft text-action-ink hover:underline">{{ $event->to_confirm_count }} to confirm</a>
+                        @endif
+                        @if($event->collected_total > 0)
+                            <span class="px-2.5 py-1 rounded-full bg-mint text-mint-ink">M{{ number_format($event->collected_total, 2) }} collected</span>
+                        @endif
+                        @if($event->fees_sponsored)
+                            <span class="px-2.5 py-1 rounded-full bg-lilac text-lilac-ink"><i class="fas fa-gift mr-1"></i>Sponsored by VENTIQ</span>
                         @endif
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069] hover:bg-white">Attendees &amp; money</a>
+                    <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-brand text-white text-[10px] font-black uppercase tracking-widest hover:bg-action">Attendees &amp; money</a>
                     @can('edit_event')
                     <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
                     @endcan

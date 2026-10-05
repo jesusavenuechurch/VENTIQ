@@ -22,11 +22,10 @@
     <meta property="twitter:title" content="@yield('title', 'VENTIQ | Event Operations & Access Management')">
     <meta property="twitter:description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations. Simply Connected.')">
     <meta property="twitter:image" content="{{ asset('images/meta.jpeg') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
+    {{-- Tailwind, Inter and Font Awesome are built into public/build (by
+         GitHub Actions on push; see .github/workflows/build-assets.yml),
+         so the server needs no Node and pages load no CDN styles. --}}
+    @vite('resources/css/app.css')
     {{-- No separate Alpine script here — Livewire 3 bundles and boots its
          own Alpine instance. Loading a second copy (as this page did) is a
          documented Livewire footgun: pure-Alpine toggles like x-show can

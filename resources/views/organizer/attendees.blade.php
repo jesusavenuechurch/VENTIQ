@@ -22,7 +22,7 @@
         @foreach($filters as $key => $label)
             <a href="{{ route('organizer.events.attendees', [$event, 'filter' => $key]) }}"
                class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest
-                      {{ $filter === $key ? 'bg-[#F07F22] text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
+                      {{ $filter === $key ? 'bg-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 {{ $label }}
             </a>
         @endforeach
@@ -33,10 +33,10 @@
         $state = function ($ticket) {
             $submitted = $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at);
             return match (true) {
-                $ticket->status === 'pending' && $submitted => ['Payment to confirm', 'bg-orange-50 text-[#F07F22]'],
-                $ticket->status === 'pending'               => ['Awaiting payment', 'bg-amber-50 text-amber-700'],
-                $ticket->status === 'active' && $ticket->payment_status === 'partial' => ['Active · balance due', 'bg-emerald-50 text-emerald-700'],
-                $ticket->status === 'active'                => ['Active', 'bg-emerald-50 text-emerald-700'],
+                $ticket->status === 'pending' && $submitted => ['Payment to confirm', 'bg-action-soft text-action-ink'],
+                $ticket->status === 'pending'               => ['Awaiting payment', 'bg-slate-100 text-slate-500'],
+                $ticket->status === 'active' && $ticket->payment_status === 'partial' => ['Active · balance due', 'bg-mint text-mint-ink'],
+                $ticket->status === 'active'                => ['Active', 'bg-mint text-mint-ink'],
                 $ticket->status === 'checked_in'            => ['Used', 'bg-slate-100 text-slate-600'],
                 $ticket->status === 'expired'               => ['Expired', 'bg-rose-50 text-rose-600'],
                 default                                     => [ucfirst($ticket->status), 'bg-slate-100 text-slate-500'],

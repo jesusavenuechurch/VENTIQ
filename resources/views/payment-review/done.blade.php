@@ -2,7 +2,7 @@
 @section('title', 'Payment reviewed | VENTIQ')
 @section('content')
 <div class="max-w-xl mx-auto px-4 py-16 text-center">
-    <i class="fas fa-check-circle text-emerald-500 text-4xl mb-4"></i>
+    <i class="fas fa-check-circle text-mint-ink text-4xl mb-4"></i>
     <p class="text-lg font-black text-[#1D4069]">{{ $message }}</p>
     <p class="mt-2 text-[12px] font-medium text-gray-500">{{ $payment->ticket->event->name }}</p>
     @auth

@@ -59,7 +59,7 @@
                     <div>
                         <p class="text-[15px] font-black text-[#1D4069]">
                             {{ $account->display_label }}
-                            @if($account->is_default)<span class="ml-2 px-2 py-0.5 rounded-full bg-orange-50 text-[#F07F22] text-[9px] font-black uppercase tracking-widest align-middle">Default</span>@endif
+                            @if($account->is_default)<span class="ml-2 px-2 py-0.5 rounded-full bg-brand text-white text-[9px] font-black uppercase tracking-widest align-middle">Default</span>@endif
                             @unless($account->is_active)<span class="ml-2 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-widest align-middle">Off</span>@endunless
                         </p>
                         @if($account->account_number)<p class="font-mono text-[13px] text-gray-600 mt-1">{{ $account->account_number }}</p>@endif

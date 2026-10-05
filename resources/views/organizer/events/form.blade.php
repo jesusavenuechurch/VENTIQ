@@ -50,7 +50,7 @@
             <div class="flex items-center justify-between gap-4">
                 <h2 class="text-[13px] font-black text-[#1D4069] uppercase tracking-widest">1 · The basics</h2>
                 <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-ventiq-assist-modal'))"
-                        class="px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-widest">
+                        class="px-4 py-2 rounded-full bg-lilac text-lilac-ink hover:bg-lilac-ink hover:text-white text-[10px] font-black uppercase tracking-widest">
                     ✨ Write it with Ventiq Assist
                 </button>
             </div>
@@ -164,11 +164,11 @@
                 $servicePct = rtrim(rtrim(number_format(config('constants.fees.service_percent') * 100, 2), '0'), '.');
                 $operational = 'M' . number_format(config('constants.fees.operational_per_person'), 2);
             @endphp
-            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-[12px] font-medium text-gray-600">
+            <div class="p-4 rounded-2xl bg-lilac text-[12px] font-medium text-lilac-ink">
                 @if($event->fees_sponsored)
-                    <p class="font-black text-emerald-700"><i class="fas fa-gift mr-1"></i>VENTIQ is sponsoring this event's fees: nothing will be charged.</p>
+                    <p class="font-black"><i class="fas fa-gift mr-1"></i>VENTIQ is sponsoring this event's fees: nothing will be charged.</p>
                 @else
-                    <p><strong class="text-gray-800">VENTIQ fees:</strong> a {{ $servicePct }}% service fee on each ticket price and a {{ $operational }} operational fee per person, on every ticket once it's active.</p>
+                    <p><strong>VENTIQ fees:</strong> a {{ $servicePct }}% service fee on each ticket price and a {{ $operational }} operational fee per person, on every ticket once it's active.</p>
                     <p class="mt-1" x-show="mode === 'paid'">Fees on online payments come off your payout; fees on tickets paid directly to you are invoiced.</p>
                     <p class="mt-1" x-show="mode === 'free'">On a free event that's {{ $operational }} per person, invoiced to you.</p>
                 @endif
@@ -223,7 +223,7 @@
                         <label class="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 cursor-pointer">
                             <input type="checkbox" name="online" value="1" x-model="online" @checked($online) class="mt-1 w-5 h-5 accent-[#F07F22]">
                             <span>
-                                <span class="block text-[14px] font-black text-gray-900">Pay online through VENTIQ <span class="text-[10px] font-bold text-emerald-600 uppercase">Recommended</span></span>
+                                <span class="block text-[14px] font-black text-gray-900">Pay online through VENTIQ <span class="ml-1 px-2 py-0.5 rounded-full bg-lilac text-lilac-ink text-[10px] font-bold uppercase">Recommended</span></span>
                                 <span class="block text-[12px] font-medium text-gray-500">{{ implode(' or ', $driverLabels) }}. VENTIQ collects the payment and the ticket activates automatically; VENTIQ's fees come off your payout.</span>
                             </span>
                         </label>

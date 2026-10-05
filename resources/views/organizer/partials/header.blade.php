@@ -32,14 +32,14 @@
         ] as $route => [$label, $icon, $active])
             <a href="{{ route($route) }}"
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
-                      {{ request()->routeIs(...explode('|', $active)) ? 'bg-[#1D4069] text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
+                      {{ request()->routeIs(...explode('|', $active)) ? 'bg-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 <i class="fas {{ $icon }} mr-1"></i>{{ $label }}
             </a>
         @endforeach
     </nav>
 
     @if(session('status'))
-        <div class="mt-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-[12px] font-bold text-emerald-700">
+        <div class="mt-6 p-4 rounded-2xl bg-mint border border-mint text-[12px] font-bold text-mint-ink">
             {{ session('status') }}
         </div>
     @endif
