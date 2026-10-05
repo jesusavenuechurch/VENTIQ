@@ -198,23 +198,13 @@ Route::middleware(['auth'])->group(function () {
     )->name('organizational-records.pdf');
 });
 
-Route::get('/reports/revenue/{event}', function (App\Models\Event $event) {
-    return (new App\Services\Reports\RevenueReportService(
-        $event->load(['organization', 'tiers', 'tickets.payments', 'tickets.tier'])
-    ))->downloadPdf();
-})->middleware(['auth'])->name('reports.revenue');
-
-Route::get('/reports/attendance/{event}', function (App\Models\Event $event) {
-    return (new App\Services\Reports\AttendanceReportService(
-        $event->load(['organization', 'tiers', 'tickets.client', 'tickets.tier', 'tickets.workshopDetail'])
-    ))->downloadPdf();
-})->middleware(['auth'])->name('reports.attendance');
-
-Route::get('/reports/registration-summary/{event}', function (App\Models\Event $event) {
-    return (new App\Services\Reports\RegistrationSummaryService(
-        $event->load(['organization', 'tiers', 'tickets.tier'])
-    ))->downloadPdf();
-})->middleware(['auth'])->name('reports.registration-summary');
+// Event PDF reports: the controller limits each to the event's own
+// organization (or a super admin).
+Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
+    Route::get('/revenue/{event}', [App\Http\Controllers\EventReportController::class, 'revenue'])->name('revenue');
+    Route::get('/attendance/{event}', [App\Http\Controllers\EventReportController::class, 'attendance'])->name('attendance');
+    Route::get('/registration-summary/{event}', [App\Http\Controllers\EventReportController::class, 'registrationSummary'])->name('registration-summary');
+});
 
 // ── PRIMARY GATEWAY: PayLesotho ──────────────────────────────────
 Route::prefix('payment/paylesotho')->name('paylesotho.')->group(function () {

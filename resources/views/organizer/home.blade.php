@@ -36,13 +36,16 @@
                     <div class="flex flex-wrap gap-3 mt-2 text-[11px] font-bold">
                         <span class="text-emerald-700">{{ $event->active_count }} active</span>
                         <span class="text-amber-600">{{ $event->awaiting_count }} awaiting payment</span>
+                        @if($event->collected_total > 0)
+                            <span class="text-[#1D4069]">M{{ number_format($event->collected_total, 2) }} collected</span>
+                        @endif
                         @if($event->to_confirm_count)
                             <a href="{{ route('organizer.payments.index', ['event' => $event->id]) }}" class="text-[#F07F22] underline">{{ $event->to_confirm_count }} to confirm</a>
                         @endif
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069] hover:bg-white">Attendees</a>
+                    <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069] hover:bg-white">Attendees &amp; money</a>
                     @can('edit_event')
                     <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
                     @endcan

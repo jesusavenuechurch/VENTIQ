@@ -128,7 +128,7 @@
             <div style="display:table-cell; width:50%; padding-right:8px;">
                 <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:14px; text-align:center;">
                     <div style="font-size:18pt; font-weight:bold; color:#10B981;">{{ $paid }}</div>
-                    <div style="font-size:7.5pt; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Paid Tickets</div>
+                    <div style="font-size:7.5pt; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-top:4px;">Paying attendees</div>
                 </div>
             </div>
             <div style="display:table-cell; width:50%; padding-left:8px;">

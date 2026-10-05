@@ -118,6 +118,72 @@
             </div>
         </div>
  
+        {{-- Who collected the money --}}
+        <div class="section-title">Who Collected the Money</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Collected by</th>
+                    <th class="right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>VENTIQ (online payments)</td>
+                    <td class="right" style="font-weight:bold;">{{ $currency }} {{ number_format($finance['collected_ventiq'], 2) }}</td>
+                </tr>
+                <tr>
+                    <td>You (paid directly to your accounts)</td>
+                    <td class="right" style="font-weight:bold;">{{ $currency }} {{ number_format($finance['collected_direct'], 2) }}</td>
+                </tr>
+                @if($finance['unattributed'] > 0)
+                <tr>
+                    <td style="color:#64748b;">Older payments with no recorded source</td>
+                    <td class="right" style="color:#64748b;">{{ $currency }} {{ number_format($finance['unattributed'], 2) }}</td>
+                </tr>
+                @endif
+                <tr style="background:#f0fdf4; font-weight:bold;">
+                    <td>Total collected</td>
+                    <td class="right" style="color:#10B981;">{{ $currency }} {{ number_format($totalCollected, 2) }}</td>
+                </tr>
+                @if($finance['awaiting_confirmation'] > 0)
+                <tr>
+                    <td style="color:#F59E0B;">Submitted by attendees, waiting for your confirmation</td>
+                    <td class="right" style="color:#F59E0B;">{{ $currency }} {{ number_format($finance['awaiting_confirmation'], 2) }}</td>
+                </tr>
+                @endif
+            </tbody>
+        </table>
+
+        @if($finance['collected_ventiq'] > 0)
+        <div class="section-title">VENTIQ Settlement (online payments only)</div>
+        <table>
+            <tbody>
+                <tr>
+                    <td>Collected online by VENTIQ</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['collected_ventiq'], 2) }}</td>
+                </tr>
+                <tr>
+                    <td>VENTIQ ticketing fee (4.9% + M7.50 per ticket)</td>
+                    <td class="right" style="color:#EF4444;">&minus; {{ $currency }} {{ number_format($finance['ventiq_fee'], 2) }}</td>
+                </tr>
+                <tr style="font-weight:bold;">
+                    <td>Owed to you</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['payout_total'], 2) }}</td>
+                </tr>
+                <tr>
+                    <td>Already paid out</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['payout_settled'], 2) }}</td>
+                </tr>
+                <tr style="background:#fffbeb; font-weight:bold;">
+                    <td>Still to be paid out</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['payout_due'], 2) }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="font-size:8pt; color:#94a3b8; margin-top:4px;">Payments made directly to you carry no VENTIQ fee and aren't part of settlement.</p>
+        @endif
+
         {{-- Payment status --}}
         <div class="section-title">Payment Status Breakdown</div>
         <table>
@@ -154,8 +220,11 @@
                 <tr>
                     <th>Tier</th>
                     <th class="right">Price</th>
-                    <th class="right">Sold</th>
+                    <th class="right">Tickets</th>
+                    <th class="right">People</th>
                     <th class="right">Expected</th>
+                    <th class="right">By VENTIQ</th>
+                    <th class="right">By you</th>
                     <th class="right">Collected</th>
                 </tr>
             </thead>
@@ -165,13 +234,20 @@
                     <td style="font-weight:600;">{{ $tier['name'] }}</td>
                     <td class="right">{{ $currency }} {{ number_format($tier['price'], 2) }}</td>
                     <td class="right">{{ $tier['sold'] }}</td>
+                    <td class="right">{{ $tier['people'] }}</td>
                     <td class="right">{{ $currency }} {{ number_format($tier['expected'], 2) }}</td>
+                    <td class="right">{{ $currency }} {{ number_format($tier['collected_ventiq'], 2) }}</td>
+                    <td class="right">{{ $currency }} {{ number_format($tier['collected_direct'], 2) }}</td>
                     <td class="right" style="font-weight:bold; color:#10B981;">{{ $currency }} {{ number_format($tier['collected'], 2) }}</td>
                 </tr>
                 @endforeach
                 <tr style="background:#f0fdf4; font-weight:bold;">
-                    <td colspan="3">Total</td>
+                    <td colspan="2">Total</td>
+                    <td class="right">{{ $finance['tickets'] }}</td>
+                    <td class="right">{{ $finance['people'] }}</td>
                     <td class="right">{{ $currency }} {{ number_format($totalExpected, 2) }}</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['collected_ventiq'], 2) }}</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['collected_direct'], 2) }}</td>
                     <td class="right" style="color:#10B981;">{{ $currency }} {{ number_format($totalCollected, 2) }}</td>
                 </tr>
             </tbody>

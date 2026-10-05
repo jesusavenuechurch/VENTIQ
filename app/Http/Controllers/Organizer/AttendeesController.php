@@ -46,6 +46,7 @@ class AttendeesController extends Controller
 
         return view('organizer.attendees', [
             'event'   => $event,
+            'finance' => \App\Services\Reports\EventFinance::for($event)->summary(),
             'tickets' => $tickets,
             'filter'  => $filter,
             'filters' => self::FILTERS,

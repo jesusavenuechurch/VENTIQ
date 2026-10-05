@@ -4,8 +4,19 @@
 <div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => $event->name,
-        'subtitle' => 'Everyone who registered, and where their ticket stands.',
+        'subtitle' => 'Who registered, where each ticket stands, and the money so far.',
     ])
+
+    @include('organizer.partials.event-money', ['finance' => $finance])
+
+    @can('view_reports')
+        <div class="flex flex-wrap gap-2 mb-6">
+            <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest self-center mr-1">Download</span>
+            <a href="{{ route('reports.revenue', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Revenue report</a>
+            <a href="{{ route('reports.registration-summary', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Registration summary</a>
+            <a href="{{ route('reports.attendance', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Attendance register</a>
+        </div>
+    @endcan
 
     <div class="flex flex-wrap gap-2 mb-6">
         @foreach($filters as $key => $label)

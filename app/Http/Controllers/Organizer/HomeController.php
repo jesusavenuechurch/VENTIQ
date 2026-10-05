@@ -33,6 +33,12 @@ class HomeController extends Controller
                 ->whereHas('event', fn ($e) => $e->where('organization_id', $organization->id)))
             ->count();
 
+        // Money collected so far per event, from both sources.
+        $events->each(fn ($event) => $event->setAttribute(
+            'collected_total',
+            \App\Services\Reports\EventFinance::for($event)->summary()['collected'],
+        ));
+
         return view('organizer.home', compact('events', 'toConfirm'));
     }
 }
