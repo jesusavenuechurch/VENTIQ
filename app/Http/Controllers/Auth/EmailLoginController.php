@@ -98,6 +98,9 @@ class EmailLoginController extends Controller
     {
         Auth::guard('web')->login($user, true);
         $request->session()->regenerate();
+        // Proof they own the inbox: for a while they can set a new
+        // password without the old one (AccountController).
+        $request->session()->put('signed_in_with_code_at', now()->timestamp);
 
         return IntentRedirect::resolve($intent);
     }
