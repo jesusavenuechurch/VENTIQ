@@ -117,6 +117,26 @@ class EventsController extends Controller
     }
 
     /**
+     * Delete an event nobody has registered for. Once there are tickets,
+     * deleting would take their payments, fees and check-ins with it, so
+     * the organizer cancels the event instead.
+     */
+    public function destroy(Request $request, Event $event)
+    {
+        $this->authorizeEvent($request, $event);
+
+        if ($event->tickets()->exists()) {
+            return back()->with('status', "{$event->name} has registrations, so it can't be deleted. Set its status to Cancelled instead; registration closes and its records are kept.");
+        }
+
+        $name = $event->name;
+        $event->delete();
+        \Illuminate\Support\Facades\Log::info("Event {$event->id} deleted by user {$request->user()->id}");
+
+        return redirect()->route('organizer.home')->with('status', "{$name} has been deleted.");
+    }
+
+    /**
      * The event page's QR code as SVG: sharp at any size, so it can go
      * straight onto a poster. The share panel turns it into PNGs in the
      * browser, which keeps the server free of imagick.

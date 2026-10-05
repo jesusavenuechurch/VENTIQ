@@ -321,6 +321,27 @@
         </div>
     </form>
 
+    @if($event->exists)
+        @can('delete_event')
+            <section class="mt-10 p-6 rounded-[1.5rem] border border-rose-100 bg-white">
+                <h2 class="text-[13px] font-black text-rose-700 uppercase tracking-widest">Delete event</h2>
+                @if($event->tickets()->exists())
+                    <p class="mt-2 text-[12px] font-medium text-gray-500">
+                        People have registered, so this event can't be deleted: their tickets and payments would go with it.
+                        To call it off, choose <strong>Cancelled</strong> under Publish and save. Registration closes and everything is kept.
+                    </p>
+                @else
+                    <p class="mt-2 text-[12px] font-medium text-gray-500">Nobody has registered yet, so the event can be deleted for good.</p>
+                    <form method="POST" action="{{ route('organizer.events.destroy', $event) }}" class="mt-4"
+                          onsubmit="return confirm('Delete {{ addslashes($event->name) }} for good? This can\'t be undone.')">
+                        @csrf @method('DELETE')
+                        <button class="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-widest"><i class="fas fa-trash mr-1"></i>Delete event</button>
+                    </form>
+                @endif
+            </section>
+        @endcan
+    @endif
+
     @livewire('ventiq-assist.event-description-assist')
 </div>
 @endsection

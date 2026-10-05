@@ -140,6 +140,32 @@ class Event extends Model
         return null;
     }
 
+    /** Statuses in which an event takes registrations and appears in listings. */
+    public const OPEN_STATUSES = ['published', 'ongoing'];
+
+    /** Public events people can find: published or under way. */
+    public function scopeListed($query)
+    {
+        return $query->where('is_public', true)->whereIn('status', self::OPEN_STATUSES);
+    }
+
+    /**
+     * Why registration is closed, in words for the attendee, or null when
+     * it's open. Drafts aren't open yet, cancelled and completed events are
+     * over, and the deadline (if any) still applies.
+     */
+    public function registrationClosedReason(): ?string
+    {
+        return match (true) {
+            $this->status === 'cancelled' => 'This event has been cancelled.',
+            $this->status === 'completed' => 'This event has ended.',
+            !in_array($this->status, self::OPEN_STATUSES, true) => 'Registration hasn\'t opened yet.',
+            $this->registration_deadline && now()->gte($this->registration_deadline)
+                => 'Registration closed on ' . $this->registration_deadline->format('j F Y, H:i') . '.',
+            default => null,
+        };
+    }
+
     public function requiresDeposit(): bool
     {
         return $this->allow_installments === true

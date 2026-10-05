@@ -27,8 +27,8 @@ class RegistrationController extends Controller
             }])
             ->firstOrFail();
 
-        if ($event->registration_deadline && now()->gt($event->registration_deadline)) {
-            return view('public.registration-closed', compact('event', 'organization'));
+        if ($closedReason = $event->registrationClosedReason()) {
+            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
         }
 
         $selectedTierId = $request->query('tier');
@@ -58,7 +58,12 @@ class RegistrationController extends Controller
             ->where('is_public', true)
             ->firstOrFail();
 
-        $tier                = EventTier::findOrFail($request->tier_id);
+        if ($closedReason = $event->registrationClosedReason()) {
+            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
+        }
+
+        // Only this event's ticket types that are on sale.
+        $tier                = EventTier::where('event_id', $event->id)->where('is_active', true)->findOrFail($request->tier_id);
         $isFree              = $tier->price == 0;
         $quantityPerPurchase = $tier->quantity_per_purchase ?? 1;
 

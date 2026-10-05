@@ -52,6 +52,13 @@
 
                 <div class="space-y-6">
                     <h1 class="text-5xl font-black tracking-tighter uppercase italic leading-[0.85]">{{ $event->name }}</h1>
+                    @if($event->status === 'draft')
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-lilac text-lilac-ink text-[12px] font-bold">Preview: only your team can see this draft. Publish it to open registration.</p>
+                    @elseif($closedReason ?? null)
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action-ink text-[12px] font-bold not-italic normal-case tracking-normal">
+                            <i class="fas fa-circle-info"></i>{{ $closedReason }}
+                        </p>
+                    @endif
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
@@ -124,7 +131,7 @@
 
                                 @if($isSoldOut)
                                     <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase tracking-widest text-center rounded-lg italic">
-                                        Sold Out
+                                        {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
                                     </div>
                                 @endif
                             </button>
@@ -195,7 +202,7 @@
 
                     @if($isSoldOut)
                         <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase text-center rounded-lg italic">
-                            Sold Out
+                            {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
                         </div>
                     @endif
                 </button>

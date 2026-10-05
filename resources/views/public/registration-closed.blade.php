@@ -35,19 +35,14 @@
             <h2 class="text-3xl font-bold text-gray-900 mb-4">Registration Closed</h2>
             
             <p class="text-lg text-gray-600 mb-8">
-                Sorry, registration for this event is no longer available.
+                {{ $closedReason ?? 'Sorry, registration for this event is no longer available.' }}
             </p>
 
             <!-- Event Info -->
             <div class="bg-gray-50 rounded-lg p-6 mb-8 text-left max-w-md mx-auto">
                 <h3 class="font-bold text-gray-900 mb-3">{{ $event->name }}</h3>
                 
-                @if($event->registration_deadline)
-                    <p class="text-sm text-gray-600 mb-2">
-                        <i class="fas fa-calendar-times text-red-600 mr-2"></i>
-                        Registration closed on {{ $event->registration_deadline->format('F j, Y \a\t g:i A') }}
-                    </p>
-                @endif
+
 
                 @if($event->event_date)
                     <p class="text-sm text-gray-600">
