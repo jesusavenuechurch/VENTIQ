@@ -164,7 +164,7 @@
                     <td class="right">{{ $currency }} {{ number_format($finance['collected_ventiq'], 2) }}</td>
                 </tr>
                 <tr>
-                    <td>VENTIQ ticketing fee (4.9% + M7.50 per ticket)</td>
+                    <td>VENTIQ fees on online tickets</td>
                     <td class="right" style="color:#EF4444;">&minus; {{ $currency }} {{ number_format($finance['ventiq_fee'], 2) }}</td>
                 </tr>
                 <tr style="font-weight:bold;">
@@ -181,7 +181,41 @@
                 </tr>
             </tbody>
         </table>
-        <p style="font-size:8pt; color:#94a3b8; margin-top:4px;">Payments made directly to you carry no VENTIQ fee and aren't part of settlement.</p>
+        <p style="font-size:8pt; color:#94a3b8; margin-top:4px;">Only online payments are settled. Fees on tickets paid directly to you, free and complimentary tickets are invoiced (below).</p>
+        @endif
+
+        @if($finance['fees_total'] > 0)
+        <div class="section-title">VENTIQ Fees</div>
+        <table>
+            <tbody>
+                <tr>
+                    <td>Service fee ({{ rtrim(rtrim(number_format(config('constants.fees.service_percent') * 100, 2), '0'), '.') }}% of ticket price)</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['fees_service'], 2) }}</td>
+                </tr>
+                <tr>
+                    <td>Operational fee ({{ $currency }} {{ number_format(config('constants.fees.operational_per_person'), 2) }} per person)</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['fees_operational'], 2) }}</td>
+                </tr>
+                <tr style="font-weight:bold;">
+                    <td>Total fees</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['fees_total'], 2) }}</td>
+                </tr>
+                @if($finance['fees_sponsored'] > 0)
+                <tr>
+                    <td style="color:#10B981;">Sponsored by VENTIQ (not charged)</td>
+                    <td class="right" style="color:#10B981;">&minus; {{ $currency }} {{ number_format($finance['fees_sponsored'], 2) }}</td>
+                </tr>
+                @endif
+                <tr>
+                    <td>Taken from your online payout</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['fees_from_payout'], 2) }}</td>
+                </tr>
+                <tr style="background:#fffbeb; font-weight:bold;">
+                    <td>To be invoiced to you</td>
+                    <td class="right">{{ $currency }} {{ number_format($finance['fees_to_invoice'] + $finance['fees_invoiced'], 2) }}</td>
+                </tr>
+            </tbody>
+        </table>
         @endif
 
         {{-- Payment status --}}

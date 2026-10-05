@@ -205,9 +205,10 @@ class TicketActivationService
     }
 
     /**
-     * Ventiq's ticketing fee comes off at settlement; attendees pay the
-     * sticker price. Only gateway money (VENTIQ-collected) is settled, so
-     * organizer-direct activations never create one.
+     * Online money is paid out to the organizer at settlement, minus
+     * VENTIQ's fees for the ticket (from the fee ledger; nothing when the
+     * event's fees are sponsored). Organizer-direct activations never
+     * create one: their fees are invoiced instead.
      */
     private function createSettlementItem(Ticket $ticket, ?PaymentSession $paymentSession): void
     {
@@ -216,9 +217,7 @@ class TicketActivationService
         }
 
         $ticketAmount = (float) $ticket->amount;
-
-        $percentFee = round($ticketAmount * (float) config('constants.ticketing_fee.percent'), 2);
-        $ventiqFee  = round($percentFee + (float) config('constants.ticketing_fee.flat'), 2);
+        $ventiqFee = app(\App\Services\Fees\FeeService::class)->charge($ticket)->chargeable();
 
         SettlementItem::create([
             'settlement_id'      => null,
@@ -227,7 +226,7 @@ class TicketActivationService
             'organization_id'    => $ticket->event->organization_id,
             'ticket_amount'      => $ticketAmount,
             'gross_paid'         => $ticketAmount,
-            'gateway_fee'        => $ventiqFee,       // repurposed field: Ventiq's ticketing fee, not a payment-processor fee
+            'gateway_fee'        => $ventiqFee,       // repurposed field: VENTIQ's service + operational fees, not a payment-processor fee
             'amount_received'    => $ticketAmount,
             'amount_owed_to_org' => max(round($ticketAmount - $ventiqFee, 2), 0),
         ]);

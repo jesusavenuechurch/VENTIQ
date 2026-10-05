@@ -40,6 +40,9 @@ class Event extends Model
         'is_sponsored',
         'enabled_payment_method_ids',
         'payment_window_hours',
+        'fees_sponsored',
+        'fees_sponsored_at',
+        'fees_sponsored_by',
     ];
 
     protected $casts = [
@@ -52,6 +55,8 @@ class Event extends Model
         'minimum_deposit_percentage' => 'decimal:2',
         'enabled_payment_method_ids' => 'array',
         'payment_window_hours' => 'integer',
+        'fees_sponsored' => 'boolean',
+        'fees_sponsored_at' => 'datetime',
     ];
 
     /* ------------------------------------------------------------

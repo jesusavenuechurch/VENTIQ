@@ -41,7 +41,7 @@ class EventResource extends Resource
 
     public static function canCreate(): bool
     {
-        // Ticketing packages are deprecated (flat 4.9% + M7.50 fee model
+        // Ticketing packages are deprecated (service + operational fee model, see FeeService
         // now) — availablePackages() always returns empty per
         // HasPackageEntitlements, so gating on it here blocked every
         // non-superadmin org from ever creating an event. Permission is
@@ -681,6 +681,24 @@ class EventResource extends Resource
                         ),
                     ]))
                     ->modalSubmitAction(false),
+
+                // VENTIQ waives its fees on this event. The fees are still
+                // recorded (as sponsored) so the books show what was given.
+                Tables\Actions\Action::make('sponsor_fees')
+                    ->label(fn ($record) => $record->fees_sponsored ? 'Stop sponsoring fees' : 'Sponsor fees')
+                    ->icon('heroicon-o-gift')
+                    ->color(fn ($record) => $record->fees_sponsored ? 'gray' : 'success')
+                    ->visible(fn () => auth()->user()?->isSuperAdmin())
+                    ->requiresConfirmation()
+                    ->modalDescription(fn ($record) => $record->fees_sponsored
+                        ? 'VENTIQ will charge its fees again on this event, including fees not yet invoiced or paid out.'
+                        : 'VENTIQ will not charge its fees on this event. Fees already invoiced or paid out stay as they are.')
+                    ->action(function ($record) {
+                        app(\App\Services\Fees\FeeService::class)->setSponsored($record, !$record->fees_sponsored, auth()->user());
+                        \Filament\Notifications\Notification::make()
+                            ->title($record->fresh()->fees_sponsored ? 'Fees sponsored' : 'Fees charged again')
+                            ->success()->send();
+                    }),
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),

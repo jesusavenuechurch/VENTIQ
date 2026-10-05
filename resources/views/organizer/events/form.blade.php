@@ -160,6 +160,20 @@
                 <p class="text-[11px] font-medium text-gray-400">People have already registered, so this can no longer switch between free and paid.</p>
             @endif
 
+            @php
+                $servicePct = rtrim(rtrim(number_format(config('constants.fees.service_percent') * 100, 2), '0'), '.');
+                $operational = 'M' . number_format(config('constants.fees.operational_per_person'), 2);
+            @endphp
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-[12px] font-medium text-gray-600">
+                @if($event->fees_sponsored)
+                    <p class="font-black text-emerald-700"><i class="fas fa-gift mr-1"></i>VENTIQ is sponsoring this event's fees: nothing will be charged.</p>
+                @else
+                    <p><strong class="text-gray-800">VENTIQ fees:</strong> a {{ $servicePct }}% service fee on each ticket price and a {{ $operational }} operational fee per person, on every ticket once it's active.</p>
+                    <p class="mt-1" x-show="mode === 'paid'">Fees on online payments come off your payout; fees on tickets paid directly to you are invoiced.</p>
+                    <p class="mt-1" x-show="mode === 'free'">On a free event that's {{ $operational }} per person, invoiced to you.</p>
+                @endif
+            </div>
+
             <div x-show="mode === 'paid'" x-cloak class="space-y-6">
                 {{-- Ticket types --}}
                 <div>
@@ -210,7 +224,7 @@
                             <input type="checkbox" name="online" value="1" x-model="online" @checked($online) class="mt-1 w-5 h-5 accent-[#F07F22]">
                             <span>
                                 <span class="block text-[14px] font-black text-gray-900">Pay online through VENTIQ <span class="text-[10px] font-bold text-emerald-600 uppercase">Recommended</span></span>
-                                <span class="block text-[12px] font-medium text-gray-500">{{ implode(' or ', $driverLabels) }}. VENTIQ collects the payment and the ticket activates automatically. VENTIQ's fee (4.9% + M7.50 per ticket) comes off at settlement.</span>
+                                <span class="block text-[12px] font-medium text-gray-500">{{ implode(' or ', $driverLabels) }}. VENTIQ collects the payment and the ticket activates automatically; VENTIQ's fees come off your payout.</span>
                             </span>
                         </label>
                     @else

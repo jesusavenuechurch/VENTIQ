@@ -2,7 +2,7 @@
 // app/Services/Reports/EventFinance.php
 namespace App\Services\Reports;
 
-use App\Models\{Event, SettlementItem, Ticket, TicketPayment};
+use App\Models\{Event, SettlementItem, Ticket, TicketFee, TicketPayment};
 use App\Services\Payments\TicketActivationService;
 use Illuminate\Support\Collection;
 
@@ -70,6 +70,30 @@ class EventFinance
             'payout_total'     => (float) $settlement->sum('amount_owed_to_org'),
             'payout_settled'   => (float) $settlement->whereNotNull('settlement_id')->sum('amount_owed_to_org'),
             'payout_due'       => (float) $settlement->whereNull('settlement_id')->sum('amount_owed_to_org'),
+        ] + $this->fees();
+    }
+
+    /**
+     * VENTIQ's fees on this event: service (percentage) and operational
+     * (per person), how much is sponsored, and how the rest is collected
+     * (taken from the online payout, or invoiced to the organizer).
+     */
+    public function fees(): array
+    {
+        $fees = TicketFee::where('event_id', $this->event->id)->get();
+        $charged = $fees->where('sponsored', false);
+        $invoiced = $charged->where('collection', TicketFee::COLLECT_BY_INVOICE);
+
+        return [
+            'fees_sponsored_event' => (bool) $this->event->fees_sponsored,
+            'fees_service'         => (float) $fees->sum('service_fee'),
+            'fees_operational'     => (float) $fees->sum('operational_fee'),
+            'fees_total'           => (float) $fees->sum('total_fee'),
+            'fees_sponsored'       => (float) $fees->where('sponsored', true)->sum('total_fee'),
+            'fees_charged'         => (float) $charged->sum('total_fee'),
+            'fees_from_payout'     => (float) $charged->where('collection', TicketFee::COLLECT_FROM_PAYOUT)->sum('total_fee'),
+            'fees_to_invoice'      => (float) $invoiced->whereNull('invoiced_at')->sum('total_fee'),
+            'fees_invoiced'        => (float) $invoiced->whereNotNull('invoiced_at')->sum('total_fee'),
         ];
     }
 

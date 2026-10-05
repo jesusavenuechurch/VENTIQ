@@ -10,13 +10,17 @@ return [
         'decimals' => 2,
     ],
 
-    // Ventiq's fee on VENTIQ-collected (gateway) ticket money: 4.9% +
-    // M7.50 per ticket, excl. VAT, taken at settlement. Was read by the
-    // settlement code but never defined, so every SettlementItem recorded
-    // a M0 fee.
-    'ticketing_fee' => [
-        'percent' => (float) env('VENTIQ_TICKETING_FEE_PERCENT', 0.049),
-        'flat'    => (float) env('VENTIQ_TICKETING_FEE_FLAT', 7.50),
+    // VENTIQ's fees, charged on every ticket once it's active, whoever
+    // collected the money (excl. VAT):
+    //  - service fee: a percentage of the ticket price (nothing on free
+    //    and complimentary tickets)
+    //  - operational fee: a flat amount per person (a table of 3 pays it
+    //    three times; free and complimentary tickets pay it too)
+    // Online money has them deducted before payout; everything else is
+    // invoiced to the organizer. A super admin can sponsor an event's fees.
+    'fees' => [
+        'service_percent'        => (float) env('VENTIQ_SERVICE_FEE_PERCENT', 0.049),
+        'operational_per_person' => (float) env('VENTIQ_OPERATIONAL_FEE', 7.50),
     ],
 
     'payment_methods' => [

@@ -89,6 +89,19 @@ class AttendeesController extends Controller
         return back()->with('status', "{$ticket->client->full_name}'s ticket has been cancelled.");
     }
 
+    /** Super admins only: VENTIQ waives (or resumes) its fees on this event. */
+    public function toggleFeeSponsorship(Request $request, Event $event)
+    {
+        $this->authorizeEvent($request, $event);
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        app(\App\Services\Fees\FeeService::class)->setSponsored($event, !$event->fees_sponsored, $request->user());
+
+        return back()->with('status', $event->fresh()->fees_sponsored
+            ? 'VENTIQ is now sponsoring this event\'s fees.'
+            : 'VENTIQ fees are charged on this event again.');
+    }
+
     private function authorizeEvent(Request $request, Event $event): void
     {
         abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);

@@ -313,6 +313,7 @@ Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name(
     Route::get('/events/{event}/edit', [App\Http\Controllers\Organizer\EventsController::class, 'edit'])->middleware('can:edit_event')->name('events.edit');
     Route::put('/events/{event}', [App\Http\Controllers\Organizer\EventsController::class, 'update'])->middleware('can:edit_event')->name('events.update');
     Route::get('/events/{event}/attendees', [App\Http\Controllers\Organizer\AttendeesController::class, 'index'])->name('events.attendees');
+    Route::post('/events/{event}/fee-sponsorship', [App\Http\Controllers\Organizer\AttendeesController::class, 'toggleFeeSponsorship'])->name('events.fee-sponsorship');
 
     Route::get('/payment-accounts', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'index'])->middleware('can:view_payment_method')->name('accounts.index');
     Route::post('/payment-accounts', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'store'])->middleware('can:create_payment_method')->name('accounts.store');

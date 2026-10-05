@@ -37,4 +37,35 @@
             </p>
         @endif
     </div>
+
+    <div class="md:col-span-2 bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">VENTIQ fees</p>
+            <div class="flex items-center gap-2">
+                @if($finance['fees_sponsored_event'])
+                    <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest"><i class="fas fa-gift mr-1"></i>Sponsored by VENTIQ</span>
+                @endif
+                @if(auth()->user()->isSuperAdmin() && isset($event))
+                    <form method="POST" action="{{ route('organizer.events.fee-sponsorship', $event) }}"
+                          onsubmit="return confirm('{{ $finance['fees_sponsored_event'] ? 'Charge VENTIQ fees on this event again?' : 'Sponsor this event: VENTIQ will not charge its fees?' }}')">
+                        @csrf
+                        <button class="px-3 py-1 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]">
+                            {{ $finance['fees_sponsored_event'] ? 'Stop sponsoring' : 'Sponsor fees' }}
+                        </button>
+                    </form>
+                @endif
+            </div>
+        </div>
+        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
+            <div><dt class="font-bold text-gray-500">Service fee</dt><dd class="font-black text-gray-900">{{ $m($finance['fees_service']) }}</dd></div>
+            <div><dt class="font-bold text-gray-500">Operational fee</dt><dd class="font-black text-gray-900">{{ $m($finance['fees_operational']) }}</dd></div>
+            <div><dt class="font-bold text-gray-500">Taken from payout</dt><dd class="font-black text-gray-900">{{ $m($finance['fees_from_payout']) }}</dd></div>
+            <div><dt class="font-bold text-gray-500">To be invoiced</dt><dd class="font-black text-[#F07F22]">{{ $m($finance['fees_to_invoice'] + $finance['fees_invoiced']) }}</dd></div>
+        </dl>
+        <p class="text-[11px] font-medium text-gray-400 mt-3">
+            {{ rtrim(rtrim(number_format(config('constants.fees.service_percent') * 100, 2), '0'), '.') }}% of each ticket price plus {{ $m(config('constants.fees.operational_per_person')) }} per person, on every active ticket.
+            Fees on online payments come off your payout; fees on tickets paid directly to you, free and complimentary tickets are invoiced.
+            @if($finance['fees_sponsored'] > 0) {{ $m($finance['fees_sponsored']) }} of fees on this event are sponsored by VENTIQ and won't be charged. @endif
+        </p>
+    </div>
 </div>

@@ -7,7 +7,7 @@
         'subtitle' => 'Who registered, where each ticket stands, and the money so far.',
     ])
 
-    @include('organizer.partials.event-money', ['finance' => $finance])
+    @include('organizer.partials.event-money', ['finance' => $finance, 'event' => $event])
 
     @can('view_reports')
         <div class="flex flex-wrap gap-2 mb-6">

@@ -258,12 +258,12 @@ class CreateEvent extends CreateRecord
 
                         // FIX: was "A 5% processing fee is added at checkout" —
                         // stale wording from the old MoPay-only 5% split. The
-                        // real model now is 4.9% + R7.50/ticket, taken via
+                        // real model now is a service fee + operational fee, taken via
                         // Settlement, and PayLesotho is the primary gateway
                         // with MoPay as fallback — not a flat 5% either way.
                         Forms\Components\Checkbox::make('enable_online_payments')
                             ->label('💳 Pay online through VENTIQ (Recommended)')
-                            ->helperText('VENTIQ collects the payment and the ticket activates automatically. Ventiq\'s ticketing fee (4.9% + M7.50/ticket) is settled separately — not added at checkout.')
+                            ->helperText('VENTIQ collects the payment and the ticket activates automatically. VENTIQ\'s service and operational fees come off the payout — not added at checkout.')
                             ->default(true)
                             ->live()
                             ->columnSpanFull(),

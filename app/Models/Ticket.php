@@ -410,6 +410,18 @@ class Ticket extends Model
             }
         });
 
+        // VENTIQ's fee is charged once, the moment a ticket becomes usable:
+        // free and complimentary tickets on creation, paid ones when
+        // activated (FeeService).
+        static::saved(function ($ticket) {
+            $becameActive = in_array($ticket->status, ['active', 'checked_in'], true)
+                && ($ticket->wasRecentlyCreated || $ticket->wasChanged('status') || $ticket->wasChanged('is_complimentary'));
+
+            if ($becameActive) {
+                app(\App\Services\Fees\FeeService::class)->charge($ticket);
+            }
+        });
+
         // Organizers are no longer notified when a ticket is created: an
         // unpaid registration gives them nothing to do. They're told when
         // the attendee submits a payment (OrganizerNotifier).
