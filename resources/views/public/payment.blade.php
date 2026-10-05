@@ -136,12 +136,13 @@
                     <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
                         <i class="fas fa-clock text-amber-500 text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Still Pending</h3>
-                    <p class="text-sm font-bold text-gray-500 mb-6">This is taking longer than usual. Check back shortly — we'll keep the payment open.</p>
-                    <button type="button" onclick="window.location.reload()"
-                        class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
-                        Refresh Status
-                    </button>
+                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">We're confirming it</h3>
+                    <p class="text-sm font-bold text-gray-500 mb-6">If you entered your PIN and approved the payment, you're done. Please don't pay again: we'll confirm it and send your ticket. Your place is held meanwhile.</p>
+                    <a href="{{ route('ticket.download', $ticket->qr_code) }}"
+                        class="block w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
+                        View my ticket
+                    </a>
+                    <button type="button" onclick="window.location.reload()" class="mt-4 text-[11px] font-bold text-gray-400 hover:text-[#1D4069]">I didn't get a prompt on my phone</button>
                 </div>
 
                 {{-- Failed state --}}

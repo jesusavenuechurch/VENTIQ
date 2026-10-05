@@ -59,6 +59,38 @@
         </div>
     </div>
 
+    {{-- Online payments with no answer from the gateway --}}
+    @if($toCheck->isNotEmpty())
+        <section class="space-y-3">
+            <h2 class="text-[13px] font-black text-action-ink uppercase tracking-widest"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Online payments to check</h2>
+            <p class="text-[12px] text-gray-500">PayLesotho hasn't confirmed these. Look for each in the EcoCash merchant statement (amount, number, time), then mark it.</p>
+            <div class="{{ $card }} divide-y divide-gray-50">
+                @foreach($toCheck as $s)
+                    <div class="p-5 flex flex-wrap items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[14px] font-black text-[#1D4069]">{{ $m($s->amount) }} · {{ ucfirst($s->payment_method) }}</p>
+                            <p class="text-[11px] text-gray-500">
+                                {{ $s->ticket?->client?->full_name ?? 'Unknown' }} · {{ $s->ticket?->client?->phone }} · {{ $s->ticket?->event?->name }} ({{ $s->ticket?->event?->organization?->name }})
+                            </p>
+                            <p class="text-[11px] text-gray-400 font-mono">{{ $s->created_at->format('j M, H:i') }} · ref {{ $s->client_reference }}@if($s->transaction_id) · {{ $s->transaction_id }}@endif</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('ventiq.money.online.decide', $s) }}" class="flex items-center gap-2">@csrf
+                                <input type="hidden" name="decision" value="received">
+                                <input name="reference" placeholder="Merchant reference (optional)" class="{{ $input }} w-48" aria-label="Merchant reference">
+                                <button class="{{ $button }} bg-mint-ink text-white">Received</button>
+                            </form>
+                            <form method="POST" action="{{ route('ventiq.money.online.decide', $s) }}" onsubmit="return confirm('Mark this payment as not received?')">@csrf
+                                <input type="hidden" name="decision" value="not_received">
+                                <button class="{{ $button }} bg-white border border-gray-200 text-gray-500 hover:text-rose-600">Not received</button>
+                            </form>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     {{-- Payouts --}}
     <section class="space-y-3">
         <h2 class="text-[13px] font-black text-[#1D4069] uppercase tracking-widest">Payouts to organizers</h2>

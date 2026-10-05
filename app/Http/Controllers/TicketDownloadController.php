@@ -25,7 +25,9 @@ class TicketDownloadController extends Controller
 
             return view('tickets.inactive', [
                 'ticket'     => $ticket,
-                'submitted'  => $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at),
+                'submitted'  => $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at)
+                    || \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+                        ->where('status', 'pending')->where('created_at', '>', now()->subDay())->exists(),
                 'paymentUrl' => route('registration.payment', [
                     'orgSlug'   => $ticket->event->organization->slug,
                     'eventSlug' => $ticket->event->slug,

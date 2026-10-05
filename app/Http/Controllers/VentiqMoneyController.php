@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Organization, Settlement, SettlementItem, TicketFee};
+use App\Models\{Organization, PaymentSession, Settlement, SettlementItem, Ticket, TicketFee};
+use App\Services\Payments\TicketActivationService;
 use App\Services\Fees\FeeInvoicing;
 use App\Services\Payments\SettlementService;
 use Illuminate\Http\Request;
@@ -51,6 +52,12 @@ class VentiqMoneyController extends Controller
             'awaiting'   => $awaiting,
             'methods'    => ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash'],
             'invoiceFrom' => config('constants.fees.invoice_from'),
+            // Online payments with no answer from PayLesotho yet: checked by
+            // hand against the merchant statement until its callbacks work.
+            'toCheck'    => PaymentSession::where('payable_type', 'ticket')->where('gateway', 'paylesotho')
+                ->where('status', 'pending')->where('created_at', '<', now()->subMinutes(2))
+                ->where('created_at', '>', now()->subDays(7))->latest()->limit(100)->get()
+                ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
         ]);
     }
 
@@ -109,5 +116,36 @@ class VentiqMoneyController extends Controller
         $this->invoicing->markPaid($organization->id, $data['reference']);
 
         return back()->with('status', "Invoice {$data['reference']} from {$organization->name} marked paid.");
+    }
+
+    /**
+     * A super admin has checked an online payment against the merchant
+     * statement: received activates the ticket as an online sale (fees off
+     * the payout), not received closes it.
+     */
+    public function decideOnlinePayment(Request $request, PaymentSession $session, TicketActivationService $activation)
+    {
+        abort_unless($session->payable_type === 'ticket' && $session->status === 'pending', 404);
+        $data = $request->validate([
+            'decision'  => ['required', 'in:received,not_received'],
+            'reference' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        if ($data['decision'] === 'not_received') {
+            $session->update(['status' => 'failed', 'callback_payload' => array_merge($session->callback_payload ?? [], ['manual' => ['by' => $request->user()->id, 'decision' => 'not_received', 'at' => now()->toIso8601String()]])]);
+
+            return back()->with('status', 'Marked as not received. The attendee can pay again.');
+        }
+
+        $session->update([
+            'status'           => 'completed',
+            'transaction_id'   => $data['reference'] ?: $session->transaction_id,
+            'callback_payload' => array_merge($session->callback_payload ?? [], ['manual' => ['by' => $request->user()->id, 'decision' => 'received', 'at' => now()->toIso8601String()]]),
+        ]);
+
+        $ticket = Ticket::with(['client', 'event', 'tier'])->findOrFail($session->payable_id);
+        $activation->activate($ticket, TicketActivationService::SOURCE_VENTIQ_ONLINE, $session->payment_method, $session->transaction_id, $request->user()->id, $session);
+
+        return back()->with('status', "Received. {$ticket->client->full_name}'s ticket is active and on its way to them.");
     }
 }

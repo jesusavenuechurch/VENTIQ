@@ -15,7 +15,7 @@
         'expired'   => ['Payment window ended', 'This ticket was not paid in time, so its place has been released. Contact the organizer if you still want to attend.', 'rose'],
         'cancelled', 'void', 'refunded' => ['Ticket cancelled', 'This ticket is no longer valid. Contact the organizer if you think this is a mistake.', 'rose'],
         default     => $submitted
-            ? ['Payment being confirmed', 'You have submitted your payment. The organizer will confirm it and this ticket will activate; we will let you know.', 'sky']
+            ? ['Payment being confirmed', 'Your payment is being confirmed. This ticket activates as soon as it is, and we will let you know. There is no need to pay again.', 'sky']
             : ['Inactive — awaiting payment', 'Your place is reserved. Pay to activate this ticket; the same ticket then works at the entrance.', 'amber'],
     };
     $toneClasses = [

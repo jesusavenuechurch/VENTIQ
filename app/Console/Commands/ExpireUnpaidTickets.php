@@ -31,6 +31,14 @@ class ExpireUnpaidTickets extends Command
             ->whereNotNull('payment_due_at')
             ->where('payment_due_at', '<=', now())
             ->whereDoesntHave('payments', fn ($q) => $q->where('status', 'pending')->whereNotNull('submitted_at'))
+            // An online payment still waiting for confirmation: PayLesotho's
+            // callback can't be relied on yet, so VENTIQ confirms some by
+            // hand; the place is kept until it's decided.
+            ->whereNotExists(fn ($q) => $q->select(\DB::raw(1))->from('payment_sessions')
+                ->whereColumn('payment_sessions.payable_id', 'tickets.id')
+                ->where('payment_sessions.payable_type', 'ticket')
+                ->where('payment_sessions.status', 'pending')
+                ->where('payment_sessions.created_at', '>', now()->subDay()))
             ->chunkById(100, function ($tickets) use ($notifier, &$expired) {
                 foreach ($tickets as $ticket) {
                     // Re-check under the update in case a payment arrived

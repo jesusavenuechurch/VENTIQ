@@ -312,6 +312,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::get('/fees/{organization}.csv', [App\Http\Controllers\VentiqMoneyController::class, 'feesCsv'])->name('fees.csv');
     Route::post('/fees/{organization}/invoiced', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoiced'])->name('fees.invoiced');
     Route::post('/fees/{organization}/paid', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoicePaid'])->name('fees.paid');
+    Route::post('/online/{session}', [App\Http\Controllers\VentiqMoneyController::class, 'decideOnlinePayment'])->name('online.decide');
 });
 
 Route::middleware('auth')->group(function () {
