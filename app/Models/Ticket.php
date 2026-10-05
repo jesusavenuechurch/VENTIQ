@@ -427,18 +427,19 @@ class Ticket extends Model
         // the attendee submits a payment (OrganizerNotifier).
 
         static::updated(function ($ticket) {
-            // ✅ Auto-deliver complimentary tickets immediately
-            if ($ticket->isDirty('is_complimentary') && $ticket->is_complimentary) {
-                dispatch(function () use ($ticket) {
-                    $ticket->autoDeliverTicket();
-                })->afterResponse();
-            }
+            $becameComp = $ticket->isDirty('is_complimentary') && $ticket->is_complimentary;
+            $becamePaid = $ticket->isDirty('payment_status') && $ticket->payment_status === 'completed';
 
-            // Normal payment approval flow
-            if ($ticket->isDirty('payment_status') && $ticket->payment_status === 'completed') {
+            // Comps are also marked paid, often in the same save; deliver
+            // once either way.
+            if ($becamePaid) {
                 dispatch(function () use ($ticket) {
                     $ticket->notifyClientOfApproval();
                     $ticket->checkLowInventory();
+                    $ticket->autoDeliverTicket();
+                })->afterResponse();
+            } elseif ($becameComp) {
+                dispatch(function () use ($ticket) {
                     $ticket->autoDeliverTicket();
                 })->afterResponse();
             }

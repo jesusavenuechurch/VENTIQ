@@ -389,7 +389,8 @@ class TicketResource extends Resource
                                 $package?->incrementCompTicketsUsed();
                             }
 
-                            dispatch(fn () => $ticket->autoDeliverTicket())->afterResponse();
+                            // Delivery: Ticket's `updated` hook sends it when
+                            // markAsComplimentary marks it paid.
 
                             DB::commit();
                             Notification::make()->title('Comp Ticket Issued')->success()->send();

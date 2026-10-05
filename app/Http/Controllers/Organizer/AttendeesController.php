@@ -31,9 +31,11 @@ class AttendeesController extends Controller
 
         $filter = array_key_exists($request->query('filter'), self::FILTERS) ? $request->query('filter') : 'all';
         $submitted = fn ($p) => $p->where('status', 'pending')->whereNotNull('submitted_at');
+        $search = trim((string) $request->query('q'));
 
         $tickets = $event->tickets()
             ->with(['client', 'tier', 'payments'])
+            ->when($search !== '', fn ($q) => $this->search($q, $search))
             ->when($filter === 'to_confirm', fn ($q) => $q->whereIn('status', ['pending', 'active'])->whereHas('payments', $submitted))
             ->when($filter === 'awaiting', fn ($q) => $q->where('status', 'pending')->whereDoesntHave('payments', $submitted))
             ->when($filter === 'active', fn ($q) => $q->where('status', 'active'))
@@ -49,8 +51,27 @@ class AttendeesController extends Controller
             'finance' => \App\Services\Reports\EventFinance::for($event)->summary(),
             'tickets' => $tickets,
             'filter'  => $filter,
+            'search'  => $search,
             'filters' => self::FILTERS,
         ]);
+    }
+
+    /**
+     * Name, phone (any format, matched on its last digits), email, ticket
+     * number or the entry code printed under the QR (VQ-XXXX).
+     */
+    private function search($query, string $term)
+    {
+        $digits = preg_replace('/\D/', '', $term);
+        $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
+
+        return $query->where(fn ($q) => $q
+            ->where('ticket_number', 'like', $like)
+            ->orWhere('voucher_code', 'like', $like)
+            ->orWhereHas('client', fn ($c) => $c
+                ->where('full_name', 'like', $like)
+                ->orWhere('email', 'like', $like)
+                ->when(strlen($digits) >= 4, fn ($c) => $c->orWhere('phone', 'like', '%' . $digits . '%'))));
     }
 
     /** Give an expired ticket a fresh payment window, if its tier still has room. */

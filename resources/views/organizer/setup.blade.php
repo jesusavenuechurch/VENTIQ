@@ -42,9 +42,22 @@
             <label class="{{ $label }}" for="description">About your organization <span class="normal-case text-gray-300">(optional)</span></label>
             <textarea id="description" name="description" rows="3" maxlength="1000" class="{{ $field }}">{{ old('description', $organization->description) }}</textarea>
         </div>
-        <div>
-            <label class="{{ $label }}" for="logo">Logo <span class="normal-case text-gray-300">(optional, shown on reports)</span></label>
-            <input id="logo" type="file" name="logo" accept="image/jpeg,image/png,image/webp" class="text-[12px] font-semibold text-gray-600">
+        <div x-data="{ preview: null, name: null }">
+            <span class="{{ $label }}">Logo <span class="normal-case text-gray-300">(optional, shown on reports)</span></span>
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 shrink-0 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+                    <img x-show="preview" :src="preview" alt="" class="w-full h-full object-contain" x-cloak>
+                    <i x-show="!preview" class="fas fa-image text-slate-300 text-xl"></i>
+                </div>
+                <div class="min-w-0">
+                    <label for="logo" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-action hover:bg-action-ink text-white text-[10px] font-black uppercase tracking-widest cursor-pointer">
+                        <i class="fas fa-upload"></i><span x-text="preview ? 'Change logo' : 'Upload logo'">Upload logo</span>
+                    </label>
+                    <p class="text-[11px] text-gray-400 mt-1.5 truncate" x-text="name || 'PNG, JPG or WebP'">PNG, JPG or WebP</p>
+                </div>
+            </div>
+            <input id="logo" type="file" name="logo" accept="image/jpeg,image/png,image/webp" class="sr-only"
+                   x-on:change="const f = $event.target.files[0]; name = f ? f.name : null; preview = f ? URL.createObjectURL(f) : null">
         </div>
         <button class="w-full py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white text-[11px] font-black uppercase tracking-[0.2em]">Continue</button>
     </form>
