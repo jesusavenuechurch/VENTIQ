@@ -67,7 +67,9 @@ class TicketActivationService
 
             $wasActive = $locked->status === 'active';
 
-            $payment = $this->pendingPaymentFor($locked, $payment)
+            $payment = $source === self::SOURCE_VENTIQ_ONLINE && $paymentSession && !$payment
+                ? $this->onlinePayment($locked, $paymentSession)
+                : $this->pendingPaymentFor($locked, $payment)
                 ?? new TicketPayment([
                     'ticket_id'    => $locked->id,
                     'amount'       => max(0, (float) $locked->amount - (float) $locked->amount_paid),
@@ -176,6 +178,34 @@ class TicketActivationService
         Log::info("Payment {$payment->id} rejected on ticket {$payment->ticket_id}", ['by' => $decidedBy]);
     }
 
+    /**
+     * The payment row for money VENTIQ collected online: the amount the
+     * gateway charged, not whatever a pending row says (an attendee may
+     * have submitted a manual payment first). A manual submission still
+     * waiting for the organizer is closed, so it can't be confirmed as a
+     * second payment.
+     */
+    private function onlinePayment(Ticket $ticket, PaymentSession $session): TicketPayment
+    {
+        $pending = $ticket->payments()->pending()->get();
+
+        $pending->whereNotNull('submitted_at')->each(fn ($p) => $p->update([
+            'status' => 'rejected',
+            'notes'  => 'Closed: the attendee paid online through VENTIQ instead.',
+        ]));
+
+        $payment = $pending->whereNull('submitted_at')->sortByDesc('id')->first()
+            ?? new TicketPayment(['ticket_id' => $ticket->id]);
+
+        $payment->fill([
+            'amount'       => $session->amount,
+            'payment_type' => (float) $ticket->amount_paid > 0 ? 'installment' : 'full',
+            'payment_date' => now(),
+        ]);
+
+        return $payment;
+    }
+
     /** The given payment if it's still pending on this ticket, else the latest pending one. */
     private function pendingPaymentFor(Ticket $ticket, ?TicketPayment $payment): ?TicketPayment
     {
@@ -212,23 +242,34 @@ class TicketActivationService
      */
     private function createSettlementItem(Ticket $ticket, ?PaymentSession $paymentSession): void
     {
-        if (SettlementItem::where('ticket_id', $ticket->id)->exists()) {
+        // One payout line per online payment (a repeated callback adds
+        // nothing). A ticket can have two, e.g. a deposit and a balance.
+        $existing = SettlementItem::where('ticket_id', $ticket->id);
+        if ($paymentSession ? (clone $existing)->where('payment_session_id', $paymentSession->id)->exists() : (clone $existing)->exists()) {
             return;
         }
+        $firstForTicket = !$existing->exists();
 
-        $ticketAmount = (float) $ticket->amount;
-        $ventiqFee = app(\App\Services\Fees\FeeService::class)->charge($ticket)->chargeable();
+        // What VENTIQ actually received for this ticket (a balance after a
+        // deposit paid to the organizer is less than the ticket price).
+        $received = round((float) ($paymentSession?->amount ?? $ticket->amount), 2);
+
+        // VENTIQ's fee comes off the payout only when it's collected that
+        // way; a ticket whose fee is already being invoiced (deposit paid
+        // to the organizer first) isn't charged twice.
+        $fee = app(\App\Services\Fees\FeeService::class)->charge($ticket);
+        $ventiqFee = $firstForTicket && $fee->collection === \App\Models\TicketFee::COLLECT_FROM_PAYOUT ? $fee->chargeable() : 0.0;
 
         SettlementItem::create([
             'settlement_id'      => null,
             'payment_session_id' => $paymentSession?->id,
             'ticket_id'          => $ticket->id,
             'organization_id'    => $ticket->event->organization_id,
-            'ticket_amount'      => $ticketAmount,
-            'gross_paid'         => $ticketAmount,
+            'ticket_amount'      => (float) $ticket->amount,
+            'gross_paid'         => $received,
             'gateway_fee'        => $ventiqFee,       // repurposed field: VENTIQ's service + operational fees, not a payment-processor fee
-            'amount_received'    => $ticketAmount,
-            'amount_owed_to_org' => max(round($ticketAmount - $ventiqFee, 2), 0),
+            'amount_received'    => $received,
+            'amount_owed_to_org' => max(round($received - $ventiqFee, 2), 0),
         ]);
     }
 }

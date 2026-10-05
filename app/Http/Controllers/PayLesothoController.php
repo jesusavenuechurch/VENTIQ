@@ -32,11 +32,32 @@ class PayLesothoController extends Controller
             return response()->json(['message' => 'Online payment is not available for this event.'], 422);
         }
 
+        if ($ticket->payment_status === 'completed') {
+            return response()->json(['message' => 'This ticket is already paid.'], 422);
+        }
+        if (!in_array($ticket->status, ['pending', 'active'], true)) {
+            return response()->json(['message' => 'This ticket can no longer be paid for. Register again, or contact the organizer.'], 422);
+        }
+
+        // A push already sent in the last few minutes is still waiting on
+        // the attendee's phone: follow that one instead of charging twice.
+        $inFlight = PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+            ->where('status', 'pending')->where('created_at', '>', now()->subMinutes(3))->latest()->first();
+        if ($inFlight) {
+            return response()->json(['session_id' => $inFlight->id, 'status' => $inFlight->status]);
+        }
+
+        // Only what's still owed: a deposit may already have been paid.
+        $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
+        if ($owed <= 0) {
+            return response()->json(['message' => 'Nothing is owed on this ticket.'], 422);
+        }
+
         $session = $this->payments->initiate(
             payableType: 'ticket',
             payableId: $ticket->id,
             method: $data['method'],
-            amount: (float) $ticket->amount,
+            amount: $owed,
             mobileNumber: $data['mobile_number'],
             organizationId: $ticket->event->organization_id,
         );

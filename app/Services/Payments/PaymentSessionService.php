@@ -20,7 +20,10 @@ class PaymentSessionService
         ?int $organizationId = null,
         ?int $initiatedBy = null,
     ): PaymentSession {
-        $clientReference = strtoupper($method) . $payableId . 'T' . time();
+        // The reference is all a callback has to quote to find its
+        // session, so it must not be guessable: it used to be the ticket
+        // id and a timestamp, enough to fake a "paid" callback.
+        $clientReference = strtoupper($method) . $payableId . 'T' . random_int(1_000_000_000, 9_999_999_999);
 
         $session = PaymentSession::create([
             'payable_type'     => $payableType,

@@ -95,12 +95,15 @@ class FeeService
 
                 // Online fees are taken from the payout: keep the pending
                 // settlement line in step.
+                // The fee sits on the ticket's first payout line only.
                 if ($fee->collection === TicketFee::COLLECT_FROM_PAYOUT) {
-                    SettlementItem::where('ticket_id', $fee->ticket_id)->whereNull('settlement_id')->get()
-                        ->each(fn ($item) => $item->update([
+                    $first = SettlementItem::where('ticket_id', $fee->ticket_id)->orderBy('id')->first();
+                    if ($first && !$first->settlement_id) {
+                        $first->update([
                             'gateway_fee'        => $fee->chargeable(),
-                            'amount_owed_to_org' => max(round((float) $item->amount_received - $fee->chargeable(), 2), 0),
-                        ]));
+                            'amount_owed_to_org' => max(round((float) $first->amount_received - $fee->chargeable(), 2), 0),
+                        ]);
+                    }
                 }
             }
 
