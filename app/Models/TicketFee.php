@@ -14,9 +14,11 @@ class TicketFee extends Model
     protected $fillable = [
         'ticket_id', 'event_id', 'organization_id', 'source', 'ticket_amount', 'people',
         'service_fee', 'operational_fee', 'total_fee', 'sponsored', 'collection', 'invoiced_at',
+        'invoice_reference', 'invoice_paid_at',
     ];
 
     protected $casts = [
+        'invoice_paid_at' => 'datetime',
         'ticket_amount'   => 'decimal:2',
         'service_fee'     => 'decimal:2',
         'operational_fee' => 'decimal:2',
@@ -29,6 +31,11 @@ class TicketFee extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     public function event(): BelongsTo

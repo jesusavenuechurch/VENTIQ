@@ -26,6 +26,10 @@ return [
     'fees' => [
         'service_percent'        => (float) env('VENTIQ_SERVICE_FEE_PERCENT', 0.049),
         'operational_per_person' => (float) env('VENTIQ_OPERATIONAL_FEE', 7.50),
+        // Fees on events before this date are never invoiced (the fee
+        // model started on this branch; older events were sold under
+        // packages).
+        'invoice_from'           => env('VENTIQ_FEES_INVOICE_FROM', '2026-10-05'),
     ],
 
     'payment_methods' => [

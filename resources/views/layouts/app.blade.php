@@ -335,6 +335,7 @@
                             @endif
                             @if(auth()->user()->isSuperAdmin())
                                 <a href="{{ route('filament.admin.pages.dashboard') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Admin</a>
+                                <a href="{{ route('ventiq.money.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">VENTIQ money</a>
                             @endif
                             <a href="{{ route('sessions.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Sessions</a>
                             <a href="{{ route('programmes.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Programmes</a>

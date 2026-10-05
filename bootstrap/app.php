@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $middleware->alias([
                 'organizer' => \App\Http\Middleware\EnsureOrganizerAccess::class,
                 'organizer.setup' => \App\Http\Middleware\EnsureOrganizationSetUp::class,
+                'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             ]);
 
             $middleware->validateCsrfTokens(except: [

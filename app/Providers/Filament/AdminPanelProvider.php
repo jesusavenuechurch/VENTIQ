@@ -224,6 +224,14 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
+            // Payouts to organizers and fees to invoice live outside Filament.
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('VENTIQ money')
+                    ->url(fn () => route('ventiq.money.index'))
+                    ->icon('heroicon-o-banknotes')
+                    ->sort(-1)
+                    ->visible(fn () => auth()->user()?->isSuperAdmin()),
+            ])
             ->widgets([
                 \App\Filament\Widgets\WelcomeWidget::class,        // org admin — onboarding + operations
                 \App\Filament\Widgets\SuperAdminWidget::class,     // super admin overview

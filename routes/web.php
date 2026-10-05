@@ -304,6 +304,16 @@ Route::middleware('throttle:20,1')->group(function () {
     Route::get('/login/link/{id}/{token}', [App\Http\Controllers\Auth\EmailLoginController::class, 'showLink'])->whereNumber('id')->name('login.link.show');
     Route::post('/login/link/{id}/{token}', [App\Http\Controllers\Auth\EmailLoginController::class, 'useLink'])->whereNumber('id')->name('login.link.use');
 });
+// VENTIQ's own money: payouts to organizers and fees to invoice.
+Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq.money.')->group(function () {
+    Route::get('/', [App\Http\Controllers\VentiqMoneyController::class, 'index'])->name('index');
+    Route::post('/payouts/{organization}', [App\Http\Controllers\VentiqMoneyController::class, 'createPayout'])->name('payouts.create');
+    Route::post('/payouts/batch/{settlement}/paid', [App\Http\Controllers\VentiqMoneyController::class, 'markPayoutPaid'])->name('payouts.paid');
+    Route::get('/fees/{organization}.csv', [App\Http\Controllers\VentiqMoneyController::class, 'feesCsv'])->name('fees.csv');
+    Route::post('/fees/{organization}/invoiced', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoiced'])->name('fees.invoiced');
+    Route::post('/fees/{organization}/paid', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoicePaid'])->name('fees.paid');
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/account', [App\Http\Controllers\AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [App\Http\Controllers\AccountController::class, 'updateProfile'])->name('account.update');
