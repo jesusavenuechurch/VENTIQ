@@ -118,17 +118,17 @@
                 <div class="hidden lg:flex lg:col-span-3 flex-col items-center justify-center relative h-[450px] select-none pointer-events-none">
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-gray-100 shadow-xl transform rotate-6 -translate-x-4 -translate-y-4 opacity-70 overflow-hidden">
                         <div class="absolute inset-0 img-skeleton"></div>
-                        <img src="{{ asset('images/hero/3.jpg') }}" alt="Finish Line Connection"
+                        <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/3-640.webp') }} 640w, {{ asset('images/hero/web/3-1280.webp') }} 1280w, {{ asset('images/hero/web/3-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/3-1280.jpg') }}" alt="Finish Line Connection"
                              class="relative w-full h-full object-cover grayscale-[10%] contrast-[1.05] opacity-0 img-fade"
                              loading="lazy"
-                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                             decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
                     </div>
                     <div class="absolute w-52 h-64 rounded-[2.25rem] bg-gray-100 border border-white/80 shadow-2xl shadow-gray-200/60 transform -rotate-3 translate-x-4 translate-y-8 overflow-hidden">
                         <div class="absolute inset-0 img-skeleton"></div>
-                        <img src="{{ asset('images/hero/4.jpg') }}" alt="Shared Laughter"
+                        <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/4-640.webp') }} 640w, {{ asset('images/hero/web/4-1280.webp') }} 1280w, {{ asset('images/hero/web/4-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/4-1280.jpg') }}" alt="Shared Laughter"
                              class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
                              loading="lazy"
-                             onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                             decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
                     </div>
                 </div>
 
@@ -503,31 +503,31 @@
         <div class="w-full max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 select-none pointer-events-none">
             <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
                 <div class="absolute inset-0 img-skeleton"></div>
-                <img src="{{ asset('images/hero/3.jpg') }}" alt=""
+                <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/3-640.webp') }} 640w, {{ asset('images/hero/web/3-1280.webp') }} 1280w, {{ asset('images/hero/web/3-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/3-1280.jpg') }}" alt=""
                      class="relative w-full h-full object-cover grayscale-[10%] opacity-0 img-fade"
                      loading="lazy"
-                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                     decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
             </div>
             <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-3 translate-y-4 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
                 <div class="absolute inset-0 img-skeleton"></div>
-                <img src="{{ asset('images/hero/4.jpg') }}" alt=""
+                <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/4-640.webp') }} 640w, {{ asset('images/hero/web/4-1280.webp') }} 1280w, {{ asset('images/hero/web/4-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/4-1280.jpg') }}" alt=""
                      class="relative w-full h-full object-cover opacity-0 img-fade"
                      loading="lazy"
-                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                     decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
             </div>
             <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform rotate-1 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
                 <div class="absolute inset-0 img-skeleton"></div>
-                <img src="{{ asset('images/hero/sing.jpg') }}" alt=""
+                <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/sing-640.webp') }} 640w, {{ asset('images/hero/web/sing-1280.webp') }} 1280w, {{ asset('images/hero/web/sing-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/sing-1280.jpg') }}" alt=""
                      class="relative w-full h-full object-cover contrast-[1.05] opacity-0 img-fade"
                      loading="lazy"
-                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                     decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
             </div>
             <div class="aspect-[3/4] rounded-[2rem] bg-gray-50 overflow-hidden transform -rotate-2 translate-y-2 border border-gray-100 shadow-sm transition-transform duration-300 hover:rotate-0 relative">
                 <div class="absolute inset-0 img-skeleton"></div>
-                <img src="{{ asset('images/hero/2.jpg') }}" alt=""
+                <picture class="contents"><source type="image/webp" sizes="(min-width: 1024px) 45vw, 95vw" srcset="{{ asset('images/hero/web/2-640.webp') }} 640w, {{ asset('images/hero/web/2-1280.webp') }} 1280w, {{ asset('images/hero/web/2-1920.webp') }} 1920w"><img src="{{ asset('images/hero/web/2-1280.jpg') }}" alt=""
                      class="relative w-full h-full object-cover grayscale-[15%] opacity-0 img-fade"
                      loading="lazy"
-                     onload="this.classList.remove('opacity-0'); this.previousElementSibling.remove();">
+                     decoding="async" onload="this.classList.remove('opacity-0'); this.parentElement.previousElementSibling?.remove();"></picture>
             </div>
         </div>
     </section>

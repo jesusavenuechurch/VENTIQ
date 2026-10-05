@@ -21,7 +21,7 @@
     @endisset
 
     @php
-        // Sessions and the rest of Ventiq are reached from the home page.
+        // The public site is the logo in the top bar; Sessions is in the account menu.
         $toConfirm = $paymentsToConfirm();
         $tabs = [
             ['organizer.home',           'Events',              'Events',     'fa-calendar-days', 'organizer.home|organizer.events.*', 0],
@@ -37,9 +37,6 @@
 
     {{-- Wider screens: a row of tabs under the title. --}}
     <nav class="mt-5 hidden sm:flex flex-wrap items-center gap-2">
-        <a href="{{ route('home') }}" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">
-            <i class="fas fa-arrow-left mr-1"></i>Home
-        </a>
         @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
             <a href="{{ route($route) }}"
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
@@ -63,11 +60,7 @@
      places it below the scrolling content, so nothing hides behind it. --}}
 @section('bottom_bar')
     <nav class="sm:hidden flex-none bg-white border-t border-gray-100 pb-[env(safe-area-inset-bottom)]">
-        <div class="grid {{ count($tabs) === 4 ? 'grid-cols-5' : 'grid-cols-4' }}">
-            <a href="{{ route('home') }}" class="flex flex-col items-center gap-1 py-2.5 text-gray-400">
-                <i class="fas fa-house text-base"></i>
-                <span class="text-[9px] font-black uppercase tracking-wider">Home</span>
-            </a>
+        <div class="grid {{ count($tabs) === 4 ? 'grid-cols-4' : 'grid-cols-3' }}">
             @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
                 @php $on = request()->routeIs(...explode('|', $active)); @endphp
                 <a href="{{ route($route) }}" @if($on) aria-current="page" @endif
