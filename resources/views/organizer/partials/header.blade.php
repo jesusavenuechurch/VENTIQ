@@ -20,22 +20,22 @@
         <p class="text-[13px] font-medium text-gray-500 mt-1">{{ $subtitle }}</p>
     @endisset
 
-    <nav class="mt-5 flex flex-wrap gap-2">
+    <nav class="mt-5 flex flex-wrap items-center gap-2">
+        {{-- Sessions and the rest of Ventiq are reached from the home page. --}}
+        <a href="{{ route('home') }}" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">
+            <i class="fas fa-arrow-left mr-1"></i>Home
+        </a>
         @foreach([
-            'organizer.home'           => ['Events', 'fa-calendar'],
-            'organizer.payments.index' => ['Payments to confirm', 'fa-receipt'],
-        ] as $route => [$label, $icon])
+            'organizer.home'           => ['Events', 'fa-calendar', 'organizer.home|organizer.events.*'],
+            'organizer.payments.index' => ['Payments to confirm', 'fa-receipt', 'organizer.payments.*'],
+            'organizer.accounts.index' => ['Payment accounts', 'fa-wallet', 'organizer.accounts.*'],
+        ] as $route => [$label, $icon, $active])
             <a href="{{ route($route) }}"
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
-                      {{ request()->routeIs($route) ? 'bg-[#1D4069] text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
+                      {{ request()->routeIs(...explode('|', $active)) ? 'bg-[#1D4069] text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 <i class="fas {{ $icon }} mr-1"></i>{{ $label }}
             </a>
         @endforeach
-        @unless($actingAsOrganization ?? false)
-            <a href="{{ route('sessions.index') }}" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]">
-                <i class="fas fa-chalkboard mr-1"></i>Sessions
-            </a>
-        @endunless
     </nav>
 
     @if(session('status'))

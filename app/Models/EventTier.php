@@ -18,6 +18,7 @@ class EventTier extends Model
         'quantity_sold',
         'is_active',
         'quantity_per_purchase',
+        'is_group_ticket',
     ];
 
     protected $casts = [

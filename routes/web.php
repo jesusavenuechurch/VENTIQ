@@ -318,7 +318,18 @@ Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name(
     Route::get('/', [App\Http\Controllers\Organizer\HomeController::class, 'index'])->name('home');
     Route::get('/payments', [App\Http\Controllers\Organizer\PaymentsController::class, 'index'])->name('payments.index');
     Route::post('/payments/{payment}', [App\Http\Controllers\Organizer\PaymentsController::class, 'decide'])->name('payments.decide');
+    Route::get('/events/create', [App\Http\Controllers\Organizer\EventsController::class, 'create'])->middleware('can:create_event')->name('events.create');
+    Route::post('/events', [App\Http\Controllers\Organizer\EventsController::class, 'store'])->middleware('can:create_event')->name('events.store');
+    Route::get('/events/{event}/edit', [App\Http\Controllers\Organizer\EventsController::class, 'edit'])->middleware('can:edit_event')->name('events.edit');
+    Route::put('/events/{event}', [App\Http\Controllers\Organizer\EventsController::class, 'update'])->middleware('can:edit_event')->name('events.update');
     Route::get('/events/{event}/attendees', [App\Http\Controllers\Organizer\AttendeesController::class, 'index'])->name('events.attendees');
+
+    Route::get('/payment-accounts', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'index'])->middleware('can:view_payment_method')->name('accounts.index');
+    Route::post('/payment-accounts', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'store'])->middleware('can:create_payment_method')->name('accounts.store');
+    Route::put('/payment-accounts/{account}', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'update'])->middleware('can:edit_payment_method')->name('accounts.update');
+    Route::post('/payment-accounts/{account}/default', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'makeDefault'])->middleware('can:edit_payment_method')->name('accounts.default');
+    Route::post('/payment-accounts/{account}/toggle', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'toggle'])->middleware('can:edit_payment_method')->name('accounts.toggle');
+    Route::delete('/payment-accounts/{account}', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'destroy'])->middleware('can:delete_payment_method')->name('accounts.destroy');
     Route::post('/tickets/{ticket}/reinstate', [App\Http\Controllers\Organizer\AttendeesController::class, 'reinstate'])->name('tickets.reinstate');
     Route::post('/tickets/{ticket}/cancel', [App\Http\Controllers\Organizer\AttendeesController::class, 'cancel'])->name('tickets.cancel');
 });

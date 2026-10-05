@@ -65,7 +65,7 @@ describe('getting into the organizer area', function () {
 
     it('moves org users off the Filament dashboard', function () {
         $this->actingAs($this->admin)->get('/admin')->assertRedirect(route('organizer.home'));
-        $this->get(route('filament.admin.events.resources.events.create'))->assertOk();
+        $this->get(route('filament.admin.events.resources.events.create'))->assertRedirect(route('organizer.events.create'));
     });
 
     it('keeps super admins on the Filament dashboard', function () {

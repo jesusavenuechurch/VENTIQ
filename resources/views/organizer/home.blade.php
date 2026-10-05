@@ -17,12 +17,12 @@
     @endif
 
     <div class="flex justify-end mb-4">
-        {{-- Event creation still lives in the admin screens until its
-             replacement ships here. --}}
-        <a href="{{ route('filament.admin.events.resources.events.create') }}"
+        @can('create_event')
+        <a href="{{ route('organizer.events.create') }}"
            class="px-5 py-3 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white text-[10px] font-black uppercase tracking-widest">
             <i class="fas fa-plus mr-1"></i>Create event
         </a>
+        @endcan
     </div>
 
     <div class="space-y-3">
@@ -43,7 +43,9 @@
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069] hover:bg-white">Attendees</a>
-                    <a href="{{ route('filament.admin.events.resources.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
+                    @can('edit_event')
+                    <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
+                    @endcan
                     @if($event->is_public && $event->slug)
                         <a href="{{ route('event.short', [$currentOrganization->slug, $event->slug]) }}" target="_blank" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Public page</a>
                     @endif
