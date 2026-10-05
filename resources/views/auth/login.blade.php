@@ -104,7 +104,7 @@
 
         {{-- Step 1: who are you? --}}
         <div x-show="step === 'email'">
-            <a :href="`{{ route('auth.google.redirect') }}?intent=${intent}`"
+            <a :href="`{{ route('auth.google.redirect') }}?intent=${intent ?? ''}`"
                class="w-full py-4 rounded-2xl border border-gray-200 flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.2em] text-[#1D4069] hover:border-[#1D4069] transition-all">
                 <i class="fab fa-google text-[#F07F22]"></i> Continue with Google
             </a>
@@ -174,7 +174,7 @@
 
         <p class="text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-8">
             New here?
-            <a :href="`{{ route('org.register.direct') }}?intent=${intent}`" class="text-[#F07F22] hover:underline">Create an account</a>
+            <a :href="`{{ route('org.register.direct') }}?intent=${intent ?? ''}`" class="text-[#F07F22] hover:underline">Create an account</a>
         </p>
     </div>
 </div>

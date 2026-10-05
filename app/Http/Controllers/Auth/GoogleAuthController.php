@@ -16,13 +16,13 @@ class GoogleAuthController extends Controller
 {
     public function redirect(Request $request)
     {
-        session(['auth_intent' => $request->query('intent', 'host')]);
+        session(['auth_intent' => in_array($request->query('intent'), ['session', 'host'], true) ? $request->query('intent') : null]);
         return Socialite::driver('google')->redirect();
     }
 
     public function callback(Request $request, AccountProvisioningService $provisioning)
     {
-        $intent = session()->pull('auth_intent', 'host'); // pull = read + forget
+        $intent = session()->pull('auth_intent'); // pull = read + forget
 
         $googleUser = Socialite::driver('google')->stateless()->user();
         $existing = User::where('email', $googleUser->getEmail())->first();

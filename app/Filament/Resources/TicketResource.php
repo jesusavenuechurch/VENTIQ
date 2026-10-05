@@ -685,7 +685,8 @@ class TicketResource extends Resource
                         ->action(fn ($record) => app(\App\Services\TicketDeliveryService::class)->deliver($record)),
 
                     Tables\Actions\EditAction::make()->slideOver(),
-                    Tables\Actions\DeleteAction::make(),
+                    Tables\Actions\DeleteAction::make()
+                        ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
                 ])
                 ->icon('heroicon-m-ellipsis-vertical')
                 ->color('gray')

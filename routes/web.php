@@ -324,6 +324,18 @@ Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'dest
 // ── Organizer area ───────────────────────────────────────────────
 // Where org users land: their events and the payments waiting on them.
 // Super admins reach it by picking an organization in Filament.
+// The team is shared by VENTIQ Events and Sessions, so it needs an
+// organization but not the events setup (phone number) step.
+Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {
+    Route::get('/team', [App\Http\Controllers\Organizer\TeamController::class, 'index'])->name('team.index');
+    Route::middleware('can:manage_staff')->group(function () {
+        Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
+        Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');
+        Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
+        Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
+    });
+});
+
 Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix('organizer')->name('organizer.')->group(function () {
     Route::get('/setup', [App\Http\Controllers\Organizer\SetupController::class, 'show'])->name('setup');
     Route::post('/setup', [App\Http\Controllers\Organizer\SetupController::class, 'store'])->name('setup.store');
@@ -345,13 +357,6 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::post('/payment-accounts/{account}/default', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'makeDefault'])->middleware('can:edit_payment_method')->name('accounts.default');
     Route::post('/payment-accounts/{account}/toggle', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'toggle'])->middleware('can:edit_payment_method')->name('accounts.toggle');
     Route::delete('/payment-accounts/{account}', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'destroy'])->middleware('can:delete_payment_method')->name('accounts.destroy');
-    Route::get('/team', [App\Http\Controllers\Organizer\TeamController::class, 'index'])->name('team.index');
-    Route::middleware('can:manage_staff')->group(function () {
-        Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
-        Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');
-        Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
-        Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
-    });
     Route::middleware('can:approve_payment')->group(function () {
         Route::get('/guest-list-template.csv', [App\Http\Controllers\Organizer\GuestListController::class, 'template'])->name('guests.template');
         Route::get('/events/{event}/guests/import', [App\Http\Controllers\Organizer\GuestListController::class, 'create'])->name('events.guests.create');

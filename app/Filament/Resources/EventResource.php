@@ -717,7 +717,8 @@ class EventResource extends Resource
                                 ->send();
                         }),
 
-                    Tables\Actions\DeleteAction::make(),
+                    Tables\Actions\DeleteAction::make()
+                        ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
                 ])
                 ->icon('heroicon-o-ellipsis-vertical'),
             ])
@@ -738,7 +739,8 @@ class EventResource extends Resource
                     ->falseLabel('Private'),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\DeleteBulkAction::make()
+                        ->before(fn ($records, $action) => \App\Support\MoneyRecords::guardAction($action, ...$records->all())),
             ]);
     }
 

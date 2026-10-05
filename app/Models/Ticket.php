@@ -378,6 +378,9 @@ class Ticket extends Model
 
     protected static function booted(): void
     {
+        // Payments, fees and payout lines go with a deleted ticket.
+        static::deleting(fn (Ticket $ticket) => \App\Support\MoneyRecords::blockingDelete($ticket) === null);
+
         static::creating(function ($ticket) {
             if (!$ticket->qr_code) {
                 $ticket->qr_code = 'QR-' . Str::uuid();

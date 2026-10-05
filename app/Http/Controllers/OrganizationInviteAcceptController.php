@@ -49,6 +49,6 @@ class OrganizationInviteAcceptController extends Controller
         Auth::login($user, true);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('organizer.home'));
+        return redirect()->intended(\App\Support\IntentRedirect::resolve(null));
     }
 }

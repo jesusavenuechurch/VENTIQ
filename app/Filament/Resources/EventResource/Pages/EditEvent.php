@@ -71,7 +71,8 @@ class EditEvent extends EditRecord
                 ->url(fn () => route('reports.revenue', $record), shouldOpenInNewTab: true),
 
             // ── Delete ────────────────────────────────────────────────────────
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
         ];
     }
 

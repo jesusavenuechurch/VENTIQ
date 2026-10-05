@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventTier extends Model
 {
+    protected static function booted(): void
+    {
+        static::deleting(fn (EventTier $tier) => \App\Support\MoneyRecords::blockingDelete($tier) === null);
+    }
+
     protected $fillable = [
         'event_id',
         'tier_name',

@@ -67,6 +67,9 @@ class Event extends Model
     {
         parent::boot();
 
+        // Never take tickets, payments and fees down with an event.
+        static::deleting(fn (Event $event) => \App\Support\MoneyRecords::blockingDelete($event) === null);
+
         static::creating(function ($event) {
             if (empty($event->slug)) {
                 $event->slug = static::generateUniqueSlug(
