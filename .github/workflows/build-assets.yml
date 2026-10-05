@@ -10,6 +10,7 @@ on:
     branches: [main, email-config]
     paths:
       - 'resources/**'
+      - 'composer.lock'
       - 'package.json'
       - 'package-lock.json'
       - 'vite.config.js'
@@ -32,6 +33,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # Tailwind also scans Blade views inside vendor/ (Laravel's
+      # pagination links), so install the PHP packages without running
+      # any of their scripts. The runner image ships PHP and Composer.
+      - run: composer install --no-dev --no-scripts --no-interaction --prefer-dist --ignore-platform-reqs
 
       - run: npm ci
       - run: npm run build
