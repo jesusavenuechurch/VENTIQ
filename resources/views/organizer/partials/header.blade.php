@@ -20,20 +20,29 @@
         <p class="text-[13px] font-medium text-gray-500 mt-1">{{ $subtitle }}</p>
     @endisset
 
-    <nav class="mt-5 flex flex-wrap items-center gap-2">
-        {{-- Sessions and the rest of Ventiq are reached from the home page. --}}
+    @php
+        // Sessions and the rest of Ventiq are reached from the home page.
+        $toConfirm = $paymentsToConfirm();
+        $tabs = [
+            ['organizer.home',           'Events',              'Events',     'fa-calendar-days', 'organizer.home|organizer.events.*', 0],
+            ['organizer.payments.index', 'Payments to confirm', 'To confirm', 'fa-receipt',       'organizer.payments.*',              $toConfirm],
+            ['organizer.accounts.index', 'Payment accounts',    'Accounts',   'fa-wallet',        'organizer.accounts.*',              0],
+        ];
+    @endphp
+
+    {{-- Wider screens: a row of tabs under the title. --}}
+    <nav class="mt-5 hidden sm:flex flex-wrap items-center gap-2">
         <a href="{{ route('home') }}" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">
             <i class="fas fa-arrow-left mr-1"></i>Home
         </a>
-        @foreach([
-            'organizer.home'           => ['Events', 'fa-calendar', 'organizer.home|organizer.events.*'],
-            'organizer.payments.index' => ['Payments to confirm', 'fa-receipt', 'organizer.payments.*'],
-            'organizer.accounts.index' => ['Payment accounts', 'fa-wallet', 'organizer.accounts.*'],
-        ] as $route => [$label, $icon, $active])
+        @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
             <a href="{{ route($route) }}"
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
                       {{ request()->routeIs(...explode('|', $active)) ? 'bg-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 <i class="fas {{ $icon }} mr-1"></i>{{ $label }}
+                @if($badge)
+                    <span class="ml-1 inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full bg-action text-white text-[10px] tracking-normal">{{ $badge }}</span>
+                @endif
             </a>
         @endforeach
     </nav>
@@ -44,3 +53,30 @@
         </div>
     @endif
 </div>
+
+{{-- Phones: an icon tab bar at the bottom, in thumb reach. The layout
+     places it below the scrolling content, so nothing hides behind it. --}}
+@section('bottom_bar')
+    <nav class="sm:hidden flex-none bg-white border-t border-gray-100 pb-[env(safe-area-inset-bottom)]">
+        <div class="grid grid-cols-4">
+            <a href="{{ route('home') }}" class="flex flex-col items-center gap-1 py-2.5 text-gray-400">
+                <i class="fas fa-house text-base"></i>
+                <span class="text-[9px] font-black uppercase tracking-wider">Home</span>
+            </a>
+            @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
+                @php $on = request()->routeIs(...explode('|', $active)); @endphp
+                <a href="{{ route($route) }}" @if($on) aria-current="page" @endif
+                   class="relative flex flex-col items-center gap-1 py-2.5 {{ $on ? 'text-brand' : 'text-gray-400' }}">
+                    @if($on)<span class="absolute top-0 inset-x-6 h-0.5 rounded-full bg-brand"></span>@endif
+                    <span class="relative">
+                        <i class="fas {{ $icon }} text-base"></i>
+                        @if($badge)
+                            <span class="absolute -top-2 -right-3 min-w-4 h-4 px-1 rounded-full bg-action text-white text-[9px] font-black leading-4 text-center">{{ $badge > 99 ? '99+' : $badge }}</span>
+                        @endif
+                    </span>
+                    <span class="text-[9px] font-black uppercase tracking-wider">{{ $short }}</span>
+                </a>
+            @endforeach
+        </div>
+    </nav>
+@endsection

@@ -367,7 +367,12 @@
         @yield('content')
     </main>
 
-    <footer class="flex-none bg-white border-t border-gray-100 py-3 px-6">
+    {{-- Pages with their own phone tab bar (the organizer area) put it
+         here, under the scrolling content; the footer then shows only on
+         wider screens. --}}
+    @yield('bottom_bar')
+
+    <footer class="flex-none bg-white border-t border-gray-100 py-3 px-6 @hasSection('bottom_bar') hidden sm:block @endif">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© {{ date('Y') }} VENTI<span class="text-[#F07F22]">Q</span> LESOTHO</p>
             <div class="flex gap-4 text-[10px] font-bold uppercase tracking-tight text-gray-500">
@@ -541,7 +546,7 @@
     @auth
         @if(auth()->user()->organization_id)
             <button @click="showAssist = !showAssist"
-                    class="fixed bottom-6 right-6 z-[55] w-14 h-14 rounded-full bg-[#1D4069] hover:bg-[#F07F22] text-white shadow-xl flex items-center justify-center transition-all active:scale-95">
+                    class="fixed {{ View::hasSection('bottom_bar') ? 'bottom-20 sm:bottom-6' : 'bottom-6' }} right-6 z-[55] w-14 h-14 rounded-full bg-[#1D4069] hover:bg-[#F07F22] text-white shadow-xl flex items-center justify-center transition-all active:scale-95">
                 <i class="fas fa-wand-magic-sparkles text-lg" x-show="!showAssist"></i>
                 <i class="fas fa-times text-lg" x-show="showAssist" x-cloak></i>
             </button>
@@ -551,7 +556,7 @@
                  x-transition:enter-start="opacity-0 translate-y-3"
                  x-transition:enter-end="opacity-100 translate-y-0"
                  x-transition:leave="transition ease-in duration-150"
-                 class="fixed bottom-24 right-6 z-[55] w-[calc(100vw-3rem)] max-w-sm h-[520px] max-h-[70vh] bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+                 class="fixed {{ View::hasSection('bottom_bar') ? 'bottom-36 sm:bottom-24' : 'bottom-24' }} right-6 z-[55] w-[calc(100vw-3rem)] max-w-sm h-[520px] max-h-[70vh] bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
                  x-cloak>
                 <div class="flex items-center justify-between px-5 py-4 border-b shrink-0">
                     <div>

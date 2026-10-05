@@ -69,6 +69,19 @@ class TicketPayment extends Model
     }
 
     /**
+     * Payments attendees have submitted on this organization's live tickets
+     * that the organizer hasn't decided yet.
+     */
+    public function scopeAwaitingDecisionFor($query, Organization $organization)
+    {
+        return $query->where('status', 'pending')
+            ->whereNotNull('submitted_at')
+            ->whereHas('ticket', fn ($q) => $q
+                ->whereIn('status', ['pending', 'active'])
+                ->whereHas('event', fn ($e) => $e->where('organization_id', $organization->id)));
+    }
+
+    /**
      * Get payment method label
      */
     public function getPaymentMethodLabelAttribute(): string

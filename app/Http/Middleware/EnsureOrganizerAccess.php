@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\TicketPayment;
 use App\Support\CurrentOrganization;
 use Closure;
 use Illuminate\Http\Request;
@@ -28,6 +29,8 @@ class EnsureOrganizerAccess
         $request->attributes->set('organization', $organization);
         view()->share('currentOrganization', $organization);
         view()->share('actingAsOrganization', CurrentOrganization::isActingAs());
+        // For the badge on the "To confirm" tab.
+        view()->share('paymentsToConfirm', fn () => TicketPayment::awaitingDecisionFor($organization)->count());
 
         return $next($request);
     }

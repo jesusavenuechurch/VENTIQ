@@ -127,6 +127,19 @@ class Event extends Model
         return null;
     }
 
+    /**
+     * The short link (/e/org/event) for sharing and QR codes: quicker to
+     * type off a poster, and a shorter link makes a simpler QR code.
+     */
+    public function getShareUrlAttribute(): ?string
+    {
+        if ($this->organization?->slug && $this->slug) {
+            return route('event.short', [$this->organization->slug, $this->slug]);
+        }
+
+        return null;
+    }
+
     public function requiresDeposit(): bool
     {
         return $this->allow_installments === true

@@ -18,11 +18,7 @@ class PaymentsController extends Controller
 
         $payments = TicketPayment::query()
             ->with(['ticket.client', 'ticket.event', 'ticket.tier', 'paymentAccount'])
-            ->where('status', 'pending')
-            ->whereNotNull('submitted_at')
-            ->whereHas('ticket', fn ($q) => $q
-                ->whereIn('status', ['pending', 'active'])
-                ->whereHas('event', fn ($e) => $e->where('organization_id', $organization->id)))
+            ->awaitingDecisionFor($organization)
             ->when($request->integer('event'), fn ($q, $eventId) => $q->whereHas('ticket', fn ($t) => $t->where('event_id', $eventId)))
             ->orderBy('submitted_at')
             ->get();

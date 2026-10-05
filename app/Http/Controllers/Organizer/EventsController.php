@@ -116,6 +116,28 @@ class EventsController extends Controller
         ];
     }
 
+    /**
+     * The event page's QR code as SVG: sharp at any size, so it can go
+     * straight onto a poster. The share panel turns it into PNGs in the
+     * browser, which keeps the server free of imagick.
+     */
+    public function qr(Request $request, Event $event)
+    {
+        $this->authorizeEvent($request, $event);
+        abort_unless($url = $event->share_url, 404);
+
+        $svg = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+            ->size(1024)->margin(2)->errorCorrection('Q')
+            ->generate($url);
+
+        $headers = ['Content-Type' => 'image/svg+xml', 'Cache-Control' => 'private, max-age=300'];
+        if ($request->boolean('download')) {
+            $headers['Content-Disposition'] = 'attachment; filename="' . $event->slug . '-qr.svg"';
+        }
+
+        return response((string) $svg, 200, $headers);
+    }
+
     private function authorizeEvent(Request $request, Event $event): void
     {
         abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);

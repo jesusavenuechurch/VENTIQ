@@ -52,9 +52,7 @@
                     @can('edit_event')
                     <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
                     @endcan
-                    @if($event->is_public && $event->slug)
-                        <a href="{{ route('event.short', [$currentOrganization->slug, $event->slug]) }}" target="_blank" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Public page</a>
-                    @endif
+                    @include('organizer.partials.share-button', ['event' => $event])
                 </div>
             </div>
         @empty
@@ -64,4 +62,5 @@
         @endforelse
     </div>
 </div>
+    @include('organizer.partials.share-event')
 @endsection

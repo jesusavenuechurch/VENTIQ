@@ -7,6 +7,16 @@
         'subtitle' => 'Who registered, where each ticket stands, and the money so far.',
     ])
 
+    <div class="flex flex-wrap gap-2 -mt-4 mb-6">
+        @include('organizer.partials.share-button', ['event' => $event, 'class' => 'px-4 py-2 rounded-full bg-brand text-white text-[10px] font-black uppercase tracking-widest hover:bg-action'])
+        @if($event->share_url)
+            <a href="{{ $event->share_url }}" target="_blank" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Public page</a>
+        @endif
+        @can('edit_event')
+            <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-pen mr-1"></i>Edit event</a>
+        @endcan
+    </div>
+
     @include('organizer.partials.event-money', ['finance' => $finance, 'event' => $event])
 
     @can('view_reports')
@@ -78,4 +88,5 @@
 
     <div class="mt-6">{{ $tickets->links() }}</div>
 </div>
+    @include('organizer.partials.share-event')
 @endsection
