@@ -317,9 +317,7 @@
                     <div class="relative" x-data="{ accountOpen: false }">
                         <button @click="accountOpen = !accountOpen" type="button"
                                 class="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-[#1D4069] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F07F22] transition-all duration-300 active:scale-95">
-                            <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-black shrink-0">
-                                {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
-                            </span>
+                            <x-avatar :seed="auth()->user()->email" size="w-7 h-7" class="bg-white ring-2 ring-white/30" />
                             {{ Str::before(auth()->user()->name ?? 'Account', ' ') }}
                             <i class="fas fa-chevron-down text-[8px] transition-transform" :class="accountOpen ? 'rotate-180' : ''"></i>
                         </button>

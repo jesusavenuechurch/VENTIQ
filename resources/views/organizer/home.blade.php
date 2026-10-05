@@ -2,15 +2,24 @@
 @section('title', 'Events | VENTIQ')
 @section('content')
 <div class="max-w-5xl mx-auto px-4 py-8">
+    @php
+        $firstName = \Illuminate\Support\Str::before(auth()->user()->name ?? '', ' ') ?: 'there';
+        $mood = match (true) {
+            $toConfirm > 0      => 'A few payments need you, then you\'re all set.',
+            $events->isEmpty()  => 'Let\'s get your first event out there.',
+            default             => 'Here\'s how your events are doing.',
+        };
+    @endphp
     @include('organizer.partials.header', [
-        'title' => 'Your events',
+        'title'    => "Lumela, {$firstName}!",
+        'subtitle' => $mood,
     ])
 
     @if($toConfirm > 0)
         <a href="{{ route('organizer.payments.index') }}"
            class="mb-6 flex items-center justify-between gap-4 p-5 rounded-[1.5rem] bg-action text-white shadow-lg hover:bg-action-ink transition-all">
             <span class="text-[13px] font-black">
-                <i class="fas fa-receipt mr-2"></i>{{ $toConfirm }} {{ Str::plural('payment', $toConfirm) }} waiting for you to confirm
+                <i class="fas fa-receipt mr-2"></i>{{ $toConfirm }} {{ Str::plural('person', $toConfirm) }} paid you and {{ $toConfirm === 1 ? 'is' : 'are' }} waiting for their ticket
             </span>
             <span class="text-[10px] font-black uppercase tracking-widest">Review <i class="fas fa-arrow-right ml-1"></i></span>
         </a>
@@ -60,7 +69,12 @@
             </div>
         @empty
             <div class="bg-white rounded-[1.5rem] border border-dashed border-gray-200 p-10 text-center">
-                <p class="text-[13px] font-bold text-gray-600">No events yet. Create your first one to start selling tickets.</p>
+                @include('organizer.partials.crowd', ['seeds' => ['host', 'guest-a', 'guest-b']])
+                <p class="text-[15px] font-black text-[#1D4069]">Your first event starts here</p>
+                <p class="text-[13px] font-medium text-gray-500 mt-1">It takes a few minutes. We'll help you share it and sell tickets.</p>
+                @can('create_event')
+                    <a href="{{ route('organizer.events.create') }}" class="mt-5 inline-block px-5 py-3 rounded-2xl bg-action hover:bg-action-ink text-white text-[10px] font-black uppercase tracking-widest"><i class="fas fa-plus mr-1"></i>Create my first event</a>
+                @endcan
             </div>
         @endforelse
     </div>

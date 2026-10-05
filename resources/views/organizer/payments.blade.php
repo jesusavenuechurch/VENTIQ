@@ -4,7 +4,7 @@
 <div class="max-w-4xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Payments to confirm',
-        'subtitle' => 'Attendees who paid you directly. Check the money has arrived, then activate their ticket.',
+        'subtitle' => 'These people paid you directly. Check the money arrived, then send them their ticket.',
     ])
 
     @if(!$canDecide)
@@ -21,8 +21,9 @@
             ])
         @empty
             <div class="bg-white rounded-[1.5rem] border border-dashed border-gray-200 p-10 text-center">
-                <i class="fas fa-check-circle text-mint-ink text-3xl mb-3"></i>
-                <p class="text-[13px] font-bold text-gray-600">Nothing waiting. New payments appear here, and you'll get an email for each one.</p>
+                @include('organizer.partials.crowd', ['seeds' => ['happy-1', 'happy-2', 'happy-3']])
+                <p class="text-[15px] font-black text-[#1D4069]">All caught up!</p>
+                <p class="text-[13px] font-medium text-gray-500 mt-1">Nobody's waiting on you. When someone pays you directly, they'll show up here and we'll email you.</p>
             </div>
         @endforelse
     </div>

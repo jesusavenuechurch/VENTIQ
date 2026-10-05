@@ -4,7 +4,7 @@
 <div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => $event->name,
-        'subtitle' => 'Who registered, where each ticket stands, and the money so far.',
+        'subtitle' => 'Everyone who\'s coming, where each ticket stands, and the money so far.',
     ])
 
     <div class="flex flex-wrap gap-2 -mt-4 mb-6">
@@ -77,7 +77,9 @@
         @forelse($tickets as $ticket)
             @php([$label, $badge] = $state($ticket))
             <div class="p-5 flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
+                <div class="min-w-0 flex items-center gap-3">
+                    <x-avatar :seed="$ticket->client->phone" size="w-10 h-10" />
+                    <div class="min-w-0">
                     <p class="text-[14px] font-black text-[#1D4069]">
                         {{ $ticket->client->full_name }}
                         @if($ticket->is_complimentary)
@@ -100,6 +102,7 @@
                         · M{{ number_format((float) $ticket->amount, 2) }}
                         @if($ticket->status === 'pending' && $ticket->payment_due_at) · pay by {{ $ticket->payment_due_at->format('d M, H:i') }} @endif
                     </p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest {{ $badge }}">{{ $label }}</span>
@@ -132,7 +135,7 @@
             </div>
         @empty
             <p class="p-10 text-center text-[13px] font-bold text-gray-500">
-                {{ $search !== '' ? "Nobody matches \"{$search}\"" . ($filter !== 'all' ? ' in this group.' : '.') : 'No attendees in this group.' }}
+                {{ $search !== '' ? "Nobody matches \"{$search}\"" . ($filter !== 'all' ? ' in this group.' : '.') : 'Nobody here yet.' }}
             </p>
         @endforelse
     </div>

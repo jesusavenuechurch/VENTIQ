@@ -34,15 +34,15 @@ trait DecidesPayments
                     confirmedBy: $decidedBy,
                     payment: $payment,
                 );
-                return "Ticket activated for {$ticket->client->full_name}.";
+                return "Done! {$ticket->client->full_name}'s ticket is active and on its way to them.";
 
             case 'deposit':
                 $service->confirmDeposit($payment, $decidedBy);
-                return "Deposit recorded for {$ticket->client->full_name}. The ticket stays inactive until you activate it.";
+                return "Deposit noted for {$ticket->client->full_name}. Their ticket stays inactive until you activate it.";
 
             default:
                 $service->reject($payment, $decidedBy, $data['reason'] ?? null);
-                return "Payment rejected. {$ticket->client->full_name} has been asked to submit it again.";
+                return "Got it. We've asked {$ticket->client->full_name} to send their payment again.";
         }
     }
 

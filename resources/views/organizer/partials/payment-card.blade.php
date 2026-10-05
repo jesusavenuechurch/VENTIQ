@@ -8,7 +8,9 @@
 @endphp
 <div class="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6" x-data="{ rejecting: false }">
     <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="flex items-start gap-3">
+            <x-avatar :seed="$ticket->client->phone" size="w-12 h-12" />
+            <div>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ $ticket->event->name }}</p>
             <p class="text-lg font-black text-[#1D4069] leading-tight mt-1">{{ $ticket->client->full_name }}</p>
             <p class="text-[12px] font-medium text-gray-500 mt-1">
@@ -16,6 +18,7 @@
                 @if(($ticket->admissions ?? 1) > 1) · Group of {{ $ticket->admissions }} @endif
                 · {{ $ticket->ticket_number }}
             </p>
+            </div>
         </div>
         <div class="text-right">
             <p class="text-2xl font-black text-brand">M{{ number_format((float) $payment->amount, 2) }}</p>

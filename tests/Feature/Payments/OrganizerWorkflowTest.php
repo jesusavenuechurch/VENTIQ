@@ -96,7 +96,7 @@ describe('getting into the organizer area', function () {
         $this->actingAs($this->admin)->get(route('organizer.home'))
             ->assertOk()
             ->assertSee('Maseru Youth Summit')
-            ->assertSee('1 payment waiting for you to confirm');
+            ->assertSee('1 person paid you and is waiting for their ticket');
     });
 });
 
@@ -217,7 +217,7 @@ describe('the review link', function () {
         $page = $this->get($url)->assertOk()->assertSee('Has this payment been received?')->assertSee('ABC123');
 
         preg_match('/action="([^"]+payment-review[^"]+)"/', $page->getContent(), $m);
-        $this->post(html_entity_decode($m[1]), ['decision' => 'activate'])->assertOk()->assertSee('Ticket activated');
+        $this->post(html_entity_decode($m[1]), ['decision' => 'activate'])->assertOk()->assertSee('is active and on its way');
 
         expect($payment->ticket->fresh()->status)->toBe('active')
             ->and($payment->fresh()->approved_by)->toBeNull();

@@ -9,7 +9,7 @@
 <div class="max-w-4xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Team',
-        'subtitle' => 'The people who run your events, and what each of them can do.',
+        'subtitle' => 'The people who make your events happen, and what each of them can do.',
     ])
 
     @if($errors->any())
@@ -24,12 +24,15 @@
                 @foreach($members as $member)
                     @php($role = $member->roles->first()?->name)
                     <div class="p-5 flex flex-wrap items-center justify-between gap-3">
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex items-center gap-3">
+                            <x-avatar :seed="$member->email" size="w-11 h-11" />
+                            <div class="min-w-0">
                             <p class="text-[14px] font-black text-[#1D4069]">
                                 {{ $member->name }}
                                 @if($member->is(auth()->user()))<span class="text-[11px] font-bold text-gray-400">(you)</span>@endif
                             </p>
                             <p class="text-[11px] font-medium text-gray-500 truncate">{{ $member->email }}</p>
+                            </div>
                         </div>
 
                         @if($canManage && !$member->is(auth()->user()))
@@ -126,6 +129,7 @@
                     <p class="text-[11px] text-gray-500"><strong class="text-[#1D4069]">{{ $name }}:</strong> {{ $description }}</p>
                 @endforeach
             </div>
+            <p class="text-[10px] text-gray-400 px-2">Avatars: <a href="https://www.figma.com/community/file/881358461963645496" target="_blank" rel="noopener" class="underline">Big Smile</a> by Ashley Seo, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline">CC BY 4.0</a>, via DiceBear.</p>
         </div>
     </div>
 </div>

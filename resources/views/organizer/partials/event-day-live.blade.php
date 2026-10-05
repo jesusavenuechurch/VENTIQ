@@ -18,6 +18,19 @@
         <p class="mt-2 text-[12px] font-semibold text-gray-500">
             {{ $summary['percent'] }}% arrived · {{ number_format($summary['still_to_come']) }} still to come
         </p>
+        @php
+            $cheer = match (true) {
+                $summary['expected'] === 0                      => null,
+                $summary['admitted'] === 0                      => 'Doors open soon. Arrivals show up here as tickets are scanned.',
+                $summary['admitted'] >= $summary['expected']    => 'Everyone\'s here! Enjoy your event.',
+                $summary['percent'] >= 75                       => 'Nearly everyone\'s in.',
+                $summary['percent'] >= 50                       => 'More than half are in!',
+                default                                         => 'People are arriving. Things are warming up.',
+            };
+        @endphp
+        @if($cheer)
+            <p class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full {{ $summary['admitted'] >= $summary['expected'] ? 'bg-mint text-mint-ink' : 'bg-slate-50 text-[#1D4069]' }} text-[12px] font-bold">{{ $cheer }}</p>
+        @endif
     </div>
 
     <div class="{{ $card }} grid grid-cols-2 lg:grid-cols-1 gap-4">
@@ -92,12 +105,15 @@
     <div class="divide-y divide-gray-50">
         @forelse($recent as $ticket)
             <div class="py-2.5 flex items-center justify-between gap-3">
-                <div class="min-w-0">
+                <div class="min-w-0 flex items-center gap-3">
+                    <x-avatar :seed="$ticket->client->phone" size="w-9 h-9" />
+                    <div class="min-w-0">
                     <p class="text-[13px] font-black text-[#1D4069] truncate">{{ $ticket->client->full_name }}</p>
                     <p class="text-[11px] font-medium text-gray-500">
                         {{ $ticket->tier->tier_name }}
                         @if(($ticket->admissions ?? 1) > 1) · {{ $ticket->admitted_count }} of {{ $ticket->admissions }} in @endif
                     </p>
+                    </div>
                 </div>
                 <span class="text-[11px] font-bold text-gray-400 shrink-0">{{ $ticket->checked_in_at->format('H:i') }}</span>
             </div>
