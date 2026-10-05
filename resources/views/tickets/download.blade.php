@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ventiq Pass - {{ $ticket->event->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
         :root {
             --tier-color: {{ str_contains(strtolower($ticket->tier->tier_name), 'vip') ? '#D4AF37' : '#10b981' }};
         }
 
         body { 
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background-color: #000;
         }
 
@@ -80,8 +78,11 @@
                             <div class="col-span-2 safe-area-padding">
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Venue Location</p>
                                 <p class="text-md font-extrabold text-slate-900 uppercase leading-relaxed max-w-sm">
-                                    {{ $ticket->event->location }}
+                                    {{ $ticket->event->venue ?: $ticket->event->location }}
                                 </p>
+                                @if($ticket->event->venue && $ticket->event->location && $ticket->event->location !== $ticket->event->venue)
+                                    <p class="text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm">{{ $ticket->event->location }}</p>
+                                @endif
                             </div>
                         </div>
 

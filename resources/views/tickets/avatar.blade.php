@@ -180,7 +180,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="label">Venue Location</div>
-                                    <div class="value" style="margin-bottom: 0;">{{ $ticket->event->location }}</div>
+                                    <div class="value" style="margin-bottom: 0;">{{ $ticket->event->venue ?: $ticket->event->location }}</div>
                                 </td>
                             </tr>
                         </table>

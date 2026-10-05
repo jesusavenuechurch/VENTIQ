@@ -34,6 +34,17 @@ class RegistrationController extends Controller
         $selectedTierId = $request->query('tier');
         $selectedTier   = $selectedTierId ? $event->tiers->firstWhere('id', $selectedTierId) : null;
 
+        // The form is for one ticket type. A link without a (valid) one,
+        // e.g. shared from a poster or an old tier, used to crash: with a
+        // single type there's nothing to choose, otherwise the event page
+        // lists them.
+        if (!$selectedTier) {
+            if ($event->tiers->count() !== 1) {
+                return redirect()->route('event.short', [$organization->slug, $event->slug]);
+            }
+            $selectedTier = $event->tiers->first();
+        }
+
         return view('public.register', compact('organization', 'event', 'selectedTier'));
     }
 
