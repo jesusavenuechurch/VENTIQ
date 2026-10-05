@@ -665,6 +665,8 @@
         }
     });
 </script>
-@livewire('upgrade-package-modal')
+@if(config('constants.packages_for_sale'))
+    @livewire('upgrade-package-modal')
+@endif
 </body>
 </html>

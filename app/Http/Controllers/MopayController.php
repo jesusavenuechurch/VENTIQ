@@ -26,6 +26,8 @@ class MopayController extends Controller
 
     public function initiatePackagePayment(Request $request)
     {
+        abort_unless(config('constants.packages_for_sale'), 404);
+
         $request->validate([
             'package_id' => 'required|exists:organization_packages,id',
         ]);
@@ -104,6 +106,12 @@ class MopayController extends Controller
             Log::error('MoPay: package session not found', ['sessionId' => $sessionId]);
             return redirect($packageIndexUrl)
                 ->with('error', 'Payment session not found.');
+        }
+
+        // Reloading the return page used to approve the package (and pay
+        // the agent's commission) again each time.
+        if ($paymentSession->status === 'completed') {
+            return redirect($packageIndexUrl)->with('success', 'This payment was already received.');
         }
 
         try {
@@ -226,6 +234,10 @@ class MopayController extends Controller
 
     public function initiateTicketPayment(Request $request)
     {
+        // Retired: it charged a 5% surcharge that was recorded nowhere, and
+        // no page links to it. Tickets are paid through PayLesotho.
+        abort(410, 'This payment link is no longer used.');
+
         $request->validate([
             'ticket_id' => 'required|exists:tickets,id',
         ]);

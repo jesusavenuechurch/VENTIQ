@@ -218,9 +218,6 @@ Route::prefix('payment/paylesotho')->name('paylesotho.')->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('payment/paylesotho')->name('paylesotho.')->group(function () {
-    Route::post('/package/initiate', [PayLesothoController::class, 'initiatePackagePayment'])
-        ->name('package.initiate'); // kept only until packages are fully removed — see §5
-
     Route::post('/session-package/initiate', [PayLesothoController::class, 'initiateSessionPackagePayment'])
         ->name('session-package.initiate');
 });

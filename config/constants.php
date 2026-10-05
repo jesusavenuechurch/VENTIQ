@@ -18,6 +18,11 @@ return [
     //    three times; free and complimentary tickets pay it too)
     // Online money has them deducted before payout; everything else is
     // invoiced to the organizer. A super admin can sponsor an event's fees.
+    // Packages were VENTIQ's old way of charging (prepaid ticket quotas).
+    // Fees per ticket replaced them and packages unlock nothing, so they're
+    // not sold unless this is switched back on.
+    'packages_for_sale' => (bool) env('VENTIQ_PACKAGES_FOR_SALE', false),
+
     'fees' => [
         'service_percent'        => (float) env('VENTIQ_SERVICE_FEE_PERCENT', 0.049),
         'operational_per_person' => (float) env('VENTIQ_OPERATIONAL_FEE', 7.50),

@@ -303,6 +303,7 @@ class PackagePurchaseResource extends Resource
             ])
             ->headerActions([
                 Tables\Actions\Action::make('start_free_trial')
+                    ->hidden(fn () => !config('constants.packages_for_sale'))
                     ->label('Start Free Trial')
                     ->icon('heroicon-o-gift')
                     ->color('success')
@@ -317,6 +318,7 @@ class PackagePurchaseResource extends Resource
                     }),
 
                 Tables\Actions\Action::make('purchase_package_header')
+                    ->hidden(fn () => !config('constants.packages_for_sale'))
                     ->label('Buy a Package')
                     ->icon('heroicon-o-plus-circle')
                     ->color('primary')
@@ -332,6 +334,7 @@ class PackagePurchaseResource extends Resource
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('upgrade_package')
+                    ->hidden(fn () => !config('constants.packages_for_sale'))
                         ->label('Upgrade / Buy Another')
                         ->icon('heroicon-o-arrow-trending-up')
                         ->color('primary')
