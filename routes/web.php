@@ -340,6 +340,12 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
         Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
         Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
     });
+    Route::middleware('can:approve_payment')->group(function () {
+        Route::get('/guest-list-template.csv', [App\Http\Controllers\Organizer\GuestListController::class, 'template'])->name('guests.template');
+        Route::get('/events/{event}/guests/import', [App\Http\Controllers\Organizer\GuestListController::class, 'create'])->name('events.guests.create');
+        Route::post('/events/{event}/guests/check', [App\Http\Controllers\Organizer\GuestListController::class, 'check'])->name('events.guests.check');
+        Route::post('/events/{event}/guests', [App\Http\Controllers\Organizer\GuestListController::class, 'store'])->name('events.guests.store');
+    });
     Route::get('/events/{event}/day', [App\Http\Controllers\Organizer\EventDayController::class, 'show'])->name('events.day');
     Route::get('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'createComp'])->middleware('can:approve_payment')->name('events.comp.create');
     Route::post('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'storeComp'])->middleware('can:approve_payment')->name('events.comp.store');
