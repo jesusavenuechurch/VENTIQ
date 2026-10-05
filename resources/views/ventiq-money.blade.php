@@ -40,7 +40,24 @@
             </div>
         @endforeach
     </div>
-    <p class="text-[11px] text-gray-400 -mt-5">Fees are before the payment gateway's own charges, which aren't recorded yet.</p>
+    @php($earned = $summary['fees_from_payouts'] + $summary['fees_invoiced_paid'])
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 -mt-5">
+        <div class="{{ $card }} p-5">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fees collected</p>
+            <p class="text-xl font-black mt-1 text-lilac-ink">{{ $m($earned) }}</p>
+            <p class="text-[11px] text-gray-400 mt-0.5">From payouts and paid invoices</p>
+        </div>
+        <div class="{{ $card }} p-5">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Gateway costs</p>
+            <p class="text-xl font-black mt-1 text-gray-500">−{{ $m($summary['gateway_costs']) }}</p>
+            <p class="text-[11px] text-gray-400 mt-0.5">{{ rtrim(rtrim(number_format($gatewayRate * 100, 2), '0'), '.') }}% of online payments, absorbed by VENTIQ</p>
+        </div>
+        <div class="{{ $card }} p-5">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Net earned</p>
+            <p class="text-xl font-black mt-1 text-mint-ink">{{ $m($earned - $summary['gateway_costs']) }}</p>
+            <p class="text-[11px] text-gray-400 mt-0.5">Fees collected less gateway costs</p>
+        </div>
+    </div>
 
     {{-- Payouts --}}
     <section class="space-y-3">

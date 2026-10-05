@@ -227,8 +227,11 @@ return [
         ],
     ],
     'payment' => [
-        'surcharge_rate'    => 0.05,   // 5% added to ticket price, paid by attendee
-        'gateway_fee_rate'  => 0.025,  // 2.5% MoPay takes from gross_paid
+        'surcharge_rate'    => 0.05,   // legacy MoPay ticket checkout only (retired)
+        // What the payment gateway (PayLesotho) keeps from each online
+        // payment. VENTIQ absorbs it: attendees pay the ticket price and
+        // organizers aren't charged it. Used to report VENTIQ's net.
+        'gateway_fee_rate'  => (float) env('VENTIQ_GATEWAY_FEE_RATE', 0.01),
     ],
 
         'categories' => [

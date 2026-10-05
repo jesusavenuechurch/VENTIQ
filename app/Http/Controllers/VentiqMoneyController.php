@@ -41,7 +41,10 @@ class VentiqMoneyController extends Controller
                 'held_for_organizers' => (float) (clone $payable)->sum('amount_owed_to_org'),
                 'in_payout_batches' => (float) Settlement::where('status', 'pending')->sum('amount_owed_to_org'),
                 'paid_out' => (float) Settlement::where('status', 'settled')->sum('amount_owed_to_org'),
+                // The gateway's cut of every online payment, which VENTIQ absorbs.
+                'gateway_costs' => round((float) SettlementItem::sum('amount_received') * (float) config('constants.payment.gateway_fee_rate'), 2),
             ],
+            'gatewayRate' => (float) config('constants.payment.gateway_fee_rate'),
             'payoutsDue' => $payoutsDue,
             'batches'    => Settlement::with('organization:id,name')->where('status', 'pending')->latest()->get(),
             'toInvoice'  => $toInvoice,
