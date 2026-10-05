@@ -16,6 +16,13 @@ class PaymentGatewayFactory
      *
      * @return string[]
      */
+    /**
+     * Every way to pay online VENTIQ shows organizers, live or not. Card
+     * has no gateway yet; EcoCash and M-Pesa are live only when VENTIQ's
+     * merchant account for them is switched on.
+     */
+    public const CATALOG = ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'card' => 'Card'];
+
     public static function enabledMethods(): array
     {
         if (!config('gateways.paylesotho.enabled')) {

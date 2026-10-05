@@ -101,6 +101,7 @@ class EventService
 
         $event->fill([
             'enabled_payment_method_ids' => $paid ? $this->paymentSelection($event->organization_id, $data) : null,
+            'online_methods'             => $paid ? array_values($data['online_methods'] ?? []) : null,
             'allow_installments'         => $paid && !empty($data['allow_installments']),
             'minimum_deposit_percentage' => $paid && !empty($data['allow_installments']) ? ($data['minimum_deposit_percentage'] ?? 30) : null,
             'installment_instructions'   => $paid && !empty($data['allow_installments']) ? ($data['installment_instructions'] ?? null) : null,

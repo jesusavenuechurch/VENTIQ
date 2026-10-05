@@ -99,6 +99,11 @@ class EventsController extends Controller
             'selectedAccounts' => old('account_ids', $selectedAccounts),
             'online'           => (bool) old('online', $online),
             'onlineDrivers'    => PaymentGatewayFactory::enabledMethods(),
+            'onlineCatalog'    => PaymentGatewayFactory::CATALOG,
+            // Chosen methods: the event's, or for an event that never chose
+            // (and new events) every live one when online is on.
+            'onlineMethods'    => old('online_methods', $event->online_methods
+                ?? ($online ? PaymentGatewayFactory::enabledMethods() : [])),
             'modeLocked'       => $event->exists && $event->tickets()->exists(),
             'tiers'            => old('tiers', $event->exists
                 ? $event->tiers()->orderBy('price')->get()->map(fn ($t) => [

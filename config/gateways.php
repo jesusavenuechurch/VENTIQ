@@ -31,7 +31,9 @@ return [
             'merchant_name' => env('PAYLESOTHO_ECOCASH_MERCHANT_NAME'),
         ],
         'mpesa' => [
-            'enabled'         => env('PAYLESOTHO_MPESA_ENABLED', true),
+            // Off until VENTIQ has an M-Pesa merchant account with PayLesotho;
+            // organizers see it as "coming soon".
+            'enabled'         => env('PAYLESOTHO_MPESA_ENABLED', false),
             'merchant_number' => env('PAYLESOTHO_MPESA_MERCHANT_NUMBER'),
             'merchant_name'   => env('PAYLESOTHO_MPESA_MERCHANT_NAME'),
         ],

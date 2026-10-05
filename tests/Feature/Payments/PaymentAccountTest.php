@@ -82,6 +82,8 @@ it('locks the number of an account that has received payments', function () {
 });
 
 it('offers every active account on events that never chose', function () {
+    config(['gateways.paylesotho.mpesa.enabled' => true]);   // both merchants live
+
     expect($this->event->enabled_payment_method_ids)->toBeNull()
         ->and($this->accounts->directAccountsForEvent($this->event)->pluck('id')->all())
         ->toEqualCanonicalizing([$this->eventsAccount->id, $this->mainAccount->id, $this->fnb->id])

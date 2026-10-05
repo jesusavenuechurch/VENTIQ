@@ -56,7 +56,13 @@ class PaymentAccountService
             return [];
         }
 
-        return PaymentGatewayFactory::enabledMethods();
+        $live = PaymentGatewayFactory::enabledMethods();
+
+        // An event that chose methods offers those that are live; older
+        // events offer every live method.
+        return $event->online_methods === null
+            ? $live
+            : array_values(array_intersect($live, $event->online_methods));
     }
 
     /**

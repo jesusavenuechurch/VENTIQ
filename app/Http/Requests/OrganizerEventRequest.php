@@ -17,9 +17,16 @@ class OrganizerEventRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         // Checkboxes that are unticked aren't sent at all.
+        // Online methods the event offers; a plain "online" (older form)
+        // means every method that's live.
+        $methods = $this->has('online_methods')
+            ? array_values(array_intersect(array_keys(\App\Services\Payments\PaymentGatewayFactory::CATALOG), (array) $this->input('online_methods')))
+            : ($this->boolean('online') ? \App\Services\Payments\PaymentGatewayFactory::enabledMethods() : []);
+
         $this->merge([
             'is_public'          => $this->boolean('is_public'),
-            'online'             => $this->boolean('online'),
+            'online_methods'     => $methods,
+            'online'             => !empty($methods),
             'allow_installments' => $this->boolean('allow_installments'),
             'tiers'              => collect($this->input('tiers', []))
                 ->map(fn ($tier) => array_merge($tier, ['is_active' => filter_var($tier['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN)]))
@@ -50,6 +57,8 @@ class OrganizerEventRequest extends FormRequest
 
             'payment_mode'               => [$editing ? 'sometimes' : 'required', Rule::in(['free', 'paid'])],
             'online'                     => 'boolean',
+            'online_methods'             => ['array'],
+            'online_methods.*'           => [\Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())],
             'account_ids'                => 'array',
             'account_ids.*'              => 'integer',
             'allow_installments'         => 'boolean',
@@ -91,6 +100,7 @@ class OrganizerEventRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'online_methods.*.in' => 'That online payment method isn\'t available yet.',
             'tiers.*.tier_name.required' => 'Every ticket type needs a name.',
             'tiers.*.tier_name.distinct' => 'Two ticket types have the same name.',
             'tiers.*.price.required'     => 'Every ticket type needs a price.',

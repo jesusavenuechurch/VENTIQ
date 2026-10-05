@@ -4,6 +4,7 @@ use App\Models\{Client, Event, EventTier, Organization, OrganizationPaymentMetho
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{Bus, Mail, Notification, Storage};
 use Illuminate\Support\Str;
+use App\Services\Payments\PaymentAccountService;
 
 beforeEach(function () {
     Bus::fake();
@@ -132,8 +133,9 @@ describe('editing events', function () {
     });
 
     it('shows the event with its ticket types and payment options', function () {
-        $this->get(route('organizer.events.edit', $this->event))
-            ->assertOk()->assertSee('Edit event')->assertSee('Table of 3')->assertSee('name="online" value="1" x-model="online" checked', false);
+        $page = $this->get(route('organizer.events.edit', $this->event))
+            ->assertOk()->assertSee('Edit event')->assertSee('Table of 3');
+        expect($page->getContent())->toMatch('/value="ecocash" x-model="methods"\s+checked/');
     });
 
     it('updates details and ticket types, removing an unsold type', function () {
@@ -258,5 +260,42 @@ describe('leaving Filament behind', function () {
             ->assertSee(route('organizer.accounts.index'))
             ->assertSee(route('home'))
             ->assertDontSee(route('filament.admin.events.resources.events.create'));
+    });
+});
+
+describe('online payment methods', function () {
+    beforeEach(function () {
+        config(['gateways.paylesotho.enabled' => true, 'gateways.paylesotho.ecocash.enabled' => true, 'gateways.paylesotho.mpesa.enabled' => false]);
+    });
+
+    it('shows every method, with the ones not live yet as coming soon', function () {
+        $this->actingAs($this->admin)->get(route('organizer.events.create'))
+            ->assertOk()->assertSee('EcoCash')->assertSee('M-Pesa')->assertSee('Card')->assertSee('Coming soon');
+    });
+
+    it('stores the chosen methods, and attendees are offered only those that are live', function () {
+        $this->actingAs($this->admin)->post(route('organizer.events.store'), paidForm($this, ['online' => null, 'online_methods' => ['ecocash']]))
+            ->assertSessionHasNoErrors();
+        $event = Event::latest('id')->first();
+
+        expect($event->online_methods)->toBe(['ecocash'])
+            ->and(app(PaymentAccountService::class)->onlineMethodsForEvent($event))->toBe(['ecocash']);
+
+        // M-Pesa switched on later: this event still offers only what it chose.
+        config(['gateways.paylesotho.mpesa.enabled' => true]);
+        expect(app(PaymentAccountService::class)->onlineMethodsForEvent($event))->toBe(['ecocash']);
+    });
+
+    it('refuses a method that is not live yet', function () {
+        $this->actingAs($this->admin)->post(route('organizer.events.store'), paidForm($this, ['online' => null, 'online_methods' => ['mpesa']]))
+            ->assertSessionHasErrors('online_methods.0');
+    });
+
+    it('treats an event with no online methods as direct payment only', function () {
+        $this->actingAs($this->admin)->post(route('organizer.events.store'), paidForm($this, ['online' => null, 'online_methods' => '']))
+            ->assertSessionHasNoErrors();
+        $event = Event::latest('id')->first();
+
+        expect(app(PaymentAccountService::class)->onlineMethodsForEvent($event))->toBe([]);
     });
 });

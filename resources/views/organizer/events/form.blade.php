@@ -14,7 +14,9 @@
         description: @js(old('description', $event->description)),
         mode: @js(old('payment_mode', $event->payment_mode ?? 'free')),
         tiers: @js(array_values($tiers)),
-        online: @js($online),
+        methods: @js(array_values($onlineMethods)),
+        catalog: @js($onlineCatalog),
+        get online() { return this.methods.length > 0 },
         selected: @js(array_map('intval', $selectedAccounts)),
         installments: @js((bool) old('allow_installments', $event->allow_installments)),
         accounts: @js($accounts->map(fn ($a) => ['id' => $a->id, 'label' => $a->display_label, 'number' => $a->account_number])->values()),
@@ -219,17 +221,27 @@
                 <div class="space-y-3">
                     <p class="{{ $label }}">How people pay</p>
 
-                    @if(count($onlineDrivers))
-                        <label class="flex items-start gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 cursor-pointer">
-                            <input type="checkbox" name="online" value="1" x-model="online" @checked($online) class="mt-1 w-5 h-5 accent-[#F07F22]">
-                            <span>
-                                <span class="block text-[14px] font-black text-gray-900">Pay online through VENTIQ <span class="ml-1 px-2 py-0.5 rounded-full bg-lilac text-lilac-ink text-[10px] font-bold uppercase">Recommended</span></span>
-                                <span class="block text-[12px] font-medium text-gray-500">{{ implode(' or ', $driverLabels) }}. VENTIQ collects the payment and the ticket activates automatically; VENTIQ's fees come off your payout.</span>
-                            </span>
-                        </label>
-                    @else
-                        <p class="text-[12px] font-medium text-gray-400">Online payment is switched off on VENTIQ at the moment.</p>
-                    @endif
+                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                        <p class="text-[14px] font-black text-gray-900">Pay online through VENTIQ <span class="ml-1 px-2 py-0.5 rounded-full bg-lilac text-lilac-ink text-[10px] font-bold uppercase">Recommended</span></p>
+                        <p class="text-[12px] font-medium text-gray-500 mb-3">VENTIQ collects the payment and the ticket activates automatically; VENTIQ's fees come off your payout. Choose which ways to offer.</p>
+                        <input type="hidden" name="online_methods" value="">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            @foreach($onlineCatalog as $method => $methodLabel)
+                                @php
+                                    $live = in_array($method, $onlineDrivers, true);
+                                @endphp
+                                <label class="flex items-center gap-3 p-3 rounded-xl border-2 transition-all {{ $live ? 'cursor-pointer bg-white' : 'cursor-not-allowed bg-slate-100 opacity-60' }}"
+                                       @if($live) :class="methods.includes('{{ $method }}') ? 'border-[#F07F22]' : 'border-slate-100'" @else style="border-color: transparent" @endif>
+                                    <input type="checkbox" name="online_methods[]" value="{{ $method }}" x-model="methods" @disabled(!$live)
+                                           @checked($live && in_array($method, $onlineMethods, true)) class="w-4 h-4 accent-[#F07F22]">
+                                    <span class="min-w-0">
+                                        <span class="block text-[13px] font-black text-gray-900">{{ $methodLabel }}</span>
+                                        @unless($live)<span class="block text-[10px] font-black uppercase tracking-widest text-gray-400">Coming soon</span>@endunless
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
 
                     <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                         <p class="text-[14px] font-black text-gray-900">Pay directly to you</p>
@@ -257,7 +269,7 @@
                         </template>
                         <div x-show="online" class="mb-2">
                             <p class="font-bold text-gray-700">Pay online</p>
-                            <ul class="list-disc ml-5 text-gray-600"><template x-for="d in driverLabels"><li x-text="`${d} via VENTIQ`"></li></template></ul>
+                            <ul class="list-disc ml-5 text-gray-600"><template x-for="m in methods"><li x-text="`${catalog[m]} via VENTIQ`"></li></template></ul>
                         </div>
                         <div x-show="chosenAccounts.length">
                             <p class="font-bold text-gray-700">Pay directly to you</p>
