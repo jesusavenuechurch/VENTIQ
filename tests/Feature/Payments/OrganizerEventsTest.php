@@ -143,8 +143,10 @@ describe('editing events', function () {
         $this->put(route('organizer.events.update', $this->event), $form)
             ->assertRedirect(route('organizer.events.edit', $this->event));
 
+        $originalSlug = $this->event->slug;
         $this->event->refresh();
         expect($this->event->name)->toBe('Maseru Youth Summit 2026')
+            ->and($this->event->slug)->toBe($originalSlug)
             ->and($this->general->fresh()->tier_name)->toBe('General Admission')
             ->and((float) $this->general->fresh()->price)->toBe(300.0)
             ->and(EventTier::find($this->table->id))->toBeNull()

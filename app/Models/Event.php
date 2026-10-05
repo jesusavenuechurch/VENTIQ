@@ -83,14 +83,9 @@ class Event extends Model
             }
         });
 
-        static::updating(function ($event) {
-            if ($event->isDirty('name') && ! $event->isDirty('slug')) {
-                $event->slug = static::generateUniqueSlug(
-                    $event->name,
-                    $event->organization_id
-                );
-            }
-        });
+        // The slug is set once, at creation, and kept when the event is
+        // renamed: it's in every registration link already shared, on
+        // posters and in messages, and changing it broke all of them.
     }
 
     protected static function generateUniqueSlug($name, $organizationId)
