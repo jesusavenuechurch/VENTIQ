@@ -166,7 +166,7 @@ Route::get('/pricing', function () {
 
 Route::get('/access', function () {
     return view('public.org-admin');
-})->name('pricing');
+})->name('access');
 
 // Direct organization registration (NO agent token)
 Route::get('/org/register', [AgentRegistrationController::class, 'showForm'])
