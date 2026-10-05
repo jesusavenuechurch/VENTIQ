@@ -18,6 +18,7 @@
             @include('organizer.partials.payment-card', [
                 'payment' => $payment,
                 'action'  => route('organizer.payments.decide', $payment),
+                'proofUrl' => $payment->proof_path ? route('organizer.payments.proof', $payment) : null,
             ])
         @empty
             <div class="bg-white rounded-[1.5rem] border border-dashed border-gray-200 p-10 text-center">

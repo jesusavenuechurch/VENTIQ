@@ -2,8 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{PaymentSession, Ticket};
-use App\Services\Payments\{PaymentSessionService, TicketActivationService};
-use App\Services\SessionPackageService;
+use App\Services\Payments\{PaymentCompletion, PaymentSessionService};
 use App\Support\SessionPackageDefinition;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,9 +12,21 @@ class PayLesothoController extends Controller
 {
     public function __construct(
         private PaymentSessionService $payments,
-        private TicketActivationService $activation,
-        private SessionPackageService $sessionPackages,
+        private PaymentCompletion $completion,
     ) {}
+
+    /** Pushes sent for this ticket in the last day (paying by hand isn't one). */
+    public static function pushesFor(Ticket $ticket)
+    {
+        return PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+            ->where('gateway', 'paylesotho')->whereNull('purchase_meta')
+            ->where('created_at', '>', now()->subDay());
+    }
+
+    public static function attemptsLeft(Ticket $ticket): int
+    {
+        return max(0, (int) config('gateways.paylesotho.max_attempts', 3) - static::pushesFor($ticket)->count());
+    }
 
     public function initiateTicketPayment(Request $request)
     {
@@ -39,12 +50,17 @@ class PayLesothoController extends Controller
             return response()->json(['message' => 'This ticket can no longer be paid for. Register again, or contact the organizer.'], 422);
         }
 
-        // A push already sent in the last few minutes is still waiting on
-        // the attendee's phone: follow that one instead of charging twice.
-        $inFlight = PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
-            ->where('status', 'pending')->where('created_at', '>', now()->subMinutes(3))->latest()->first();
+        // A push still on the attendee's phone: follow that one instead of
+        // sending a second. Once the page has stopped waiting for it, the
+        // attendee may ask for a new one ("I didn't get it").
+        $inFlight = static::pushesFor($ticket)->where('status', 'pending')
+            ->where('created_at', '>', now()->subSeconds((int) config('gateways.paylesotho.page_wait_seconds', 90)))->latest('id')->first();
         if ($inFlight) {
-            return response()->json(['session_id' => $inFlight->id, 'status' => $inFlight->status]);
+            return response()->json($this->state($inFlight, $ticket));
+        }
+
+        if (static::attemptsLeft($ticket) === 0) {
+            return response()->json(['message' => 'No tries left. Please pay another way below.', 'attempts_left' => 0], 429);
         }
 
         // Only what's still owed: a deposit may already have been paid.
@@ -66,7 +82,7 @@ class PayLesothoController extends Controller
         // submission — this is the moment the customer has actually
         // submitted their number and a push went out, not just filled in
         // their name. Same reasoning as submitManualPayment().
-        if ($ticket->shouldDeliverViaWhatsApp()) {
+        if ($ticket->shouldDeliverViaWhatsApp() && static::pushesFor($ticket)->count() === 1) {
             $sent = app(\App\Services\WhatsAppCloudService::class)->sendTicketPending($ticket);
 
             if (!$sent) {
@@ -74,10 +90,20 @@ class PayLesothoController extends Controller
             }
         }
 
-        return response()->json([
-            'session_id' => $session->id,
-            'status'     => $session->status,
-        ]);
+        return $this->closing($this->state($session, $ticket));
+    }
+
+    /**
+     * A reply the browser can finish reading straight away, so the page
+     * starts its countdown while the push is waited on after the response
+     * (on PHP-FPM that's fastcgi_finish_request; elsewhere the length and
+     * Connection: close let the browser stop waiting for the socket).
+     */
+    private function closing(array $data)
+    {
+        $response = response()->json($data);
+
+        return $response->withHeaders(['Content-Length' => strlen($response->getContent()), 'Connection' => 'close']);
     }
 
     public function initiateSessionPackagePayment(Request $request)
@@ -126,7 +152,7 @@ class PayLesothoController extends Controller
 
         $session->update(['purchase_meta' => $purchaseMeta]);
 
-        return response()->json([
+        return $this->closing([
             'session_id' => $session->id,
             'status'     => $session->status,
         ]);
@@ -134,7 +160,21 @@ class PayLesothoController extends Controller
 
     public function status(PaymentSession $session)
     {
-        return response()->json(['status' => $session->status]);
+        $ticket = $session->payable_type === 'ticket' ? Ticket::find($session->payable_id) : null;
+
+        return response()->json($ticket ? $this->state($session, $ticket) : ['status' => $session->status]);
+    }
+
+    /** What the payment page needs to show for a push. */
+    private function state(PaymentSession $session, Ticket $ticket): array
+    {
+        return [
+            'session_id'    => $session->id,
+            'status'        => $session->status,
+            'message'       => $session->status === 'failed' ? ($session->callback_payload['failure'] ?? "The payment wasn't completed.") : null,
+            'attempts_left' => static::attemptsLeft($ticket),
+            'wait_seconds'  => (int) config('gateways.paylesotho.page_wait_seconds', 90),
+        ];
     }
 
     public function callback(Request $request, string $method)
@@ -184,38 +224,7 @@ class PayLesothoController extends Controller
         }
 
         $session = $this->payments->handleCallback($request, $method, $session);
-
-        if ($session->isCompleted() && $session->payable_type === 'ticket') {
-            $ticket = Ticket::with(['client', 'event', 'tier'])->find($session->payable_id);
-            if ($ticket) {
-                $this->activation->activate(
-                    ticket: $ticket,
-                    source: TicketActivationService::SOURCE_VENTIQ_ONLINE,
-                    paymentMethod: $method,
-                    paymentReference: $session->transaction_id,
-                    paymentSession: $session,
-                );
-            }
-        } elseif ($session->isCompleted() && $session->payable_type === 'session_package') {
-            $meta = $session->purchase_meta ?? [];
-
-            if (($meta['type'] ?? null) === 'plan') {
-                $this->sessionPackages->changePlan(
-                    organizationId: $session->organization_id,
-                    tier: $meta['tier'],
-                    sessionsIncluded: $meta['sessions_included'],
-                    whatsappIncluded: $meta['whatsapp_included'],
-                    smsIncluded: $meta['sms_included'],
-                    pricePaid: (float) $session->amount,
-                );
-            } elseif (($meta['type'] ?? null) === 'payg') {
-                $this->sessionPackages->addPaygCredits(
-                    organizationId: $session->organization_id,
-                    quantity: $meta['quantity'],
-                    pricePaid: (float) $session->amount,
-                );
-            }
-        }
+        $this->completion->completed($session);
 
         return response()->json(['received' => true]);
     }

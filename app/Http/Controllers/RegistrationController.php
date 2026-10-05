@@ -80,6 +80,26 @@ class RegistrationController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Registering again for the same paid ticket type with the same
+        // number picks up the unpaid ticket already held, rather than
+        // holding a second place (one unpaid ticket per number per type).
+        if (!$isFree) {
+            $held = Ticket::where('event_id', $event->id)->where('event_tier_id', $tier->id)
+                ->where('status', 'pending')->whereIn('payment_status', ['pending', 'partial'])
+                ->whereHas('client', fn ($q) => $q->where('organization_id', $organization->id)->where('phone', $validated['phone']))
+                ->latest('id')->first();
+
+            if ($held) {
+                $held->client->update(array_filter(['full_name' => $validated['full_name'], 'email' => $validated['email'] ?? null]));
+                if ($held->payment_due_at) {
+                    $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
+                }
+
+                return redirect()->route('registration.payment', ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug, 'ticketId' => $held->id])
+                    ->with('status', "Welcome back! Here's the ticket you started, ready to pay.");
+            }
+        }
+
         // ── Build payment context ─────────────────────────────────────
         // Payment method/amount are no longer decided here — they're chosen on the
         // payment screen (Screen 2). Every paid ticket starts pending at the full price.
@@ -271,7 +291,14 @@ class RegistrationController extends Controller
                     ->first();
         }
 
-        return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets'));
+        // Paid VENTIQ's merchant by hand: VENTIQ checks it, not the organizer.
+        $byHand = $ticket->payment_status !== 'completed' && \App\Models\PaymentSession::where('payable_type', 'ticket')
+            ->where('payable_id', $ticket->id)->where('status', 'pending')->whereNotNull('purchase_meta')->exists();
+        if ($byHand) {
+            $paymentMethodDetails = null;
+        }
+
+        return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets', 'byHand'));
     }
 
     /**
@@ -304,7 +331,86 @@ class RegistrationController extends Controller
         $onlineMethods  = $accounts->onlineMethodsForEvent($event);
         $onlineEnabled  = !empty($onlineMethods);
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods'));
+        // For the online part: tries left, a push still waiting (the page
+        // was reloaded), and VENTIQ's merchant for paying by hand once the
+        // tries are used up.
+        $attemptsLeft = \App\Http\Controllers\PayLesothoController::attemptsLeft($ticket);
+        $inFlight = $onlineEnabled ? \App\Http\Controllers\PayLesothoController::pushesFor($ticket)->where('status', 'pending')
+            ->where('created_at', '>', now()->subSeconds((int) config('gateways.paylesotho.page_wait_seconds', 90)))->latest('id')->first() : null;
+        $byHand = \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+            ->where('status', 'pending')->whereNotNull('purchase_meta')->latest('id')->first();
+        $merchant = in_array('ecocash', $onlineMethods, true) && config('gateways.paylesotho.ecocash.merchant_code') ? [
+            'code' => config('gateways.paylesotho.ecocash.merchant_code'),
+            'name' => config('gateways.paylesotho.ecocash.merchant_name') ?: 'VENTIQ',
+        ] : null;
+        $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
+
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'owed'));
+    }
+
+    /**
+     * The pushes didn't work, so the attendee paid VENTIQ's EcoCash
+     * merchant themselves. Recorded as an online payment waiting for
+     * VENTIQ to find it on the merchant statement (money page, "Online
+     * payments to check"); confirming it activates the ticket like any
+     * online sale.
+     */
+    public function submitMerchantPayment(Request $request, $orgSlug, $eventSlug, $ticketId)
+    {
+        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
+        $event = Event::where('slug', $eventSlug)->where('organization_id', $organization->id)->firstOrFail();
+        $ticket = Ticket::with(['client', 'event'])->where('event_id', $event->id)->findOrFail($ticketId);
+
+        $back = ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug, 'ticketId' => $ticket->id];
+
+        if ($ticket->payment_status === 'completed') {
+            return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
+        }
+        abort_unless(in_array($ticket->status, ['pending', 'active'], true), 410);
+        abort_unless(in_array('ecocash', app(\App\Services\Payments\PaymentAccountService::class)->onlineMethodsForEvent($event), true)
+            && config('gateways.paylesotho.ecocash.merchant_code'), 404);
+
+        $validated = $request->validate([
+            'merchant_reference' => ['nullable', 'string', 'max:100'],
+            'merchant_phone'     => ['required', 'string', 'max:20'],
+            'proof'              => \App\Support\PaymentProof::RULES,
+        ]);
+        if (blank($validated['merchant_reference'] ?? null) && !$request->hasFile('proof')) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'merchant_reference' => 'Enter the reference from your EcoCash message, or add a screenshot of it.',
+            ]);
+        }
+
+        $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
+        abort_if($owed <= 0, 422);
+
+        // One claim at a time: a second submission replaces the first.
+        $session = \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+            ->where('status', 'pending')->whereNotNull('purchase_meta')->latest('id')->first()
+            ?? new \App\Models\PaymentSession();
+        $session->fill([
+            'payable_type'     => 'ticket',
+            'payable_id'       => $ticket->id,
+            'gateway'          => 'paylesotho',
+            'status'           => 'pending',
+            'payment_method'   => 'ecocash',
+            'amount'           => $owed,
+            'organization_id'  => $organization->id,
+            'client_reference' => $session->client_reference ?? 'HAND' . $ticket->id . 'T' . random_int(1_000_000_000, 9_999_999_999),
+            'transaction_id'   => $validated['merchant_reference'] ?? null,
+            'purchase_meta'    => ['by_hand' => true],
+            'callback_payload' => ['by_hand' => [
+                'reference'  => $validated['merchant_reference'] ?? null,
+                'paid_from'  => $validated['merchant_phone'],
+                'proof_path' => \App\Support\PaymentProof::store($request->file('proof')) ?? ($session->callback_payload['by_hand']['proof_path'] ?? null),
+                'at'         => now()->toIso8601String(),
+            ]],
+        ])->save();
+
+        // Waiting on VENTIQ now, not on the attendee: don't let it expire.
+        $ticket->update(['payment_due_at' => null]);
+
+        return redirect()->route('registration.confirmation', $back)->with('all_tickets', [$ticket]);
     }
 
     /**
@@ -332,6 +438,7 @@ class RegistrationController extends Controller
         $rules = [
             'payment_method_id' => 'required|exists:organization_payment_methods,id',
             'payment_reference' => 'nullable|string|max:255',
+            'proof'             => \App\Support\PaymentProof::RULES,
         ];
 
         if ($event->allow_installments) {
@@ -350,12 +457,12 @@ class RegistrationController extends Controller
             ->where('is_active', true)
             ->findOrFail($validated['payment_method_id']);
 
-        // A reference is the only thing the organizer can check a mobile
-        // money or bank payment against, so it's required for everything
-        // except cash. Becomes "reference or proof" once proof uploads exist.
-        if ($paymentMethodRecord->payment_method !== 'cash' && blank($validated['payment_reference'] ?? null)) {
+        // A reference or a screenshot is all the organizer can check a
+        // mobile money or bank payment against, so one is needed for
+        // everything except cash.
+        if ($paymentMethodRecord->payment_method !== 'cash' && blank($validated['payment_reference'] ?? null) && !$request->hasFile('proof')) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'payment_reference' => 'Please enter the transaction reference from your payment confirmation.',
+                'payment_reference' => 'Please enter the transaction reference from your payment confirmation, or add a screenshot of it.',
             ]);
         }
 
@@ -388,6 +495,7 @@ class RegistrationController extends Controller
             'organization_payment_method_id' => $paymentMethodRecord->id,
             'source'                         => \App\Services\Payments\TicketActivationService::SOURCE_ORGANIZER_DIRECT,
             'payment_reference'              => $validated['payment_reference'] ?? null,
+            'proof_path'                     => \App\Support\PaymentProof::store($request->file('proof')) ?? $pendingPayment->proof_path,
             'payment_type'                   => $paymentType,
             'payment_date'                   => now(),
             'submitted_at'                   => now(),

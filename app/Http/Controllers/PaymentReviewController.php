@@ -17,6 +17,11 @@ class PaymentReviewController extends Controller
 {
     use DecidesPayments;
 
+    public function proof(TicketPayment $payment)
+    {
+        return \App\Support\PaymentProof::response($payment->proof_path);
+    }
+
     public function show(Request $request, TicketPayment $payment)
     {
         $payment->load(['ticket.client', 'ticket.event.organization', 'ticket.tier', 'paymentAccount']);
@@ -29,6 +34,7 @@ class PaymentReviewController extends Controller
                 now()->addHour(),
                 ['payment' => $payment->id],
             ),
+            'proofUrl'  => $payment->proof_path ? URL::temporarySignedRoute('payment-review.proof', now()->addHour(), ['payment' => $payment->id]) : null,
         ]);
     }
 

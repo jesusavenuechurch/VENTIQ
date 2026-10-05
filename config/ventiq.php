@@ -8,9 +8,8 @@ return [
     ],
 
     // Hours an unpaid ticket holds its place before it can expire. Events
-    // can override it (events.payment_window_hours). Unset = no deadline,
-    // which is today's behaviour, until the default is decided.
-    'payment_window_hours' => env('VENTIQ_PAYMENT_WINDOW_HOURS') ? (int) env('VENTIQ_PAYMENT_WINDOW_HOURS') : null,
+    // can override it (events.payment_window_hours). 0 = no deadline.
+    'payment_window_hours' => (int) env('VENTIQ_PAYMENT_WINDOW_HOURS', 48) ?: null,
 
     'company' => [
         'name' => 'VENTIQ',

@@ -2,7 +2,7 @@
 // app/Services/Payments/Drivers/AbstractPayLesothoDriver.php
 namespace App\Services\Payments\Drivers;
 
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\{Http, Log};
 
 abstract class AbstractPayLesothoDriver
 {
@@ -11,6 +11,12 @@ abstract class AbstractPayLesothoDriver
         return Http::withToken(config('gateways.paylesotho.token'))
             ->acceptJson()
             ->timeout(20);
+    }
+
+    /** Everything sent to and heard from PayLesotho, word for word. */
+    protected function log(string $message, array $context = []): void
+    {
+        Log::channel('paylesotho')->info($message, $context);
     }
 
     protected function callbackUrlFor(string $method): string

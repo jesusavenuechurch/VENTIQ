@@ -39,6 +39,9 @@
         <div>
             <dt class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Reference</dt>
             <dd class="font-mono font-bold text-gray-800 mt-1 break-all">{{ $payment->payment_reference ?: '—' }}</dd>
+            @if($proofUrl ?? null)
+                <dd class="mt-1"><a href="{{ $proofUrl }}" target="_blank" rel="noopener" class="text-[11px] font-black text-action-ink hover:underline"><i class="fas fa-image mr-1"></i>View screenshot</a></dd>
+            @endif
         </div>
         <div>
             <dt class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Submitted</dt>

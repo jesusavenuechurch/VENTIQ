@@ -29,6 +29,13 @@ class PaymentsController extends Controller
         ]);
     }
 
+    public function proof(Request $request, TicketPayment $payment)
+    {
+        abort_unless($payment->ticket?->event?->organization_id === $request->attributes->get('organization')->id, 404);
+
+        return \App\Support\PaymentProof::response($payment->proof_path);
+    }
+
     public function decide(Request $request, TicketPayment $payment)
     {
         abort_unless($payment->ticket?->event?->organization_id === $request->attributes->get('organization')->id, 404);

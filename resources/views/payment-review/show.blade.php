@@ -14,6 +14,7 @@
             'payment'   => $payment,
             'action'    => $actionUrl,
             'canDecide' => true,
+            'proofUrl'  => $proofUrl,
         ])
         <p class="mt-4 text-[11px] font-medium text-gray-400">Check your {{ $payment->paymentAccount?->label ?? 'account' }} statement for this reference before activating.</p>
     @endif

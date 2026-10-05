@@ -39,8 +39,14 @@
             <div class="p-8 text-white flex items-center justify-between">
                 <div>
                     <span class="text-[9px] font-black uppercase tracking-[0.4em] text-[#F07F22]">Amount Due</span>
-                    <h2 class="text-4xl font-black tracking-tighter mt-1">M{{ number_format($ticket->amount, 2) }}</h2>
+                    <h2 class="text-4xl font-black tracking-tighter mt-1">M{{ number_format($owed, 2) }}</h2>
+                    @if($owed < (float) $ticket->amount)
+                        <p class="text-[11px] font-bold text-white/70 mt-1">Balance left of M{{ number_format($ticket->amount, 2) }}</p>
+                    @endif
                     <p class="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-2">{{ $event->name }} &middot; {{ $ticket->tier->tier_name }}</p>
+                    @if($ticket->payment_due_at)
+                        <p class="text-[11px] font-bold text-[#F07F22] mt-2"><i class="fas fa-hourglass-half mr-1"></i>Your place is held until {{ $ticket->payment_due_at->format('j M, H:i') }}</p>
+                    @endif
                 </div>
                 <div class="text-right">
                     <span class="text-[9px] font-black text-white/40 uppercase tracking-widest">Ref</span>
@@ -48,6 +54,10 @@
                 </div>
             </div>
         </div>
+
+        @if (session('status'))
+            <div class="mb-6 p-5 bg-mint text-mint-ink rounded-3xl text-[13px] font-bold"><i class="fas fa-hand mr-1"></i>{{ session('status') }}</div>
+        @endif
 
         @if ($errors->any())
             <div class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl">
@@ -114,6 +124,9 @@
                             class="w-full py-6 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-xl active:scale-[0.98] transition-all">
                             Send Payment Request
                         </button>
+                        <p id="attempts-note" class="text-center text-[11px] font-bold text-gray-400 {{ $attemptsLeft < config('gateways.paylesotho.max_attempts', 3) ? '' : 'hidden' }}">
+                            <span id="attempts-left">{{ $attemptsLeft }}</span> of {{ config('gateways.paylesotho.max_attempts', 3) }} tries left
+                        </p>
                     </div>
                 </div>
 
@@ -128,7 +141,25 @@
                     <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Check Your Phone</h3>
                     <p class="text-sm font-bold text-gray-500 mb-1">A payment prompt was sent to</p>
                     <p class="text-lg font-black text-[#1D4069] mb-6" id="waiting-masked-number"></p>
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest" id="waiting-status-text">Waiting for confirmation&hellip;</p>
+                    <p class="text-[13px] font-bold text-gray-600 mb-4">Enter your EcoCash PIN on your phone to approve the payment.</p>
+                    <div class="max-w-xs mx-auto">
+                        <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div id="waiting-bar" class="h-full bg-[#F07F22] transition-all duration-1000" style="width:100%"></div></div>
+                        <p class="mt-2 text-[11px] font-black text-gray-400 tabular-nums" id="waiting-countdown">1:30</p>
+                    </div>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2" id="waiting-status-text">Please keep this page open</p>
+                </div>
+
+                {{-- The wait ran out without an answer --}}
+                <div id="online-pin-panel" class="hidden text-center py-6">
+                    <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-mobile-screen text-amber-500 text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Did you enter your PIN?</h3>
+                    <p class="text-sm font-bold text-gray-500 mb-6">We haven't heard back from EcoCash yet.</p>
+                    <div class="space-y-3">
+                        <button type="button" id="pin-yes" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">Yes, I approved it</button>
+                        <button type="button" id="pin-no" class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">No, send it again</button>
+                    </div>
                 </div>
 
                 {{-- Timed-out state --}}
@@ -142,7 +173,7 @@
                         class="block w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
                         View my ticket
                     </a>
-                    <button type="button" onclick="window.location.reload()" class="mt-4 text-[11px] font-bold text-gray-400 hover:text-[#1D4069]">I didn't get a prompt on my phone</button>
+                    <button type="button" id="timeout-retry" class="mt-4 text-[11px] font-bold text-gray-400 hover:text-[#1D4069]">I didn't pay, try again</button>
                 </div>
 
                 {{-- Failed state --}}
@@ -156,6 +187,62 @@
                         class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
                         Try Again
                     </button>
+                </div>
+
+                {{-- Out of tries: pay another way --}}
+                <div id="online-fallback-panel" class="hidden py-2">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-route text-[#1D4069] text-2xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Let's try another way</h3>
+                        <p class="text-sm font-bold text-gray-500">The payment prompt didn't work after {{ config('gateways.paylesotho.max_attempts', 3) }} tries. Your place is still held.</p>
+                    </div>
+
+                    @if($paymentMethods->isNotEmpty())
+                        <button type="button" id="fallback-direct" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">
+                            Pay the organizer directly
+                        </button>
+                    @elseif($merchant)
+                        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-5 mb-5 text-[13px] font-bold text-gray-700 space-y-2">
+                            <p>On your phone, pay with EcoCash:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-gray-600">
+                                <li>Open the EcoCash menu and choose <strong>Pay merchant</strong></li>
+                                <li>Merchant code <span class="font-mono text-[#1D4069] text-[15px]">{{ $merchant['code'] }}</span> ({{ $merchant['name'] }})</li>
+                                <li>Amount <span class="font-mono text-[#1D4069]">M{{ number_format($owed, 2) }}</span></li>
+                            </ol>
+                            <p class="text-gray-500 font-medium">Then tell us below, so we can match it and send your ticket.</p>
+                        </div>
+                        <form method="POST" action="{{ route('registration.payment.merchant', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" enctype="multipart/form-data" class="space-y-4">
+                            @csrf
+                            <div>
+                                <label for="merchant_phone" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Number you paid from</label>
+                                <input id="merchant_phone" name="merchant_phone" type="tel" required value="{{ old('merchant_phone') }}" placeholder="5949 4756"
+                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
+                            </div>
+                            <div>
+                                <label for="merchant_reference" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference from the EcoCash message</label>
+                                <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference') }}" placeholder="e.g. MP240101.1234.A12345"
+                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
+                            </div>
+                            <div>
+                                <label for="merchant_proof" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Or a screenshot of it</label>
+                                <input id="merchant_proof" name="proof" type="file" accept="image/*,application/pdf" class="w-full text-[12px] text-gray-500">
+                            </div>
+                            <button class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">I've paid</button>
+                        </form>
+                    @else
+                        <p class="text-center text-[13px] font-bold text-gray-500">Please contact {{ $organization->name }} to pay for your ticket.</p>
+                    @endif
+                </div>
+
+                {{-- Paid the merchant by hand, waiting for VENTIQ --}}
+                <div id="online-byhand-panel" class="hidden text-center py-6">
+                    <div class="w-16 h-16 bg-mint rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-magnifying-glass-dollar text-mint-ink text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">We're checking your payment</h3>
+                    <p class="text-sm font-bold text-gray-500">Your ticket is sent as soon as we've matched it, usually within a few hours. No need to pay again.</p>
                 </div>
 
             </div>
@@ -180,7 +267,7 @@
             @endif
 
             <div id="manual-panel" class="accordion-panel {{ $onlineEnabled ? '' : 'open' }}">
-                <form method="POST" action="{{ route('registration.payment.manual', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" class="p-6 sm:p-8 pt-0 space-y-6">
+                <form method="POST" action="{{ route('registration.payment.manual', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" enctype="multipart/form-data" class="p-6 sm:p-8 pt-0 space-y-6">
                     @csrf
 
                     @if($paymentMethods->isNotEmpty())
@@ -294,6 +381,13 @@
                                 class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
                         </div>
 
+                        <div>
+                            <label for="manual_proof" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Screenshot of the payment <span class="lowercase text-gray-300">(optional, or instead of the reference)</span></label>
+                            <input type="file" id="manual_proof" name="proof" accept="image/*,application/pdf" class="w-full text-[12px] text-gray-500">
+                            @error('proof')<p class="text-[10px] font-bold text-rose-500 mt-2 ml-1">{{ $message }}</p>@enderror
+                            @error('payment_reference')<p class="text-[10px] font-bold text-rose-500 mt-2 ml-1">{{ $message }}</p>@enderror
+                        </div>
+
                         <button type="submit" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-[0.98] transition-all">
                             Confirm Payment Details
                         </button>
@@ -392,60 +486,114 @@
         });
 
         // ── Online: panels ────────────────────────────────────────
-        const formPanel = document.getElementById('online-form-panel');
-        const waitingPanel = document.getElementById('online-waiting-panel');
-        const timeoutPanel = document.getElementById('online-timeout-panel');
-        const failedPanel = document.getElementById('online-failed-panel');
+        // Send → wait up to WAIT_S for EcoCash's answer (PayLesotho holds
+        // the request until the PIN is entered) → if no answer, ask "Did you
+        // enter your PIN?" → yes: keep checking; no: send again. The server
+        // counts the tries; when they run out, the fallback panel shows.
+        const panels = {
+            form: document.getElementById('online-form-panel'),
+            waiting: document.getElementById('online-waiting-panel'),
+            pin: document.getElementById('online-pin-panel'),
+            timeout: document.getElementById('online-timeout-panel'),
+            failed: document.getElementById('online-failed-panel'),
+            fallback: document.getElementById('online-fallback-panel'),
+            byhand: document.getElementById('online-byhand-panel'),
+        };
         const onlineError = document.getElementById('online-error');
+        const ticketUrl = @json(route('ticket.download', ['qr_code' => $ticket->qr_code]));
+        const statusUrlFor = id => @json(route('paylesotho.status', ['session' => '__SESSION__'])).replace('__SESSION__', id);
+        const MAX_TRIES = {{ (int) config('gateways.paylesotho.max_attempts', 3) }};
+        let WAIT_S = {{ (int) config('gateways.paylesotho.page_wait_seconds', 90) }};
+        let attemptsLeft = {{ (int) $attemptsLeft }};
+        let sessionId = null;
+        let deadline = 0;
+        let pollTimer = null, tickTimer = null;
 
-        function showPanel(panel) {
-            [formPanel, waitingPanel, timeoutPanel, failedPanel].forEach(p => p?.classList.add('hidden'));
-            panel?.classList.remove('hidden');
+        function showPanel(name) {
+            Object.values(panels).forEach(p => p?.classList.add('hidden'));
+            panels[name]?.classList.remove('hidden');
         }
 
-        let pollTimer = null;
-        let pollElapsedMs = 0;
-        const POLL_INTERVAL_MS = 2500;
-        const POLL_TIMEOUT_MS = 3 * 60 * 1000;
-
-        function stopPolling() {
-            if (pollTimer) {
-                clearInterval(pollTimer);
-                pollTimer = null;
-            }
+        function setAttempts(n) {
+            if (typeof n !== 'number') return;
+            attemptsLeft = n;
+            document.getElementById('attempts-left').textContent = n;
+            document.getElementById('attempts-note')?.classList.toggle('hidden', n >= MAX_TRIES);
         }
 
-        function startPolling(sessionId) {
-            pollElapsedMs = 0;
-            stopPolling();
-
-            const statusUrl = @json(route('paylesotho.status', ['session' => '__SESSION__'])).replace('__SESSION__', sessionId);
-
-            pollTimer = setInterval(function() {
-                pollElapsedMs += POLL_INTERVAL_MS;
-
-                fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === 'completed') {
-                            stopPolling();
-                            window.location.href = @json(route('ticket.download', ['qr_code' => $ticket->qr_code]));
-                        } else if (data.status === 'failed') {
-                            stopPolling();
-                            showPanel(failedPanel);
-                        } else if (pollElapsedMs >= POLL_TIMEOUT_MS) {
-                            stopPolling();
-                            showPanel(timeoutPanel);
-                        }
-                    })
-                    .catch(function() {
-                        if (pollElapsedMs >= POLL_TIMEOUT_MS) {
-                            stopPolling();
-                            showPanel(timeoutPanel);
-                        }
-                    });
-            }, POLL_INTERVAL_MS);
+        // Out of tries → another way; else back to the form to send again.
+        function retryOrFallback() {
+            stopAll();
+            showPanel(attemptsLeft > 0 ? 'form' : 'fallback');
         }
+
+        function stopAll() {
+            clearInterval(pollTimer); clearInterval(tickTimer);
+            pollTimer = tickTimer = null;
+        }
+
+        function check(onPending) {
+            if (!sessionId) return;
+            fetch(statusUrlFor(sessionId), { headers: { 'Accept': 'application/json' } })
+                .then(res => res.json())
+                .then(data => {
+                    setAttempts(data.attempts_left);
+                    if (data.status === 'completed') {
+                        stopAll();
+                        window.location.href = ticketUrl;
+                    } else if (data.status === 'failed') {
+                        stopAll();
+                        document.getElementById('failed-reason-text').textContent = (data.message || "The payment wasn't completed.")
+                            + (attemptsLeft > 0 ? ` You have ${attemptsLeft} ${attemptsLeft === 1 ? 'try' : 'tries'} left.` : '');
+                        const again = document.getElementById('try-again-btn');
+                        again.textContent = attemptsLeft > 0 ? 'Try again' : 'Pay another way';
+                        showPanel('failed');
+                    } else if (onPending) {
+                        onPending();
+                    }
+                })
+                .catch(() => onPending && onPending());
+        }
+
+        function wait(id, secondsLeft) {
+            sessionId = id;
+            stopAll();
+            deadline = Date.now() + secondsLeft * 1000;
+            showPanel('waiting');
+
+            const bar = document.getElementById('waiting-bar');
+            const clock = document.getElementById('waiting-countdown');
+            const tick = () => {
+                const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+                clock.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+                bar.style.width = (100 * left / WAIT_S) + '%';
+                if (left === 0) {
+                    stopAll();
+                    // One last look before asking.
+                    check(() => showPanel('pin'));
+                }
+            };
+            tick();
+            tickTimer = setInterval(tick, 1000);
+            pollTimer = setInterval(() => check(), 3000);
+        }
+
+        // "Yes, I approved it": keep checking quietly; the answer can still come.
+        document.getElementById('pin-yes')?.addEventListener('click', function() {
+            showPanel('timeout');
+            stopAll();
+            let checks = 0;
+            pollTimer = setInterval(() => { if (++checks > 40) stopAll(); check(); }, 5000);
+        });
+        document.getElementById('pin-no')?.addEventListener('click', retryOrFallback);
+        document.getElementById('timeout-retry')?.addEventListener('click', retryOrFallback);
+        document.getElementById('try-again-btn')?.addEventListener('click', retryOrFallback);
+
+        document.getElementById('fallback-direct')?.addEventListener('click', function() {
+            manualPanel?.classList.add('open');
+            manualToggleIcon?.classList.add('rotate-180');
+            manualPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         document.getElementById('send-payment-request')?.addEventListener('click', function() {
             const digits = (onlinePhoneInput?.value || '').replace(/\D/g, '');
@@ -457,57 +605,49 @@
             }
             onlineError.classList.add('hidden');
 
-            const mobileNumber = '+266' + digits;
             const button = this;
             button.disabled = true;
             button.textContent = 'Sending…';
+            const reset = () => { button.disabled = false; button.textContent = 'Send Payment Request'; };
 
             fetch(@json(route('paylesotho.ticket.initiate')), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                },
-                body: JSON.stringify({
-                    ticket_id: {{ $ticket->id }},
-                    method: selectedMethod,
-                    mobile_number: mobileNumber,
-                }),
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({ ticket_id: {{ $ticket->id }}, method: selectedMethod, mobile_number: '+266' + digits }),
             })
                 .then(res => res.json().then(data => ({ ok: res.ok, data })))
                 .then(function({ ok, data }) {
-                    button.disabled = false;
-                    button.textContent = 'Send Payment Request';
+                    reset();
+                    setAttempts(data.attempts_left);
 
                     if (!ok || !data.session_id) {
-                        onlineError.textContent = 'Could not start payment. Please try again.';
+                        if (data.attempts_left === 0) { showPanel('fallback'); return; }
+                        onlineError.textContent = data.message || 'Could not start payment. Please try again.';
                         onlineError.classList.remove('hidden');
                         return;
                     }
+                    if (data.wait_seconds) WAIT_S = data.wait_seconds;
+                    document.getElementById('waiting-masked-number').textContent = '+266 •••• ' + digits.slice(-4);
 
-                    if (data.status === 'failed') {
-                        showPanel(failedPanel);
-                        return;
-                    }
-
-                    document.getElementById('waiting-masked-number').textContent =
-                        '+266 •••• ' + digits.slice(-4);
-
-                    showPanel(waitingPanel);
-                    startPolling(data.session_id);
+                    if (data.status === 'failed') { sessionId = data.session_id; check(); return; }
+                    wait(data.session_id, WAIT_S);
                 })
                 .catch(function() {
-                    button.disabled = false;
-                    button.textContent = 'Send Payment Request';
+                    reset();
                     onlineError.textContent = 'Network error. Please try again.';
                     onlineError.classList.remove('hidden');
                 });
         });
 
-        document.getElementById('try-again-btn')?.addEventListener('click', function() {
-            showPanel(formPanel);
-        });
+        // Where to start after a reload.
+        @if($byHand)
+            showPanel('byhand');
+        @elseif($inFlight)
+            document.getElementById('waiting-masked-number').textContent = 'your phone';
+            wait({{ $inFlight->id }}, Math.max(5, WAIT_S - {{ (int) $inFlight->created_at->diffInSeconds(now()) }}));
+        @elseif($onlineEnabled && $attemptsLeft === 0)
+            showPanel('fallback');
+        @endif
     });
     </script>
 @include('partials.cookie-notice')

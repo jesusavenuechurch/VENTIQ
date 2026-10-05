@@ -146,6 +146,13 @@
                             <span class="text-4xl font-black tracking-tighter italic leading-none text-slate-900">M{{ number_format($allTickets->sum('amount')) }}</span>
                         </div>
 
+                        @if($byHand ?? false)
+                            <div class="p-6 bg-mint rounded-3xl text-mint-ink">
+                                <p class="text-[13px] font-black"><i class="fas fa-magnifying-glass-dollar mr-1"></i>We're checking your EcoCash payment</p>
+                                <p class="text-[12px] font-medium mt-1">VENTIQ is matching it with the merchant statement. Your place is held, and your ticket is sent as soon as it's confirmed, usually within a few hours. No need to pay again.</p>
+                            </div>
+                        @endif
+
                         @if($paymentMethodDetails)
                             <div class="p-6 bg-slate-900 rounded-3xl text-white">
                                 <div class="flex items-center gap-3 mb-4">

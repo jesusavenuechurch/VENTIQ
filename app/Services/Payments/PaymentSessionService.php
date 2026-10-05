@@ -2,7 +2,9 @@
 // app/Services/Payments/PaymentSessionService.php
 namespace App\Services\Payments;
 
+use App\Jobs\ChargeMobileMoney;
 use App\Models\PaymentSession;
+use App\Services\Payments\Contracts\WaitsForPayment;
 use App\Services\Payments\DTOs\PaymentInitiationData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -37,7 +39,18 @@ class PaymentSessionService
             'initiated_by'     => $initiatedBy,
         ]);
 
-        $result = $this->factory->make($method)->initiate(new PaymentInitiationData(
+        $driver = $this->factory->make($method);
+
+        // EcoCash v2 answers only once the payer has decided, up to two
+        // minutes later: wait for it after the response is sent.
+        if ($driver instanceof WaitsForPayment && $driver->waitsForPayment()) {
+            $session->update(['callback_payload' => ['push_to' => $mobileNumber, 'sent_at' => now()->toIso8601String()]]);
+            ChargeMobileMoney::dispatchAfterResponse($session->id, $mobileNumber);
+
+            return $session->fresh();
+        }
+
+        $result = $driver->initiate(new PaymentInitiationData(
             amount: $amount,
             mobileNumber: $mobileNumber,
             clientReference: $clientReference,

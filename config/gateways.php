@@ -25,8 +25,26 @@ return [
         // match whichever one the request is for.
         // Each driver is switched on separately: PayLesotho being available
         // doesn't mean every method it offers should be shown to attendees.
+        // v2 holds the request open until the attendee enters their PIN,
+        // then answers 200 (paid) or 415 (declined, low balance, wrong
+        // number). v3 only answers 201 "initiated" and never says how it
+        // ended, so VENTIQ uses v2 and waits for that answer in the
+        // background (see App\Jobs\ChargeMobileMoney).
+        'wait_seconds' => (int) env('PAYLESOTHO_WAIT_SECONDS', 120),
+        // Pushes one ticket gets before the page offers another way to pay.
+        'max_attempts' => (int) env('PAYLESOTHO_MAX_ATTEMPTS', 3),
+        // How long the page waits for an answer before asking "Did you enter
+        // your PIN?".
+        'page_wait_seconds' => (int) env('PAYLESOTHO_PAGE_WAIT_SECONDS', 90),
+
         'ecocash' => [
             'enabled'       => env('PAYLESOTHO_ECOCASH_ENABLED', true),
+            'endpoint'      => env('PAYLESOTHO_ECOCASH_ENDPOINT') ?: '/api/v2/econet/payment',
+            // false = the old v3 "initiate only" endpoint.
+            'waits_for_pin' => (bool) env('PAYLESOTHO_ECOCASH_WAITS_FOR_PIN', true),
+            // Shown to attendees who pay the merchant by hand after the
+            // pushes failed. Defaults to the merchant id PayLesotho uses.
+            'merchant_code' => env('PAYLESOTHO_ECOCASH_MERCHANT_CODE') ?: env('PAYLESOTHO_ECOCASH_MERCHANT_ID'),
             'merchant_id'   => env('PAYLESOTHO_ECOCASH_MERCHANT_ID'),
             'merchant_name' => env('PAYLESOTHO_ECOCASH_MERCHANT_NAME'),
         ],

@@ -71,9 +71,14 @@ it('creates one ticket for a group purchase, priced for the whole group', functi
         ->and((float) $ticket->payments()->first()->amount)->toBe(750.0);
 });
 
-it('leaves the payment deadline unset until a window is configured', function () {
+it('holds an unpaid place for 48 hours by default, and not at all when switched off', function () {
+    $this->travelTo(now()->startOfMinute());
     registerFor($this, $this->groupTier);
+    expect(Ticket::first()->payment_due_at->equalTo(now()->addHours(48)))->toBeTrue();
 
+    config(['ventiq.payment_window_hours' => null]);
+    Ticket::query()->delete();
+    $this->post("/register/{$this->org->slug}/{$this->event->slug}", ['tier_id' => $this->groupTier->id, 'full_name' => 'Thabo', 'phone' => '+26650009999', 'terms' => '1']);
     expect(Ticket::first()->payment_due_at)->toBeNull();
 });
 

@@ -135,6 +135,11 @@ Route::prefix('register/{orgSlug}/{eventSlug}')->group(function () {
 
     Route::post('/payment/{ticketId}/manual', [RegistrationController::class, 'submitManualPayment'])
         ->name('registration.payment.manual');
+
+    // After the pushes fail: paid VENTIQ's EcoCash merchant by hand.
+    Route::post('/payment/{ticketId}/merchant', [RegistrationController::class, 'submitMerchantPayment'])
+        ->middleware('throttle:10,1')
+        ->name('registration.payment.merchant');
 });
 
 // Registration Error Page
@@ -313,6 +318,8 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/fees/{organization}/invoiced', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoiced'])->name('fees.invoiced');
     Route::post('/fees/{organization}/paid', [App\Http\Controllers\VentiqMoneyController::class, 'markInvoicePaid'])->name('fees.paid');
     Route::post('/online/{session}', [App\Http\Controllers\VentiqMoneyController::class, 'decideOnlinePayment'])->name('online.decide');
+    Route::get('/online/{session}/proof', [App\Http\Controllers\VentiqMoneyController::class, 'onlineProof'])->name('online.proof');
+    Route::post('/online/{session}/refunded', [App\Http\Controllers\VentiqMoneyController::class, 'markRefunded'])->name('online.refunded');
 });
 
 Route::middleware('auth')->group(function () {
@@ -343,6 +350,7 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::get('/', [App\Http\Controllers\Organizer\HomeController::class, 'index'])->name('home');
     Route::get('/payments', [App\Http\Controllers\Organizer\PaymentsController::class, 'index'])->name('payments.index');
     Route::post('/payments/{payment}', [App\Http\Controllers\Organizer\PaymentsController::class, 'decide'])->name('payments.decide');
+    Route::get('/payments/{payment}/proof', [App\Http\Controllers\Organizer\PaymentsController::class, 'proof'])->name('payments.proof');
     Route::get('/events/create', [App\Http\Controllers\Organizer\EventsController::class, 'create'])->middleware('can:create_event')->name('events.create');
     Route::post('/events', [App\Http\Controllers\Organizer\EventsController::class, 'store'])->middleware('can:create_event')->name('events.store');
     Route::get('/events/{event}/edit', [App\Http\Controllers\Organizer\EventsController::class, 'edit'])->middleware('can:edit_event')->name('events.edit');
@@ -382,6 +390,7 @@ Route::middleware(['auth'])->prefix('organizer/act-as')->name('organizer.act-as.
 Route::middleware('signed')->group(function () {
     Route::get('/payment-review/{payment}', [App\Http\Controllers\PaymentReviewController::class, 'show'])->name('payment-review.show');
     Route::post('/payment-review/{payment}', [App\Http\Controllers\PaymentReviewController::class, 'decide'])->name('payment-review.decide');
+    Route::get('/payment-review/{payment}/proof', [App\Http\Controllers\PaymentReviewController::class, 'proof'])->name('payment-review.proof');
 });
 
 Route::middleware(['auth'])->prefix('programmes')->name('programmes.')->group(function () {

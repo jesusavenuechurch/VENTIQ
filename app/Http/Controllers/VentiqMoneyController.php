@@ -54,9 +54,17 @@ class VentiqMoneyController extends Controller
             'invoiceFrom' => config('constants.fees.invoice_from'),
             // Online payments with no answer from PayLesotho yet: checked by
             // hand against the merchant statement until its callbacks work.
+            // Pushes EcoCash never answered (after the ~2 minute wait), and
+            // attendees who paid the merchant by hand (straight away).
             'toCheck'    => PaymentSession::where('payable_type', 'ticket')->where('gateway', 'paylesotho')
-                ->where('status', 'pending')->where('created_at', '<', now()->subMinutes(2))
+                ->where('status', 'pending')
+                ->where(fn ($q) => $q->where('created_at', '<', now()->subMinutes(3))->orWhereNotNull('purchase_meta'))
                 ->where('created_at', '>', now()->subDays(7))->latest()->limit(100)->get()
+                ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
+            // Money that came in for a ticket already paid: to send back.
+            'paidTwice'  => PaymentSession::where('payable_type', 'ticket')->where('status', 'completed')
+                ->where('callback_payload->paid_twice', true)->latest()->limit(200)->get()
+                ->reject(fn ($s) => isset($s->callback_payload['refunded_at']))
                 ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
         ]);
     }
@@ -139,7 +147,7 @@ class VentiqMoneyController extends Controller
 
         $session->update([
             'status'           => 'completed',
-            'transaction_id'   => $data['reference'] ?: $session->transaction_id,
+            'transaction_id'   => ($data['reference'] ?? null) ?: $session->transaction_id,
             'callback_payload' => array_merge($session->callback_payload ?? [], ['manual' => ['by' => $request->user()->id, 'decision' => 'received', 'at' => now()->toIso8601String()]]),
         ]);
 
@@ -147,5 +155,22 @@ class VentiqMoneyController extends Controller
         $activation->activate($ticket, TicketActivationService::SOURCE_VENTIQ_ONLINE, $session->payment_method, $session->transaction_id, $request->user()->id, $session);
 
         return back()->with('status', "Received. {$ticket->client->full_name}'s ticket is active and on its way to them.");
+    }
+
+    public function onlineProof(PaymentSession $session)
+    {
+        return \App\Support\PaymentProof::response($session->callback_payload['by_hand']['proof_path'] ?? null);
+    }
+
+    public function markRefunded(Request $request, PaymentSession $session)
+    {
+        abort_unless(($session->callback_payload['paid_twice'] ?? false) === true, 404);
+        $data = $request->validate(['reference' => ['nullable', 'string', 'max:100']]);
+
+        $session->update(['callback_payload' => array_merge($session->callback_payload, [
+            'refunded_at' => now()->toIso8601String(), 'refunded_by' => $request->user()->id, 'refund_reference' => $data['reference'] ?? null,
+        ])]);
+
+        return back()->with('status', 'Marked as refunded.');
     }
 }
