@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // before reaching the controller.
             $middleware->alias([
                 'organizer' => \App\Http\Middleware\EnsureOrganizerAccess::class,
+                'organizer.setup' => \App\Http\Middleware\EnsureOrganizationSetUp::class,
             ]);
 
             $middleware->validateCsrfTokens(except: [

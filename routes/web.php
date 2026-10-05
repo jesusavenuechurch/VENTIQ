@@ -304,7 +304,9 @@ Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'dest
 // ── Organizer area ───────────────────────────────────────────────
 // Where org users land: their events and the payments waiting on them.
 // Super admins reach it by picking an organization in Filament.
-Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {
+Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix('organizer')->name('organizer.')->group(function () {
+    Route::get('/setup', [App\Http\Controllers\Organizer\SetupController::class, 'show'])->name('setup');
+    Route::post('/setup', [App\Http\Controllers\Organizer\SetupController::class, 'store'])->name('setup.store');
     Route::get('/', [App\Http\Controllers\Organizer\HomeController::class, 'index'])->name('home');
     Route::get('/payments', [App\Http\Controllers\Organizer\PaymentsController::class, 'index'])->name('payments.index');
     Route::post('/payments/{payment}', [App\Http\Controllers\Organizer\PaymentsController::class, 'decide'])->name('payments.decide');
