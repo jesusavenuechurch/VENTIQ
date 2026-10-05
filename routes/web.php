@@ -299,7 +299,14 @@ Route::post('/invite/{token}', [OrganizationInviteAcceptController::class, 'subm
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])->name('login');
-Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->name('login.submit');
+Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->middleware('throttle:10,1')->name('login.submit');
+Route::middleware('throttle:20,1')->group(function () {
+    Route::post('/login/start', [App\Http\Controllers\Auth\EmailLoginController::class, 'start'])->name('login.start');
+    Route::post('/login/code', [App\Http\Controllers\Auth\EmailLoginController::class, 'send'])->name('login.code.send');
+    Route::post('/login/code/verify', [App\Http\Controllers\Auth\EmailLoginController::class, 'verify'])->name('login.code.verify');
+    Route::get('/login/link/{id}/{token}', [App\Http\Controllers\Auth\EmailLoginController::class, 'showLink'])->whereNumber('id')->name('login.link.show');
+    Route::post('/login/link/{id}/{token}', [App\Http\Controllers\Auth\EmailLoginController::class, 'useLink'])->whereNumber('id')->name('login.link.use');
+});
 Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'destroy'])->name('logout');
 
 // ── Organizer area ───────────────────────────────────────────────

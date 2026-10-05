@@ -3,7 +3,7 @@
 
 {{ $inviterName }} has invited you to join **{{ $orgName }}** on VENTIQ.
 
-Once you accept, you'll share the same workspace — sessions, notes, attendance, and reports — with the rest of the team.
+Once you accept, you'll help run {{ $orgName }}'s events on VENTIQ: attendees, payments, check-in and reports, depending on the access you've been given.
 
 <x-mail::button :url="$acceptUrl">
 Accept Invitation
