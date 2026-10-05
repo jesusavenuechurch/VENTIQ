@@ -11,6 +11,7 @@ class OrganizationInvite extends Model
     protected $fillable = [
         'organization_id',
         'email',
+        'role',
         'token',
         'invited_by',
         'accepted_at',

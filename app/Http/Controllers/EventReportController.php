@@ -30,6 +30,16 @@ class EventReportController extends Controller
         ))->downloadPdf();
     }
 
+    /** The same register as a spreadsheet, for sorting, mail merges or printing name tags. */
+    public function attendanceExcel(Request $request, Event $event)
+    {
+        $this->authorizeEvent($request, $event);
+
+        return (new AttendanceReportService(
+            $event->load(['organization', 'tiers', 'tickets.client', 'tickets.tier', 'tickets.workshopDetail'])
+        ))->downloadExcel();
+    }
+
     public function registrationSummary(Request $request, Event $event)
     {
         $this->authorizeEvent($request, $event);

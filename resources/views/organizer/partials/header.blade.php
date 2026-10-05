@@ -27,7 +27,12 @@
             ['organizer.home',           'Events',              'Events',     'fa-calendar-days', 'organizer.home|organizer.events.*', 0],
             ['organizer.payments.index', 'Payments to confirm', 'To confirm', 'fa-receipt',       'organizer.payments.*',              $toConfirm],
             ['organizer.accounts.index', 'Payment accounts',    'Accounts',   'fa-wallet',        'organizer.accounts.*',              0],
+            ['organizer.team.index',     'Team',                'Team',       'fa-user-group',    'organizer.team.*',                  0],
         ];
+        // Only tabs this person can open.
+        if (!auth()->user()?->can('view_payment_method')) {
+            $tabs = array_values(array_filter($tabs, fn ($t) => $t[0] !== 'organizer.accounts.index'));
+        }
     @endphp
 
     {{-- Wider screens: a row of tabs under the title. --}}
@@ -58,7 +63,7 @@
      places it below the scrolling content, so nothing hides behind it. --}}
 @section('bottom_bar')
     <nav class="sm:hidden flex-none bg-white border-t border-gray-100 pb-[env(safe-area-inset-bottom)]">
-        <div class="grid grid-cols-4">
+        <div class="grid {{ count($tabs) === 4 ? 'grid-cols-5' : 'grid-cols-4' }}">
             <a href="{{ route('home') }}" class="flex flex-col items-center gap-1 py-2.5 text-gray-400">
                 <i class="fas fa-house text-base"></i>
                 <span class="text-[9px] font-black uppercase tracking-wider">Home</span>

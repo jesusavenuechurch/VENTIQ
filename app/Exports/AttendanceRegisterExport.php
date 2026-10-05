@@ -58,7 +58,9 @@ class AttendanceRegisterExport implements
 
     public function collection(): Collection
     {
-        $tickets = $this->event->tickets()
+        // Same tickets as the PDF register: only those that still hold a
+        // place (no expired, cancelled or refunded registrations).
+        $tickets = $this->tickets()
             ->with(['client', 'tier', 'workshopDetail'])
             ->orderByRaw("CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END")
             ->orderBy('checked_in_at')
@@ -73,7 +75,7 @@ class AttendanceRegisterExport implements
                 $ticket->ticket_number,
                 $ticket->voucher_code ?? '—',
                 $ticket->tier->tier_name,
-                $ticket->checked_in_at ? 'Checked In' : 'Not Checked In',
+                $this->checkInStatus($ticket),
                 $ticket->checked_in_at
                     ? $ticket->checked_in_at->format('d M Y H:i')
                     : '—',
@@ -92,6 +94,23 @@ class AttendanceRegisterExport implements
 
             return $row;
         });
+    }
+
+    private function tickets()
+    {
+        return $this->event->tickets()->whereIn('status', \App\Services\Reports\EventFinance::LIVE_STATUSES);
+    }
+
+    /** "Checked In", or for a group ticket how many of its people are in. */
+    private function checkInStatus($ticket): string
+    {
+        $admits = (int) ($ticket->admissions ?? 1);
+
+        if ($admits > 1) {
+            return "{$ticket->admitted_count} of {$admits} in";
+        }
+
+        return $ticket->checked_in_at ? 'Checked In' : 'Not Checked In';
     }
 
     public function columnWidths(): array
@@ -124,7 +143,7 @@ class AttendanceRegisterExport implements
     public function styles(Worksheet $sheet): array
     {
         $lastCol = $this->event->isWorkshop() ? 'N' : 'I';
-        $lastRow = $this->event->tickets()->count() + 1;
+        $lastRow = $this->tickets()->count() + 1;
 
         // Header row styling
         $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([

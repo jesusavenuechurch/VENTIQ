@@ -203,6 +203,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
     Route::get('/revenue/{event}', [App\Http\Controllers\EventReportController::class, 'revenue'])->name('revenue');
     Route::get('/attendance/{event}', [App\Http\Controllers\EventReportController::class, 'attendance'])->name('attendance');
+    Route::get('/attendance/{event}/excel', [App\Http\Controllers\EventReportController::class, 'attendanceExcel'])->name('attendance-excel');
     Route::get('/registration-summary/{event}', [App\Http\Controllers\EventReportController::class, 'registrationSummary'])->name('registration-summary');
 });
 
@@ -285,7 +286,7 @@ Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])-
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
 
 Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
-    Route::get('/members', [OrganizationMemberController::class, 'index'])->name('members');
+    Route::get('/members', fn () => redirect()->route('organizer.team.index'))->name('members');
     Route::post('/invite', [OrganizationMemberController::class, 'invite'])->name('invite.store');
     Route::delete('/invite/{invite}', [OrganizationMemberController::class, 'revoke'])->name('invite.revoke');
     Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->name('session-plan.payment');
@@ -324,6 +325,14 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::post('/payment-accounts/{account}/default', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'makeDefault'])->middleware('can:edit_payment_method')->name('accounts.default');
     Route::post('/payment-accounts/{account}/toggle', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'toggle'])->middleware('can:edit_payment_method')->name('accounts.toggle');
     Route::delete('/payment-accounts/{account}', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'destroy'])->middleware('can:delete_payment_method')->name('accounts.destroy');
+    Route::get('/team', [App\Http\Controllers\Organizer\TeamController::class, 'index'])->name('team.index');
+    Route::middleware('can:manage_staff')->group(function () {
+        Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
+        Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');
+        Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
+        Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
+    });
+    Route::get('/events/{event}/day', [App\Http\Controllers\Organizer\EventDayController::class, 'show'])->name('events.day');
     Route::get('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'createComp'])->middleware('can:approve_payment')->name('events.comp.create');
     Route::post('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'storeComp'])->middleware('can:approve_payment')->name('events.comp.store');
     Route::post('/tickets/{ticket}/resend', [App\Http\Controllers\Organizer\TicketsController::class, 'resend'])->middleware('throttle:20,1')->name('tickets.resend');

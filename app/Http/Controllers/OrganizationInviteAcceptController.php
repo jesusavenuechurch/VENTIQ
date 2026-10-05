@@ -42,6 +42,7 @@ class OrganizationInviteAcceptController extends Controller
             'email_verified_at' => now(), // trusted: they clicked a link sent to this exact email
         ]);
 
+        $user->assignRole(\App\Support\TeamRoles::valid($invite->role) ? $invite->role : 'staff');
         $invite->markAccepted();
 
         event(new Registered($user));

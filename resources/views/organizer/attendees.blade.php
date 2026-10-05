@@ -12,6 +12,7 @@
         @if($event->share_url)
             <a href="{{ $event->share_url }}" target="_blank" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Public page</a>
         @endif
+        <a href="{{ route('organizer.events.day', $event) }}" class="px-4 py-2 rounded-full {{ $event->event_date?->isToday() ? 'bg-action text-white hover:bg-action-ink' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }} text-[10px] font-black uppercase tracking-widest"><i class="fas fa-door-open mr-1"></i>Event day</a>
         @can('approve_payment')
             <a href="{{ route('organizer.events.comp.create', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-gift mr-1"></i>Complimentary ticket</a>
         @endcan
@@ -28,6 +29,7 @@
             <a href="{{ route('reports.revenue', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Revenue report</a>
             <a href="{{ route('reports.registration-summary', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Registration summary</a>
             <a href="{{ route('reports.attendance', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-pdf mr-1"></i>Attendance register</a>
+            <a href="{{ route('reports.attendance-excel', $event) }}" class="px-3 py-1.5 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-[#1D4069]"><i class="fas fa-file-excel mr-1 text-mint-ink"></i>Attendance (Excel)</a>
         </div>
     @endcan
 

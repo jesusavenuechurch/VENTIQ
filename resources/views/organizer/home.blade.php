@@ -48,6 +48,9 @@
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    @if($event->event_date && $event->event_date->isToday())
+                        <a href="{{ route('organizer.events.day', $event) }}" class="px-4 py-2 rounded-full bg-action text-white text-[10px] font-black uppercase tracking-widest hover:bg-action-ink"><i class="fas fa-door-open mr-1"></i>Event day</a>
+                    @endif
                     <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-brand text-white text-[10px] font-black uppercase tracking-widest hover:bg-action">Attendees &amp; money</a>
                     @can('edit_event')
                     <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:bg-white">Edit event</a>
