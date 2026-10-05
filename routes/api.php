@@ -27,8 +27,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/scanner/checkin/bulk', [TicketScanController::class, 'bulkCheckIn']);
     Route::get('/scanner/stats/{eventId}', [TicketScanController::class, 'getStats']);
     Route::get('/scanner/sync-status', [TicketScanController::class, 'syncStatus']);
-    Route::post('/scanner/voucher/lookup', [VoucherScanController::class, 'lookup']);
-    Route::post('/scanner/voucher/checkin', [VoucherScanController::class, 'checkin']);
+    // Entry codes are short: limit guessing.
+    Route::post('/scanner/voucher/lookup', [VoucherScanController::class, 'lookup'])->middleware('throttle:60,1');
+    Route::post('/scanner/voucher/checkin', [VoucherScanController::class, 'checkin'])->middleware('throttle:60,1');
     Route::get('/workshop/ticket/{code}', [WorkshopController::class, 'ticketDetails']);
     Route::post('/workshop/ticket/{ticketId}/sign', [WorkshopController::class, 'saveSignature']);
     Route::patch('/workshop/ticket/{ticketId}/details', [WorkshopController::class, 'updateDetails']);

@@ -60,10 +60,13 @@ return [
             // To the organizer: {{1}} attendee, {{2}} amount, {{3}} account,
             // {{4}} reference; URL button suffix = signed review link token.
             'payment_submitted' => env('WHATSAPP_TEMPLATE_PAYMENT_SUBMITTED'),
-            // To the attendee: {{1}} name, {{2}} event; URL button = ticket.
+            // To the attendee: {{1}} name, {{2}} event (+ {{3}} held until,
+            // for reminder and failed); URL button suffix = the ticket's
+            // private code. Samples: docs/whatsapp-templates.md.
             'payment_rejected'  => env('WHATSAPP_TEMPLATE_PAYMENT_REJECTED'),
             'payment_reminder'  => env('WHATSAPP_TEMPLATE_PAYMENT_REMINDER'),
             'payment_expired'   => env('WHATSAPP_TEMPLATE_PAYMENT_EXPIRED'),
+            'payment_failed'    => env('WHATSAPP_TEMPLATE_PAYMENT_FAILED'),
         ],
     ],
 

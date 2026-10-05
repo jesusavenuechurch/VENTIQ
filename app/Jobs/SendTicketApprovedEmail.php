@@ -49,7 +49,7 @@ class SendTicketApprovedEmail implements ShouldQueue
 
         // Ensure the PDF exists before sending - self-healing regardless of
         // whether generateAvatar() ran earlier in the approval flow or not.
-        if (!$ticket->avatar_path || !Storage::disk('public')->exists($ticket->avatar_path)) {
+        if (!$ticket->avatar_path || !Storage::disk(Ticket::FILES_DISK)->exists($ticket->avatar_path)) {
             Log::info("Avatar PDF missing for {$ticket->ticket_number} - generating now before email send");
             $ticket->generateAvatar();
             $ticket->refresh();

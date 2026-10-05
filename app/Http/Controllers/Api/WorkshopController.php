@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Log;
 
 class WorkshopController extends Controller
 {
+    use Concerns\ScopesScannerToOrganization;
+
     /**
      * Get workshop ticket details after QR/voucher scan.
      * Called by scanner app immediately after confirming check-in
@@ -21,8 +23,7 @@ class WorkshopController extends Controller
      */
     public function ticketDetails(string $qrCode): JsonResponse
     {
-        $ticket = Ticket::where('qr_code', $qrCode)
-            ->orWhere('voucher_code', $qrCode)
+        $ticket = $this->scopeToScanner(Ticket::where(fn ($q) => $q->where('qr_code', $qrCode)->orWhere('voucher_code', $qrCode)))
             ->with(['client', 'event', 'tier', 'workshopDetail'])
             ->first();
 
@@ -96,7 +97,7 @@ class WorkshopController extends Controller
             'device_info' => 'nullable|string|max:255',
         ]);
 
-        $ticket = Ticket::with(['event', 'workshopDetail'])->find($ticketId);
+        $ticket = $this->scopeToScanner(Ticket::query())->with(['event', 'workshopDetail'])->find($ticketId);
 
         if (!$ticket) {
             return response()->json(['success' => false, 'message' => 'Ticket not found.'], 404);
@@ -166,7 +167,7 @@ class WorkshopController extends Controller
             'district'    => 'nullable|string|max:30',
         ]);
 
-        $ticket = Ticket::with(['event', 'workshopDetail'])->find($ticketId);
+        $ticket = $this->scopeToScanner(Ticket::query())->with(['event', 'workshopDetail'])->find($ticketId);
 
         if (!$ticket || !$ticket->event->isWorkshop()) {
             return response()->json(['success' => false, 'message' => 'Workshop ticket not found.'], 404);
@@ -204,7 +205,7 @@ class WorkshopController extends Controller
             'status' => 'required|in:declined,skipped',
         ]);
 
-        $ticket = Ticket::with(['event', 'workshopDetail'])->find($ticketId);
+        $ticket = $this->scopeToScanner(Ticket::query())->with(['event', 'workshopDetail'])->find($ticketId);
 
         if (!$ticket || !$ticket->event->isWorkshop()) {
             return response()->json(['success' => false, 'message' => 'Workshop ticket not found.'], 404);
@@ -236,7 +237,7 @@ class WorkshopController extends Controller
      */
     public function eventSummary(int $eventId): JsonResponse
     {
-        $tickets = Ticket::where('event_id', $eventId)
+        $tickets = $this->scopeToScanner(Ticket::query(), $eventId)
             ->with('workshopDetail')
             ->get();
 

@@ -28,15 +28,15 @@ class PayLesothoController extends Controller
         return max(0, (int) config('gateways.paylesotho.max_attempts', 3) - static::pushesFor($ticket)->count());
     }
 
-    public function initiateTicketPayment(Request $request)
+    /** Only from the ticket's private link: a ticket number can't start a push. */
+    public function initiateTicketPayment(Request $request, string $code)
     {
         $data = $request->validate([
-            'ticket_id'     => 'required|exists:tickets,id',
             'method'        => ['required', \Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())],
-            'mobile_number' => 'required|string',
+            'mobile_number' => ['required', 'string', 'regex:/^\+?(266)?[0-9]{8}$/'],
         ]);
 
-        $ticket = Ticket::with(['event.organization', 'client'])->findOrFail($data['ticket_id']);
+        $ticket = Ticket::with(['event.organization', 'client'])->where('qr_code', $code)->firstOrFail();
 
         // The event decides whether online payment is offered at all.
         if (!in_array($data['method'], app(\App\Services\Payments\PaymentAccountService::class)->onlineMethodsForEvent($ticket->event), true)) {
@@ -158,11 +158,20 @@ class PayLesothoController extends Controller
         ]);
     }
 
+    /** Sessions plans. A ticket's pushes are followed through its private link. */
     public function status(PaymentSession $session)
     {
-        $ticket = $session->payable_type === 'ticket' ? Ticket::find($session->payable_id) : null;
+        abort_if($session->payable_type === 'ticket', 404);
 
-        return response()->json($ticket ? $this->state($session, $ticket) : ['status' => $session->status]);
+        return response()->json(['status' => $session->status]);
+    }
+
+    public function ticketStatus(string $code, PaymentSession $session)
+    {
+        $ticket = Ticket::where('qr_code', $code)->firstOrFail();
+        abort_unless($session->payable_type === 'ticket' && $session->payable_id === $ticket->id, 404);
+
+        return response()->json($this->state($session, $ticket));
     }
 
     /** What the payment page needs to show for a push. */

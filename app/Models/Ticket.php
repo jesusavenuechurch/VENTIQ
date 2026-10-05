@@ -135,18 +135,11 @@ class Ticket extends Model
                 ->setPaper([0, 0, 595.28, 280.63], 'landscape') // DL size in points (210mm x 99mm)
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true) // Allow loading images
-                ->setOption('chroot', [public_path('storage')]) // Allow access to storage
                 ->setOption('enable_php', false);
 
-            $filename = 'avatars/events/' . $this->event->organization_id . '/ticket_' . $this->id . '.pdf';
-            
-            // Ensure directory exists
-            $directory = dirname(storage_path('app/public/' . $filename));
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
+            $filename = 'ticket-files/passes/' . $this->event->organization_id . '/ticket_' . $this->id . '.pdf';
 
-            Storage::disk('public')->put($filename, $pdf->output());
+            Storage::disk(self::FILES_DISK)->put($filename, $pdf->output());
 
             $this->update([
                 'avatar_path' => $filename,
@@ -165,9 +158,15 @@ class Ticket extends Model
         }
     }
 
+    /**
+     * Passes and QR images are private files: served only through the
+     * ticket's own link, never at an address built from its number.
+     */
+    public const FILES_DISK = 'local';
+
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar_path ? Storage::url($this->avatar_path) : null;
+        return $this->avatar_path ? route('ticket.avatar.download', $this->qr_code) : null;
     }
 
     public function event(): BelongsTo
@@ -561,7 +560,7 @@ class Ticket extends Model
             }
 
             $color = $this->tier_color;
-            $filename = 'qr_codes/events/' . $this->event->organization_id . '/ticket_' . $this->id . '.png';
+            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.png';
 
             // Generate QR code with tier color
             $qrContent = QrCode::format('png')
@@ -570,7 +569,7 @@ class Ticket extends Model
                 ->color($color['r'], $color['g'], $color['b'])
                 ->generate($verificationUrl);
 
-            Storage::disk('public')->put($filename, $qrContent);
+            Storage::disk(self::FILES_DISK)->put($filename, $qrContent);
 
             $this->update(['qr_code_path' => $filename]);
 
@@ -616,20 +615,20 @@ class Ticket extends Model
         $normalised = strtoupper(str_replace([' ', '-'], '', $code));
     
         // Try exact match first
-        return $query->where('voucher_code', $code)
+        // Grouped, so a scope added after this one (organization, event)
+        // applies to both matches.
+        return $query->where(fn ($q) => $q->where('voucher_code', $code)
                     ->orWhere(
                         \Illuminate\Support\Facades\DB::raw("REPLACE(UPPER(voucher_code), '-', '')"),
                         $normalised
-                    );
+                    ));
     }
     /**
      * Get the public URL for the QR code
      */
     public function getQrCodeUrlAttribute(): ?string
     {
-        return $this->qr_code_path 
-            ? Storage::url($this->qr_code_path) 
-            : null;
+        return $this->qr_code_path ? route('ticket.qr', $this->qr_code) : null;
     }
 
     // ===== TICKET OPERATIONS =====

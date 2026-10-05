@@ -99,6 +99,7 @@ Route::get('/events', [PublicEventController::class, 'browseAll'])
 Route::get('/ticket/{qr_code}', [TicketDownloadController::class, 'show'])->name('ticket.download');
 Route::post('/ticket/{qr_code}/update-preference', [TicketDownloadController::class, 'updatePreference'])->name('ticket.update-preference');
 Route::get('/ticket/{qr_code}/download', [TicketDownloadController::class, 'download'])->name('ticket.avatar.download');
+Route::get('/ticket/{qr_code}/qr.png', [TicketDownloadController::class, 'qr'])->name('ticket.qr');
 
 // Organization & Event Routes
 Route::prefix('org/{orgSlug}')->group(function () {
@@ -123,24 +124,30 @@ Route::prefix('register/{orgSlug}/{eventSlug}')->group(function () {
     
     // Submit registration
     Route::post('/', [RegistrationController::class, 'register'])
+        ->middleware('throttle:registrations')
         ->name('registration.submit');
     
-    // Confirmation page
-    Route::get('/confirmation/{ticketId}', [RegistrationController::class, 'confirmation'])
-        ->name('registration.confirmation');
-
-    // Payment screen (Screen 2) — online (PayLesotho) default, manual methods behind a toggle
-    Route::get('/payment/{ticketId}', [RegistrationController::class, 'payment'])
-        ->name('registration.payment');
-
-    Route::post('/payment/{ticketId}/manual', [RegistrationController::class, 'submitManualPayment'])
-        ->name('registration.payment.manual');
-
-    // After the pushes fail: paid VENTIQ's EcoCash merchant by hand.
-    Route::post('/payment/{ticketId}/merchant', [RegistrationController::class, 'submitMerchantPayment'])
-        ->middleware('throttle:10,1')
-        ->name('registration.payment.merchant');
+    // Links from before tickets had private links: the ticket's number is
+    // not a credential, so these only offer to send the private link to
+    // the ticket's own contact details.
+    Route::get('/confirmation/{ticketId}', [App\Http\Controllers\LegacyTicketLinkController::class, 'show'])->whereNumber('ticketId');
+    Route::get('/payment/{ticketId}', [App\Http\Controllers\LegacyTicketLinkController::class, 'show'])->whereNumber('ticketId');
 });
+
+// A ticket's private link (its code is the credential): pay, follow a
+// push, send proof, see what happens next. /ticket/{code} itself is the pass.
+Route::prefix('ticket/{code}')->group(function () {
+    Route::get('/pay', [RegistrationController::class, 'payment'])->name('ticket.pay');
+    Route::get('/registered', [RegistrationController::class, 'confirmation'])->name('ticket.registered');
+    Route::post('/pay/manual', [RegistrationController::class, 'submitManualPayment'])->middleware('throttle:10,1')->name('ticket.pay.manual');
+    // After the pushes fail: paid VENTIQ's EcoCash merchant by hand.
+    Route::post('/pay/merchant', [RegistrationController::class, 'submitMerchantPayment'])->middleware('throttle:10,1')->name('ticket.pay.merchant');
+    Route::post('/pay/online', [PayLesothoController::class, 'initiateTicketPayment'])->middleware('throttle:6,1')->name('ticket.pay.online');
+    Route::get('/pay/online/{session}', [PayLesothoController::class, 'ticketStatus'])->name('ticket.pay.status');
+});
+
+Route::post('/ticket-link/{ticket}', [App\Http\Controllers\LegacyTicketLinkController::class, 'send'])
+    ->whereNumber('ticket')->middleware('throttle:3,10')->name('ticket.link.send');
 
 // Registration Error Page
 Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSlug) {
@@ -158,9 +165,8 @@ Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSl
 // Installment payment routes
 Route::prefix('installment')->name('installment.')->group(function () {
     Route::get('/search', [InstallmentController::class, 'search'])->name('search');
-    Route::post('/find', [InstallmentController::class, 'find'])->name('find');
-    Route::get('/{ticket}', [InstallmentController::class, 'show'])->name('show');
-    Route::post('/{ticket}/pay', [InstallmentController::class, 'pay'])->name('pay');
+    Route::post('/find', [InstallmentController::class, 'find'])->middleware('throttle:10,1')->name('find');
+    Route::get('/{ticket}', [InstallmentController::class, 'show'])->whereNumber('ticket')->name('show');
 });
 
 
@@ -214,8 +220,6 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
 
 // ── PRIMARY GATEWAY: PayLesotho ──────────────────────────────────
 Route::prefix('payment/paylesotho')->name('paylesotho.')->group(function () {
-    Route::post('/ticket/initiate', [PayLesothoController::class, 'initiateTicketPayment'])
-        ->name('ticket.initiate');
     Route::get('/status/{session}', [PayLesothoController::class, 'status'])
         ->name('status');
     Route::post('/callback/{method}', [PayLesothoController::class, 'callback'])

@@ -73,6 +73,10 @@
                         Pay or submit your payment
                     </a>
                 </div>
+            @elseif($ticket->status === 'pending')
+                <div class="px-8 pb-8 text-center">
+                    <a href="{{ $paymentUrl }}" class="text-[11px] font-bold text-gray-400 hover:text-[#1D4069]">Something wrong? Send proof or pay another way</a>
+                </div>
             @endif
         </div>
 

@@ -283,11 +283,7 @@ class MopayController extends Controller
             DB::rollBack();
             Log::error('MoPay ticket initiation failed', ['ticket_id' => $ticket->id, 'error' => $e->getMessage()]);
 
-            return redirect()->route('registration.confirmation', [
-                'orgSlug'   => $ticket->event->organization->slug,
-                'eventSlug' => $ticket->event->slug,
-                'ticketId'  => $ticket->id,
-            ])->with('error', 'Could not initiate payment. Please try another method.');
+            return redirect()->route('ticket.registered', $ticket->qr_code)->with('error', 'Could not initiate payment. Please try another method.');
         }
     }
 
@@ -316,11 +312,7 @@ class MopayController extends Controller
             return redirect('/')->with('error', 'Ticket not found.');
         }
 
-        $confirmationRoute = route('registration.confirmation', [
-            'orgSlug'   => $ticket->event->organization->slug,
-            'eventSlug' => $ticket->event->slug,
-            'ticketId'  => $ticket->id,
-        ]);
+        $confirmationRoute = route('ticket.registered', $ticket->qr_code);
 
         try {
             $verified = $this->mopay->verifySession($sessionId);

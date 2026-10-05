@@ -213,7 +213,7 @@
                             </ol>
                             <p class="text-gray-500 font-medium">Then tell us below, so we can match it and send your ticket.</p>
                         </div>
-                        <form method="POST" action="{{ route('registration.payment.merchant', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" enctype="multipart/form-data" class="space-y-4">
+                        <form method="POST" action="{{ route('ticket.pay.merchant', $ticket->qr_code) }}" enctype="multipart/form-data" class="space-y-4">
                             @csrf
                             <div>
                                 <label for="merchant_phone" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Number you paid from</label>
@@ -267,13 +267,13 @@
             @endif
 
             <div id="manual-panel" class="accordion-panel {{ $onlineEnabled ? '' : 'open' }}">
-                <form method="POST" action="{{ route('registration.payment.manual', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug, 'ticketId' => $ticket->id]) }}" enctype="multipart/form-data" class="p-6 sm:p-8 pt-0 space-y-6">
+                <form method="POST" action="{{ route('ticket.pay.manual', $ticket->qr_code) }}" enctype="multipart/form-data" class="p-6 sm:p-8 pt-0 space-y-6">
                     @csrf
 
                     @if($paymentMethods->isNotEmpty())
 
                         {{-- Payment Plan (Full vs Installments) --}}
-                        @if($event->allow_installments)
+                        @if($event->allow_installments && (float) $ticket->amount_paid <= 0)
                         <div class="space-y-4">
                             <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Plan</label>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -281,7 +281,7 @@
                                     <input type="radio" name="payment_type" value="full" class="peer sr-only" checked required>
                                     <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-[#1D4069] peer-checked:bg-white peer-checked:shadow-xl">
                                         <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Full Amount</h4>
-                                        <p class="text-2xl font-black text-[#F07F22] mt-1">M{{ number_format($ticket->amount) }}</p>
+                                        <p class="text-2xl font-black text-[#F07F22] mt-1">M{{ number_format($owed) }}</p>
                                     </div>
                                 </label>
                                 <label class="relative cursor-pointer group">
@@ -501,7 +501,7 @@
         };
         const onlineError = document.getElementById('online-error');
         const ticketUrl = @json(route('ticket.download', ['qr_code' => $ticket->qr_code]));
-        const statusUrlFor = id => @json(route('paylesotho.status', ['session' => '__SESSION__'])).replace('__SESSION__', id);
+        const statusUrlFor = id => @json(route('ticket.pay.status', ['code' => $ticket->qr_code, 'session' => '__SESSION__'])).replace('__SESSION__', id);
         const MAX_TRIES = {{ (int) config('gateways.paylesotho.max_attempts', 3) }};
         let WAIT_S = {{ (int) config('gateways.paylesotho.page_wait_seconds', 90) }};
         let attemptsLeft = {{ (int) $attemptsLeft }};
@@ -610,10 +610,10 @@
             button.textContent = 'Sending…';
             const reset = () => { button.disabled = false; button.textContent = 'Send Payment Request'; };
 
-            fetch(@json(route('paylesotho.ticket.initiate')), {
+            fetch(@json(route('ticket.pay.online', $ticket->qr_code)), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-                body: JSON.stringify({ ticket_id: {{ $ticket->id }}, method: selectedMethod, mobile_number: '+266' + digits }),
+                body: JSON.stringify({ method: selectedMethod, mobile_number: '+266' + digits }),
             })
                 .then(res => res.json().then(data => ({ ok: res.ok, data })))
                 .then(function({ ok, data }) {

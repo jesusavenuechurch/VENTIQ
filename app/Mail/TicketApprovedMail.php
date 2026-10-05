@@ -48,9 +48,9 @@ class TicketApprovedMail extends Mailable
 
     public function attachments(): array
     {
-        if ($this->ticket->avatar_path && Storage::disk('public')->exists($this->ticket->avatar_path)) {
+        if ($this->ticket->avatar_path && Storage::disk(\App\Models\Ticket::FILES_DISK)->exists($this->ticket->avatar_path)) {
             return [
-                Attachment::fromStorageDisk('public', $this->ticket->avatar_path)
+                Attachment::fromStorageDisk(\App\Models\Ticket::FILES_DISK, $this->ticket->avatar_path)
                     ->as("Ventiq-{$this->ticket->ticket_number}.pdf")
                     ->withMime('application/pdf'),
             ];

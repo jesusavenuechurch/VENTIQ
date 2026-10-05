@@ -98,14 +98,10 @@
                     </div>
 
                     <div class="bg-white p-4 rounded-3xl shadow-md border border-slate-200 w-44 h-44 flex items-center justify-center">
-                        @if($ticket->qr_code_path)
-                            <img src="{{ Storage::url($ticket->qr_code_path) }}" 
-                                 crossorigin="anonymous" 
-                                 alt="QR Code" 
-                                 class="w-full h-full aspect-square object-contain">
-                        @else
-                            <i class="fas fa-qrcode text-slate-200 text-5xl"></i>
-                        @endif
+                        <img src="{{ route('ticket.qr', $ticket->qr_code) }}"
+                             crossorigin="anonymous"
+                             alt="QR Code"
+                             class="w-full h-full aspect-square object-contain">
                     </div>
 
                     <div class="mt-8 text-center">

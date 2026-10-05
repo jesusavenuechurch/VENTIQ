@@ -36,11 +36,7 @@ class TicketPendingMail extends Mailable
                 'organization' => $this->ticket->event->organization,
                 'paymentMethods' => $this->paymentMethods,
                 'ticketUrl'      => route('ticket.download', $this->ticket->qr_code),
-                'paymentUrl'     => route('registration.payment', [
-                    'orgSlug'   => $this->ticket->event->organization->slug,
-                    'eventSlug' => $this->ticket->event->slug,
-                    'ticketId'  => $this->ticket->id,
-                ]),
+                'paymentUrl'     => route('ticket.pay', $this->ticket->qr_code),
             ]);
     }
 }

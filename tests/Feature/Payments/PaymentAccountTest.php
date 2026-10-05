@@ -46,7 +46,7 @@ function accountTicket(object $t): Ticket
 
 function manualPaymentUrl(object $t, Ticket $ticket): string
 {
-    return "/register/{$t->org->slug}/{$t->event->slug}/payment/{$ticket->id}/manual";
+    return "/ticket/{$ticket->qr_code}/pay/manual";
 }
 
 it('keeps one default per method', function () {
@@ -106,7 +106,7 @@ it('shows attendees only the event\'s accounts, labelled by account name', funct
     $this->event->update(['enabled_payment_method_ids' => [$this->online->id, $this->eventsAccount->id, $this->fnb->id]]);
     $ticket = accountTicket($this);
 
-    $this->get("/register/{$this->org->slug}/{$this->event->slug}/payment/{$ticket->id}")
+    $this->get("/ticket/{$ticket->qr_code}/pay")
         ->assertOk()
         ->assertSee('EcoCash — Events Account')
         ->assertSee('Conference Account')
@@ -133,7 +133,7 @@ it('shows the instructions of the account actually paid into', function () {
 
     $this->post(manualPaymentUrl($this, $ticket), ['payment_method_id' => $this->mainAccount->id, 'payment_reference' => 'REF9']);
 
-    $this->get("/register/{$this->org->slug}/{$this->event->slug}/confirmation/{$ticket->id}")
+    $this->get("/ticket/{$ticket->qr_code}/registered")
         ->assertOk()
         ->assertSee('Pay the Main line')
         ->assertDontSee('Pay the Events line');
@@ -143,8 +143,8 @@ it('refuses online payment when the event does not offer it', function () {
     $this->event->update(['enabled_payment_method_ids' => [$this->fnb->id]]);
     $ticket = accountTicket($this);
 
-    $this->postJson('/payment/paylesotho/ticket/initiate', [
-        'ticket_id' => $ticket->id, 'method' => 'ecocash', 'mobile_number' => '+26650001234',
+    $this->postJson("/ticket/{$ticket->qr_code}/pay/online", [
+        'method' => 'ecocash', 'mobile_number' => '+26650001234',
     ])->assertUnprocessable()->assertJsonPath('message', 'Online payment is not available for this event.');
 });
 

@@ -196,9 +196,9 @@
                     <div class="qr-box">
                         @if($ticket->qr_code_path)
                             @php
-                                $path = storage_path('app/public/' . $ticket->qr_code_path);
+                                $path = \Illuminate\Support\Facades\Storage::disk(\App\Models\Ticket::FILES_DISK)->path($ticket->qr_code_path);
                                 $type = pathinfo($path, PATHINFO_EXTENSION);
-                                $data = file_get_contents($path);
+                                $data = @file_get_contents($path) ?: '';
                                 $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
                             @endphp
                             <img src="{{ $base64 }}" class="qr-img">

@@ -41,7 +41,32 @@ class AttendeeNotifier
             ],
             actionText: 'Pay now',
             actionUrl: $this->paymentUrl($ticket),
+            whatsappParams: [$ticket->client?->full_name, $ticket->event->name, $this->heldUntil($ticket)],
         );
+    }
+
+    /**
+     * An online payment failed or got no answer and the attendee hasn't
+     * paid since (sent once per ticket, by tickets:payment-follow-ups).
+     */
+    public function paymentFailed(Ticket $ticket): void
+    {
+        $this->send($ticket, 'payment_failed',
+            subject: "Your payment didn't go through: {$ticket->event->name}",
+            lines: [
+                "Your payment for {$ticket->event->name} didn't go through, so your ticket isn't active yet.",
+                "Your place is held until {$this->heldUntil($ticket)}.",
+                'You can try again, pay another way, or send us proof if you did pay.',
+            ],
+            actionText: 'Finish paying',
+            actionUrl: $this->paymentUrl($ticket),
+            whatsappParams: [$ticket->client?->full_name, $ticket->event->name, $this->heldUntil($ticket)],
+        );
+    }
+
+    private function heldUntil(Ticket $ticket): string
+    {
+        return $ticket->payment_due_at?->format('j M, H:i') ?? 'the event';
     }
 
     public function paymentWindowExpired(Ticket $ticket): void
@@ -59,14 +84,10 @@ class AttendeeNotifier
 
     private function paymentUrl(Ticket $ticket): string
     {
-        return route('registration.payment', [
-            'orgSlug'   => $ticket->event->organization->slug,
-            'eventSlug' => $ticket->event->slug,
-            'ticketId'  => $ticket->id,
-        ]);
+        return route('ticket.pay', $ticket->qr_code);
     }
 
-    private function send(Ticket $ticket, string $template, string $subject, array $lines, string $actionText, string $actionUrl): void
+    private function send(Ticket $ticket, string $template, string $subject, array $lines, string $actionText, string $actionUrl, ?array $whatsappParams = null): void
     {
         $ticket->loadMissing(['client', 'event.organization']);
 
@@ -86,7 +107,7 @@ class AttendeeNotifier
                 $sent = app(WhatsAppCloudService::class)->sendTemplate(
                     to: $ticket->client->phone,
                     templateName: $templateName,
-                    bodyParams: [$ticket->client->full_name, $ticket->event->name],
+                    bodyParams: array_map('strval', $whatsappParams ?? [$ticket->client->full_name, $ticket->event->name]),
                     buttonUrlSuffix: $ticket->qr_code,
                 );
 

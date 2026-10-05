@@ -95,13 +95,13 @@ class WhatsAppController extends Controller
             // Get QR code image path
             $qrCodePath = $ticket->qr_code_path;
             
-            if (!$qrCodePath || !Storage::disk('public')->exists($qrCodePath)) {
+            if (!$qrCodePath || !Storage::disk(Ticket::FILES_DISK)->exists($qrCodePath)) {
                 Log::warning("QR code not found for ticket {$ticket->ticket_number}, sending without image");
                 return $this->sendMessage($phone, $message);
             }
 
             // Get full URL to QR code
-            $qrCodeUrl = Storage::disk('public')->url($qrCodePath);
+            $qrCodeUrl = route('ticket.qr', $ticket->qr_code);
             
             // Send message with media
             $sent = $this->sendMessageWithMedia($phone, $message, $qrCodeUrl);

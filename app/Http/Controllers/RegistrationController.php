@@ -95,7 +95,7 @@ class RegistrationController extends Controller
                     $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
                 }
 
-                return redirect()->route('registration.payment', ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug, 'ticketId' => $held->id])
+                return redirect()->route('ticket.pay', $held->qr_code)
                     ->with('status', "Welcome back! Here's the ticket you started, ready to pay.");
             }
         }
@@ -229,18 +229,10 @@ class RegistrationController extends Controller
 
             // ── Route: paid tickets go to the payment screen, free tickets go straight to confirmation ──
             if (!$isFree) {
-                return redirect()->route('registration.payment', [
-                    'orgSlug'   => $orgSlug,
-                    'eventSlug' => $eventSlug,
-                    'ticketId'  => $createdTickets[0]->id,
-                ]);
+                return redirect()->route('ticket.pay', $createdTickets[0]->qr_code);
             }
 
-            return redirect()->route('registration.confirmation', [
-                'orgSlug'  => $orgSlug,
-                'eventSlug'=> $eventSlug,
-                'ticketId' => $createdTickets[0]->id,
-            ])->with('all_tickets', $createdTickets);
+            return redirect()->route('ticket.registered', $createdTickets[0]->qr_code)->with('all_tickets', $createdTickets);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -249,17 +241,9 @@ class RegistrationController extends Controller
         }
     }
 
-    public function confirmation($orgSlug, $eventSlug, $ticketId)
+    public function confirmation(string $code)
     {
-        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
-
-        $event = Event::where('slug', $eventSlug)
-            ->where('organization_id', $organization->id)
-            ->firstOrFail();
-
-        $ticket = Ticket::with(['client', 'tier', 'payments'])
-            ->where('event_id', $event->id)
-            ->findOrFail($ticketId);
+        [$ticket, $event, $organization] = $this->ticketByCode($code, ['client', 'tier', 'payments']);
 
         $allTickets = collect(session('all_tickets', [$ticket]));
 
@@ -307,17 +291,9 @@ class RegistrationController extends Controller
      * behind a "pay another way" toggle. Driven entirely by ticket ID + current
      * payment_status, so it's safe to reload at any point.
      */
-    public function payment($orgSlug, $eventSlug, $ticketId)
+    public function payment(string $code)
     {
-        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
-
-        $event = Event::where('slug', $eventSlug)
-            ->where('organization_id', $organization->id)
-            ->firstOrFail();
-
-        $ticket = Ticket::with(['client', 'tier', 'event'])
-            ->where('event_id', $event->id)
-            ->findOrFail($ticketId);
+        [$ticket, $event, $organization] = $this->ticketByCode($code, ['client', 'tier']);
 
         if ($ticket->payment_status === 'completed') {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
@@ -355,13 +331,9 @@ class RegistrationController extends Controller
      * payments to check"); confirming it activates the ticket like any
      * online sale.
      */
-    public function submitMerchantPayment(Request $request, $orgSlug, $eventSlug, $ticketId)
+    public function submitMerchantPayment(Request $request, string $code)
     {
-        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
-        $event = Event::where('slug', $eventSlug)->where('organization_id', $organization->id)->firstOrFail();
-        $ticket = Ticket::with(['client', 'event'])->where('event_id', $event->id)->findOrFail($ticketId);
-
-        $back = ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug, 'ticketId' => $ticket->id];
+        [$ticket, $event, $organization] = $this->ticketByCode($code, ['client']);
 
         if ($ticket->payment_status === 'completed') {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
@@ -410,7 +382,7 @@ class RegistrationController extends Controller
         // Waiting on VENTIQ now, not on the attendee: don't let it expire.
         $ticket->update(['payment_due_at' => null]);
 
-        return redirect()->route('registration.confirmation', $back)->with('all_tickets', [$ticket]);
+        return redirect()->route('ticket.registered', $ticket->qr_code)->with('all_tickets', [$ticket]);
     }
 
     /**
@@ -419,17 +391,9 @@ class RegistrationController extends Controller
      * was already created at registration time, this just records the chosen method,
      * reference, and (if the event allows installments) the deposit amount.
      */
-    public function submitManualPayment(Request $request, $orgSlug, $eventSlug, $ticketId)
+    public function submitManualPayment(Request $request, string $code)
     {
-        $organization = Organization::where('slug', $orgSlug)->firstOrFail();
-
-        $event = Event::where('slug', $eventSlug)
-            ->where('organization_id', $organization->id)
-            ->firstOrFail();
-
-        $ticket = Ticket::with(['tier', 'payments'])
-            ->where('event_id', $event->id)
-            ->findOrFail($ticketId);
+        [$ticket, $event, $organization] = $this->ticketByCode($code, ['tier', 'payments']);
 
         if ($ticket->payment_status === 'completed') {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
@@ -466,22 +430,21 @@ class RegistrationController extends Controller
             ]);
         }
 
-        $tier                = $ticket->tier;
-        $quantityPerPurchase = $tier->quantity_per_purchase ?? 1;
-        $paymentAmount       = $tier->price;
-        $paymentType         = 'full';
-
-        if ($event->allow_installments && ($validated['payment_type'] ?? 'full') === 'deposit') {
-            $minimumDeposit = ($tier->price * ($event->minimum_deposit_percentage ?? 30)) / 100;
-            $depositAmount  = $validated['deposit_amount'] ?? $minimumDeposit;
-            $paymentAmount  = max($minimumDeposit, min($depositAmount, $tier->price));
-            $paymentType    = 'deposit';
-        }
-
         // A group ticket (admissions = N) pays the whole tier price. Older
         // group purchases were split into one ticket per person, each
-        // paying its share.
-        $paymentPerTicket = $paymentAmount * max(1, (int) $ticket->admissions) / max(1, $quantityPerPurchase);
+        // paying its share. What's already been paid (a deposit) comes off.
+        $tier        = $ticket->tier;
+        $fullPrice   = $tier->price * max(1, (int) $ticket->admissions) / max(1, $tier->quantity_per_purchase ?? 1);
+        $owed        = round(max(0, $fullPrice - (float) $ticket->amount_paid), 2);
+        $paymentPerTicket = $owed;
+        $paymentType = (float) $ticket->amount_paid > 0 ? 'installment' : 'full';
+
+        if ($event->allow_installments && ($validated['payment_type'] ?? 'full') === 'deposit' && (float) $ticket->amount_paid <= 0) {
+            $minimumDeposit   = $fullPrice * ($event->minimum_deposit_percentage ?? 30) / 100;
+            $depositAmount    = $validated['deposit_amount'] ?? $minimumDeposit;
+            $paymentPerTicket = round(max($minimumDeposit, min($depositAmount, $owed)), 2);
+            $paymentType      = 'deposit';
+        }
 
         // Registration leaves one pending row to fill in. After a
         // rejection there isn't one, so resubmitting starts a new row
@@ -528,11 +491,21 @@ class RegistrationController extends Controller
             }
         }
 
-        return redirect()->route('registration.confirmation', [
-            'orgSlug'   => $orgSlug,
-            'eventSlug' => $eventSlug,
-            'ticketId'  => $ticket->id,
-        ])->with('all_tickets', [$ticket]);
+        return redirect()->route('ticket.registered', $ticket->qr_code)->with('all_tickets', [$ticket]);
+    }
+
+    /**
+     * The ticket behind a private link. The code is the credential: the
+     * pages it opens show the attendee's details and can start payments,
+     * so they are never reachable by the ticket's number.
+     *
+     * @return array{0: Ticket, 1: Event, 2: Organization}
+     */
+    private function ticketByCode(string $code, array $with = []): array
+    {
+        $ticket = Ticket::with(array_merge(['event.organization'], $with))->where('qr_code', $code)->firstOrFail();
+
+        return [$ticket, $ticket->event, $ticket->event->organization];
     }
 
     private function determinePreferredDelivery(Request $request, array $validated): string

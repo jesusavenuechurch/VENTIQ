@@ -220,7 +220,7 @@ describe('manual payment submission', function () {
             'account_number'  => '62500000',
             'is_active'       => true,
         ]);
-        $this->url = fn (Ticket $t) => "/register/{$this->org->slug}/{$this->event->slug}/payment/{$t->id}/manual";
+        $this->url = fn (Ticket $t) => "/ticket/{$t->qr_code}/pay/manual";
     });
 
     it('creates a new pending payment when resubmitting after a rejection', function () {

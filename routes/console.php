@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 // Payment windows: release unpaid places and send halfway reminders.
 // Needs the scheduler running (`php artisan schedule:run` every minute).
 \Illuminate\Support\Facades\Schedule::command('tickets:expire-unpaid')->everyFifteenMinutes()->withoutOverlapping();
+
+// Online payments that failed and weren't finished: a nudge with the ticket link.
+\Illuminate\Support\Facades\Schedule::command('tickets:payment-follow-ups')->everyFiveMinutes()->withoutOverlapping();

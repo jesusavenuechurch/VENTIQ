@@ -243,7 +243,7 @@ describe('notifications', function () {
         Notification::assertNothingSent();
 
         $ticket = Ticket::latest('id')->first();
-        $this->post("/register/{$this->org->slug}/{$this->event->slug}/payment/{$ticket->id}/manual", [
+        $this->post("/ticket/{$ticket->qr_code}/pay/manual", [
             'payment_method_id' => $this->account->id, 'payment_reference' => 'REF77',
         ]);
 

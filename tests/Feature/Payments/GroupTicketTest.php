@@ -108,7 +108,7 @@ it('records the account, source and time of a direct payment, and stops the cloc
     $ticket = Ticket::first();
     expect($ticket->payment_due_at)->not->toBeNull();
 
-    $this->post("/register/{$this->org->slug}/{$this->event->slug}/payment/{$ticket->id}/manual", [
+    $this->post("/ticket/{$ticket->qr_code}/pay/manual", [
         'payment_method_id' => $events->id,
         'payment_reference' => 'ABC123',
     ])->assertSessionHasNoErrors();
@@ -185,8 +185,8 @@ it('offers only the online drivers that are switched on', function () {
 
     expect(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())->toBe(['ecocash']);
 
-    $this->postJson('/payment/paylesotho/ticket/initiate', [
-        'ticket_id' => $ticket->id, 'method' => 'mpesa', 'mobile_number' => '+26650001234',
+    $this->postJson("/ticket/{$ticket->qr_code}/pay/online", [
+        'method' => 'mpesa', 'mobile_number' => '+26650001234',
     ])->assertUnprocessable()->assertJsonValidationErrors('method');
 
     config(['gateways.paylesotho.enabled' => false]);

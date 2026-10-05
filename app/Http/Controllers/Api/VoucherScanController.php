@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
  
 class VoucherScanController extends Controller
 {
+    use Concerns\ScopesScannerToOrganization;
+
     /**
      * Look up a ticket by voucher code.
      * Returns ticket details so the scanner can show a confirmation screen
@@ -19,9 +21,10 @@ class VoucherScanController extends Controller
     {
         $request->validate([
             'voucher_code' => 'required|string|min:4|max:10',
+            'event_id'     => 'nullable|integer',
         ]);
  
-        $ticket = Ticket::byVoucherCode($request->voucher_code)
+        $ticket = $this->scopeToScanner(Ticket::byVoucherCode($request->voucher_code), $request->integer('event_id') ?: null)
             ->with(['client', 'event', 'tier'])
             ->first();
  
@@ -62,9 +65,10 @@ class VoucherScanController extends Controller
         $request->validate([
             'voucher_code' => 'required|string|min:4|max:10',
             'scanned_by'   => 'nullable|integer|exists:users,id',
+            'event_id'     => 'nullable|integer',
         ]);
  
-        $ticket = Ticket::byVoucherCode($request->voucher_code)
+        $ticket = $this->scopeToScanner(Ticket::byVoucherCode($request->voucher_code), $request->integer('event_id') ?: null)
             ->with(['client', 'event', 'tier'])
             ->first();
  

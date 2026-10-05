@@ -32,8 +32,8 @@ beforeEach(function () {
     ]);
     TicketPayment::create(['ticket_id' => $this->ticket->id, 'amount' => 200, 'status' => 'pending', 'payment_type' => 'full']);
 
-    $this->pay = fn () => $this->postJson(route('paylesotho.ticket.initiate'), [
-        'ticket_id' => $this->ticket->id, 'method' => 'ecocash', 'mobile_number' => '+26662552155',
+    $this->pay = fn () => $this->postJson(route('ticket.pay.online', $this->ticket->qr_code), [
+        'method' => 'ecocash', 'mobile_number' => '+26662552155',
     ]);
     // Run the background wait the way it runs after the response.
     $this->answer = function (PaymentSession $session) {
@@ -41,7 +41,7 @@ beforeEach(function () {
 
         return $session->fresh();
     };
-    $this->paymentPage = route('registration.payment', ['orgSlug' => $this->org->slug, 'eventSlug' => $this->event->slug, 'ticketId' => $this->ticket->id]);
+    $this->paymentPage = route('ticket.pay', $this->ticket->qr_code);
 });
 
 it('sends the push in the background and activates the ticket on a 200', function () {
@@ -57,7 +57,7 @@ it('sends the push in the background and activates the ticket on a 200', functio
         ->and($session->transaction_id)->toBe('PL-1')
         ->and($this->ticket->fresh()->status)->toBe('active')
         ->and(SettlementItem::where('payment_session_id', $session->id)->exists())->toBeTrue();
-    $this->getJson(route('paylesotho.status', $session))->assertJson(['status' => 'completed']);
+    $this->getJson(route('ticket.pay.status', [$this->ticket->qr_code, $session]))->assertJson(['status' => 'completed']);
 });
 
 it('tells the attendee why on a 415, and counts the try', function () {
@@ -67,7 +67,7 @@ it('tells the attendee why on a 415, and counts the try', function () {
     $session = ($this->answer)(PaymentSession::sole());
 
     expect($session->status)->toBe('failed')->and($this->ticket->fresh()->status)->toBe('pending');
-    $this->getJson(route('paylesotho.status', $session))
+    $this->getJson(route('ticket.pay.status', [$this->ticket->qr_code, $session]))
         ->assertJson(['status' => 'failed', 'attempts_left' => 2])
         ->assertJsonPath('message', fn ($m) => str_contains($m, 'balance may be too low'));
 });
@@ -106,7 +106,7 @@ it('follows the push on the phone, then allows 3 tries and no more', function ()
 });
 
 it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', function () {
-    $this->post(route('registration.payment.merchant', ['orgSlug' => $this->org->slug, 'eventSlug' => $this->event->slug, 'ticketId' => $this->ticket->id]), [
+    $this->post(route('ticket.pay.merchant', $this->ticket->qr_code), [
         'merchant_phone' => '62552155', 'proof' => UploadedFile::fake()->image('ecocash.png'),
     ])->assertRedirect();
 
@@ -130,7 +130,7 @@ it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', f
 });
 
 it('needs a reference or a screenshot to pay the merchant by hand', function () {
-    $this->post(route('registration.payment.merchant', ['orgSlug' => $this->org->slug, 'eventSlug' => $this->event->slug, 'ticketId' => $this->ticket->id]), [
+    $this->post(route('ticket.pay.merchant', $this->ticket->qr_code), [
         'merchant_phone' => '62552155',
     ])->assertSessionHasErrors('merchant_reference');
 });
@@ -161,7 +161,7 @@ it('lists money paid for a ticket that was already paid, to refund', function ()
 it('accepts a screenshot instead of a reference when paying the organizer', function () {
     $account = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_number' => '62000000', 'is_active' => true]);
 
-    $this->post(route('registration.payment.manual', ['orgSlug' => $this->org->slug, 'eventSlug' => $this->event->slug, 'ticketId' => $this->ticket->id]), [
+    $this->post(route('ticket.pay.manual', $this->ticket->qr_code), [
         'payment_method_id' => $account->id, 'payment_type' => 'full', 'proof' => UploadedFile::fake()->image('paid.jpg'),
     ])->assertRedirect();
 
