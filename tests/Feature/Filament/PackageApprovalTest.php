@@ -7,6 +7,8 @@ use function Pest\Livewire\livewire;
 
 describe('Package Approval — Chain Reaction', function () {
 
+    beforeEach(fn () => $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class));
+
     it('approving a package activates it and expires the old one', function () {
         $admin        = createSuperAdmin();
         [$org, $user] = createOrgWithFreeTrial(); // Has active free trial
