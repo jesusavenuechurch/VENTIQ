@@ -6,12 +6,14 @@
     $label = 'block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1';
     $logoUrl = $organization->logo_path ? Storage::url($organization->logo_path) : null;
 @endphp
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Settings',
         'subtitle' => 'Who\'s hosting: the name, logo and contact details attendees see on your events and tickets.',
+        'subnav'   => 'organizer.partials.settings-nav',
     ])
-    @include('organizer.partials.settings-nav')
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-3xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -108,5 +110,6 @@
         @endif
         </fieldset>
     </form>
+    </div>
 </div>
 @endsection

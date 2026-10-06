@@ -8,11 +8,13 @@
     $canEdit   = auth()->user()->can('edit_payment_method');
     $canDelete = auth()->user()->can('delete_payment_method');
 @endphp
-<div class="max-w-3xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Payment accounts',
         'subtitle' => 'Where attendees can pay you directly. Add as many as you need; each event chooses which to offer, starting from your defaults.',
     ])
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-3xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -113,6 +115,7 @@
                 No accounts yet. Add one so attendees can pay you directly, or use online payment through VENTIQ.
             </div>
         @endforelse
+    </div>
     </div>
 </div>
 @endsection

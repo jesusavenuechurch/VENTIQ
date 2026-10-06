@@ -6,11 +6,13 @@
     $label = 'block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1';
     $card  = 'bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6 sm:p-8';
 @endphp
-<div class="max-w-3xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Import a guest list',
         'subtitle' => $event->name . ' · tickets for many people at once, from a spreadsheet.',
     ])
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-3xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -134,5 +136,6 @@
             <a href="{{ route('organizer.events.guests.create', $event) }}" wire:navigate class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Fix the file and upload again</a>
         </div>
     @endif
+    </div>
 </div>
 @endsection

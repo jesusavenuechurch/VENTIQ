@@ -6,12 +6,14 @@
     $label = 'block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1';
     $selected = (int) old('event_tier_id', $tiers->firstWhere('is_full', false)?->id);
 @endphp
-<div class="max-w-2xl mx-auto px-4 py-8"
+<div class="max-w-5xl mx-auto px-4 py-8"
      x-data="{ tier: {{ $selected ?: 'null' }}, people: @js($tiers->mapWithKeys(fn ($t) => [$t->id => max(1, (int) ($t->quantity_per_purchase ?? 1))])) }">
     @include('organizer.partials.header', [
         'title'    => 'Complimentary ticket',
         'subtitle' => $event->name . ' · free entry for a speaker, sponsor or guest. It\'s active straight away.',
     ])
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-3xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -85,5 +87,6 @@
             <a href="{{ route('organizer.events.attendees', $event) }}" wire:navigate class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Cancel</a>
         </div>
     </form>
+    </div>
 </div>
 @endsection

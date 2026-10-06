@@ -6,13 +6,14 @@
     $label = 'block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1';
     $roleBadge = ['org_admin' => 'bg-brand text-white', 'staff' => 'bg-mint text-mint-ink', 'scanner' => 'bg-action-soft text-action-ink', 'viewer' => 'bg-slate-100 text-slate-500'];
 @endphp
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Settings',
         'subtitle' => 'The people who make your events happen, and what each of them can do.',
+        'subnav'   => 'organizer.partials.settings-nav',
     ])
-
-    @include('organizer.partials.settings-nav')
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-4xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -133,6 +134,7 @@
             </div>
             <p class="text-[10px] text-gray-400 px-2">Avatars: <a href="https://www.figma.com/community/file/881358461963645496" target="_blank" rel="noopener" class="underline">Big Smile</a> by Ashley Seo, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline">CC BY 4.0</a>, via DiceBear.</p>
         </div>
+    </div>
     </div>
 </div>
 @endsection

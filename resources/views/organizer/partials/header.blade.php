@@ -15,13 +15,9 @@
     </div>
 @endif
 
+{{-- Same frame on every page: the organization and the tabs sit at the
+     top in the same place, and only what's below them changes. --}}
 <div class="mb-8">
-    <p class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] mb-1">Ventiq · {{ $currentOrganization->name }}</p>
-    <h1 class="text-2xl font-black text-[#1D4069] tracking-tight">{{ $title }}</h1>
-    @isset($subtitle)
-        <p class="text-[13px] font-medium text-gray-500 mt-1">{{ $subtitle }}</p>
-    @endisset
-
     @php
         // The public site is the logo in the top bar; Sessions is in the account menu.
         $toConfirm = $paymentsToConfirm();
@@ -37,12 +33,14 @@
         }
     @endphp
 
-    {{-- Wider screens: a row of tabs under the title. --}}
-    <nav class="mt-5 hidden sm:flex flex-wrap items-center gap-2">
+    <p class="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Ventiq · {{ $currentOrganization->name }}</p>
+
+    {{-- Wider screens: the row of tabs, always first. --}}
+    <nav class="mt-3 pb-5 mb-6 border-b border-gray-100 hidden sm:flex flex-wrap items-center gap-2">
         @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
             <a href="{{ route($route) }}" wire:navigate.hover
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
-                      {{ request()->routeIs(...explode('|', $active)) ? 'bg-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
+                      {{ request()->routeIs(...explode('|', $active)) ? 'bg-brand border border-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 <i class="fas {{ $icon }} mr-1"></i>{{ $label }}
                 @if($badge)
                     <span class="ml-1 inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full bg-action text-white text-[10px] tracking-normal">{{ $badge }}</span>
@@ -50,6 +48,17 @@
             </a>
         @endforeach
     </nav>
+
+    <h1 class="mt-4 sm:mt-0 text-2xl font-black text-[#1D4069] tracking-tight">{{ $title }}</h1>
+
+    {{-- Sections of this area (Settings), right under its unchanging title. --}}
+    @isset($subnav)
+        <div class="mt-4">@include($subnav)</div>
+    @endisset
+
+    @isset($subtitle)
+        <p class="text-[13px] font-medium text-gray-500 {{ isset($subnav) ? '' : 'mt-1' }}">{{ $subtitle }}</p>
+    @endisset
 
     @if(session('status'))
         <div class="mt-6 p-4 rounded-2xl bg-mint border border-mint text-[12px] font-bold text-mint-ink">

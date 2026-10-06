@@ -6,7 +6,7 @@
         ['organizer.team.index',        'Team',         'fa-user-group',   'organizer.team.*'],
     ];
 @endphp
-<nav class="mb-6 flex gap-1 p-1 rounded-2xl bg-slate-100 w-full sm:w-fit overflow-x-auto no-scrollbar" aria-label="Settings">
+<nav class="mb-4 flex gap-1 p-1 rounded-2xl bg-slate-100 w-full sm:w-fit overflow-x-auto no-scrollbar" aria-label="Settings">
     @foreach($sections as [$route, $label, $icon, $active])
         @php $on = request()->routeIs($active); @endphp
         <a href="{{ route($route) }}" wire:navigate.hover @if($on) aria-current="page" @endif

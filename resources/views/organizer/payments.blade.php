@@ -1,11 +1,13 @@
 @extends('layouts.app')
 @section('title', 'Payments to confirm | VENTIQ')
 @section('content')
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
         'title'    => 'Payments to confirm',
         'subtitle' => 'These people paid you directly. Check the money arrived, then send them their ticket.',
     ])
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-4xl">
 
     @if(!$canDecide)
         <div class="mb-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-[12px] font-medium text-gray-500">
@@ -27,6 +29,7 @@
                 <p class="text-[13px] font-medium text-gray-500 mt-1">Nobody's waiting on you. When someone pays you directly, they'll show up here and we'll email you.</p>
             </div>
         @endforelse
+    </div>
     </div>
 </div>
 @endsection

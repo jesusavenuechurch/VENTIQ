@@ -7,7 +7,7 @@
     $card  = 'bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6 sm:p-8';
     $driverLabels = collect($onlineDrivers)->map(fn ($d) => config("constants.payment_methods.{$d}.label", ucfirst($d)))->all();
 @endphp
-<div class="max-w-3xl mx-auto px-4 py-8"
+<div class="max-w-5xl mx-auto px-4 py-8"
      x-data="{
         name: @js(old('name', $event->name)),
         tagline: @js(old('tagline', $event->tagline)),
@@ -31,6 +31,8 @@
         'title'    => $event->exists ? 'Edit event' : 'Create an event',
         'subtitle' => $event->exists ? $event->name : 'Fill in the details, choose how people pay, and publish when ready.',
     ])
+    {{-- Narrower than the page frame, left-aligned under the tabs. --}}
+    <div class="max-w-3xl">
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
@@ -355,5 +357,6 @@
     @endif
 
     @livewire('ventiq-assist.event-description-assist')
+    </div>
 </div>
 @endsection
