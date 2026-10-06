@@ -212,6 +212,9 @@
       @contact-open.window="showChat = true"
       @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key === 'k') { $event.preventDefault(); openSearch(); }">
 
+{{-- Kept across wire:navigate swaps (organizer tabs): the copy already on
+     screen has been dismissed, so a tab switch never shows it again. --}}
+@persist('page-loader')
 <div id="page-loader"
      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#1D4069]">
 
@@ -237,6 +240,7 @@
         Simply Connected
     </p>
 </div>
+@endpersist
 
     <nav class="flex-none border-b border-gray-100 bg-white/80 backdrop-blur-md z-50 sticky top-0">
         <div class="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-6">

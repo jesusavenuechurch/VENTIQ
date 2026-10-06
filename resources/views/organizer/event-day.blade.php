@@ -19,7 +19,9 @@
 
     <div id="day-live"
          x-data
-         x-init="setInterval(async () => {
+         x-init="const timer = setInterval(async () => {
+            {{-- After a tab switch this page is gone: stop refreshing. --}}
+            if (!$el.isConnected) return clearInterval(timer);
             if (document.hidden) return;
             try {
                 const r = await fetch('{{ route('organizer.events.day', [$event, 'partial' => 1]) }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
