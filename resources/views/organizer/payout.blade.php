@@ -79,7 +79,7 @@
     <div class="mt-6 p-5 rounded-[1.5rem] bg-white border border-gray-100 text-[12px] text-gray-500 space-y-1">
         <p class="font-black text-gray-600">How payouts work</p>
         <p>Tickets bought online are paid to VENTIQ. We take our fee off each one and pay you the rest into this account. Each payout and every ticket in it shows in your events' money summaries.</p>
-        <p>The accounts attendees pay you into directly are separate: they're under <a href="{{ route('organizer.accounts.index') }}" class="font-bold text-[#1D4069] underline">Accounts</a>.</p>
+        <p>The accounts attendees pay you into directly are separate: they're under <a href="{{ route('organizer.accounts.index') }}" wire:navigate class="font-bold text-[#1D4069] underline">Accounts</a>.</p>
     </div>
 </div>
 @endsection

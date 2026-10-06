@@ -12,13 +12,13 @@
         @if($event->share_url)
             <a href="{{ $event->share_url }}" target="_blank" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Public page</a>
         @endif
-        <a href="{{ route('organizer.events.day', $event) }}" class="px-4 py-2 rounded-full {{ $event->event_date?->isToday() ? 'bg-action text-white hover:bg-action-ink' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }} text-[10px] font-black uppercase tracking-widest"><i class="fas fa-door-open mr-1"></i>Event day</a>
+        <a href="{{ route('organizer.events.day', $event) }}" wire:navigate class="px-4 py-2 rounded-full {{ $event->event_date?->isToday() ? 'bg-action text-white hover:bg-action-ink' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }} text-[10px] font-black uppercase tracking-widest"><i class="fas fa-door-open mr-1"></i>Event day</a>
         @can('approve_payment')
-            <a href="{{ route('organizer.events.comp.create', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-gift mr-1"></i>Complimentary ticket</a>
-            <a href="{{ route('organizer.events.guests.create', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-file-import mr-1"></i>Import guest list</a>
+            <a href="{{ route('organizer.events.comp.create', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-gift mr-1"></i>Complimentary ticket</a>
+            <a href="{{ route('organizer.events.guests.create', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-file-import mr-1"></i>Import guest list</a>
         @endcan
         @can('edit_event')
-            <a href="{{ route('organizer.events.edit', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-pen mr-1"></i>Edit event</a>
+            <a href="{{ route('organizer.events.edit', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-pen mr-1"></i>Edit event</a>
         @endcan
     </div>
 
@@ -43,13 +43,13 @@
         </div>
         <button class="px-5 rounded-full bg-brand text-white text-[10px] font-black uppercase tracking-widest hover:bg-action">Search</button>
         @if($search !== '')
-            <a href="{{ route('organizer.events.attendees', [$event, 'filter' => $filter]) }}" class="px-4 py-3 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Clear</a>
+            <a href="{{ route('organizer.events.attendees', [$event, 'filter' => $filter]) }}" wire:navigate class="px-4 py-3 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Clear</a>
         @endif
     </form>
 
     <div class="flex flex-wrap gap-2 mb-6">
         @foreach($filters as $key => $label)
-            <a href="{{ route('organizer.events.attendees', array_filter([$event, 'filter' => $key, 'q' => $search ?: null])) }}"
+            <a href="{{ route('organizer.events.attendees', array_filter([$event, 'filter' => $key, 'q' => $search ?: null])) }}" wire:navigate
                class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest
                       {{ $filter === $key ? 'bg-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 {{ $label }}

@@ -8,7 +8,7 @@
     ])
 
     <div class="flex flex-wrap items-center gap-2 -mt-4 mb-6">
-        <a href="{{ route('organizer.events.attendees', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-users mr-1"></i>Attendees &amp; money</a>
+        <a href="{{ route('organizer.events.attendees', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-users mr-1"></i>Attendees &amp; money</a>
         @can('view_reports')
             <a href="{{ route('reports.attendance-excel', $event) }}" class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-file-excel mr-1 text-mint-ink"></i>Attendance (Excel)</a>
         @endcan

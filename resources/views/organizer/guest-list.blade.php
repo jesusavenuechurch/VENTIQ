@@ -131,7 +131,7 @@
                     </button>
                 </form>
             @endif
-            <a href="{{ route('organizer.events.guests.create', $event) }}" class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Fix the file and upload again</a>
+            <a href="{{ route('organizer.events.guests.create', $event) }}" wire:navigate class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Fix the file and upload again</a>
         </div>
     @endif
 </div>

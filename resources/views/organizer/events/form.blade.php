@@ -326,7 +326,7 @@
         </section>
 
         <div class="flex items-center justify-end gap-3">
-            <a href="{{ route('organizer.home') }}" class="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Cancel</a>
+            <a href="{{ route('organizer.home') }}" wire:navigate class="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Cancel</a>
             <button class="px-6 py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white text-[11px] font-black uppercase tracking-[0.2em]">
                 {{ $event->exists ? 'Save changes' : 'Create event' }}
             </button>
