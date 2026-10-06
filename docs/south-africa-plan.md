@@ -28,17 +28,17 @@
 - The event form asks for a **town or city** (type to search the list), not a district. Country and coordinates come with it. The venue stays free text.
 - Every event stores its country, region, town and coordinates.
 
-### 2. Search ranks by distance and never hides anything
+### 2. Same location flow as today, beyond Lesotho
 
-- The visitor's location (from the browser, or a town they pick) is used to **sort**, not to filter:
-  1. **Near you:** within about 100 km. A Maseru visitor sees Ladybrand and Ficksburg events here too.
-  2. **In your country:** the rest of Lesotho, or of SA.
-  3. **Everywhere else:** all other events, still listed.
-- The default location is **"Everywhere"**, so nobody is pinned to Lesotho before they choose.
-- Detection compares the visitor with real coordinates, so Johannesburg resolves to Johannesburg, not a Lesotho district.
-- Search by text (event, venue, town) works across both countries, with nearby results first.
-- The location picker becomes a type-to-search box ("Johannesburg", "Mafeteng"), not a fixed list of 10.
-- "New in {place}" rows come from where events actually are, not from a fixed list.
+**Today:** the browser asks for the visitor's location, and VENTIQ snaps them to the nearest of Lesotho's 10 districts (for example "Maseru"). The home page shows that district's events first and falls back to the whole country when the district has none. Search lists that district first, without hiding others, and the picker lists the 10 districts.
+
+**With this plan, the flow stays the same; only the places widen:**
+
+- The browser still asks for location. VENTIQ snaps the visitor to the nearest **place in the list**, shown with its country: **"Maseru, Lesotho"**, **"Ladybrand, South Africa"**, **"Johannesburg, South Africa"**. Nobody in SA is put in a Lesotho district any more.
+- The home page shows events **near that place** first (within about 100 km, instead of "same district"). It falls back to that place's **country**, then **everywhere**. A Maseru visitor sees Ladybrand and Ficksburg events as nearby; a Johannesburg visitor sees Gauteng events first.
+- Search keeps ranking nearby events first and still lists the rest, across both countries.
+- The picker becomes a type-to-search box ("Joh…" gives "Johannesburg, South Africa") with an **"Everywhere"** option, and is used when location is refused.
+- "New in {place}" rows come from where events actually are, not from a fixed list of districts.
 
 ### 3. Phone numbers for any country
 
