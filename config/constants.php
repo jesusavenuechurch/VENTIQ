@@ -257,4 +257,26 @@ return [
         'Thaba-Tseka',
         'Butha-Buthe',
     ],
+
+    /*
+     | Every WhatsApp template VENTIQ sends, in one place (docs/whatsapp-templates.md
+     | has the wording). Meta must approve a template before it can be sent:
+     | set 'approved' => true once it is, and that message starts going out.
+     | Until then people with an email address get the same message by email.
+     |   name   — the template's name in WhatsApp Manager
+     |   button — whether it has a "Visit website" button (https://<domain>/{{1}})
+     */
+    'whatsapp_templates' => [
+        // Attendees
+        'ticket_ready'      => ['name' => 'ticket_ready',      'approved' => true,  'button' => true],
+        'ticket_registered' => ['name' => 'ticket_registered', 'approved' => true,  'button' => false],
+        'payment_failed'    => ['name' => 'payment_failed',    'approved' => false, 'button' => true],
+        'payment_reminder'  => ['name' => 'payment_reminder',  'approved' => false, 'button' => true],
+        'payment_rejected'  => ['name' => 'payment_rejected',  'approved' => false, 'button' => true],
+        'payment_expired'   => ['name' => 'payment_expired',   'approved' => false, 'button' => false],
+        // Organizers
+        'payment_submitted' => ['name' => 'payment_submitted', 'approved' => false, 'button' => true],
+        // VENTIQ Sessions
+        'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
+    ],
 ];

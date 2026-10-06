@@ -32,7 +32,7 @@ class OrganizerNotifier
 
             // WhatsApp goes to the organization's own number (users have
             // no phone column) once the template is approved.
-            $templateName = config('services.whatsapp.templates.payment_submitted');
+            $templateName = \App\Support\WhatsAppTemplates::name('payment_submitted');
             if ($templateName && $organization->phone) {
                 app(WhatsAppCloudService::class)->sendTemplate(
                     to: $organization->phone,

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Notification;
 /**
  * Payment-workflow messages to attendees. Email goes out whenever the
  * attendee gave an address; WhatsApp only once the matching template is
- * approved and configured (services.whatsapp.templates.*). Failures are
+ * approved (constants.whatsapp_templates). Failures are
  * logged, never thrown: a message that didn't send must not undo the
  * organizer's decision that triggered it.
  */
@@ -102,7 +102,7 @@ class AttendeeNotifier
                 ));
             }
 
-            $templateName = config("services.whatsapp.templates.{$template}");
+            $templateName = \App\Support\WhatsAppTemplates::name($template);
             if ($templateName && $ticket->client?->phone) {
                 $sent = app(WhatsAppCloudService::class)->sendTemplate(
                     to: $ticket->client->phone,
@@ -111,7 +111,7 @@ class AttendeeNotifier
                     // The template's button is "https://<domain>/{{1}}": it opens
                     // the same page as the email's button (pay page, or the
                     // event to register again once the place is released).
-                    buttonUrlSuffix: ltrim((string) parse_url($actionUrl, PHP_URL_PATH), '/'),
+                    buttonUrlSuffix: \App\Support\WhatsAppTemplates::hasButton($template) ? ltrim((string) parse_url($actionUrl, PHP_URL_PATH), '/') : null,
                 );
 
                 if (!$sent) {

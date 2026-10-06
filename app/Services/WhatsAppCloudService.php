@@ -41,7 +41,7 @@ class WhatsAppCloudService
      */
     public function sendTemplate(
         string $to,
-        string $templateName,
+        ?string $templateName,
         array $bodyParams,
         ?string $headerImageUrl = null,
         ?string $buttonUrlSuffix = null,
@@ -51,6 +51,12 @@ class WhatsAppCloudService
         // number permanently, so that's no longer relevant).
         string $languageCode = 'en_US',
     ): bool {
+        // Not approved by Meta yet (config/constants.php): nothing to send.
+        if (!$templateName) {
+            Log::info('WhatsApp template not approved yet, skipped', ['to' => $to]);
+            return false;
+        }
+
         $components = [];
 
         if ($headerImageUrl) {
@@ -115,6 +121,12 @@ class WhatsAppCloudService
         return false;
     }
 
+    /** An approved template's name (constants.whatsapp_templates), or null: not sent yet. */
+    private function template(string $key): ?string
+    {
+        return \App\Support\WhatsAppTemplates::name($key);
+    }
+
     // Meta wants E.164 without the leading "+" (e.g. "26658123456").
     private function normalizeNumber(string $number): string
     {
@@ -141,7 +153,7 @@ class WhatsAppCloudService
         // solved, so switching back later needs zero re-review wait.
         return $this->sendTemplate(
             to: $ticket->client->phone,
-            templateName: 'ticket_ready',
+            templateName: $this->template('ticket_ready'),
             bodyParams: [
                 $ticket->client->full_name,
                 $ticket->event->name,
@@ -166,7 +178,7 @@ class WhatsAppCloudService
 
         return $this->sendTemplate(
             to: $ticket->client->phone,
-            templateName: 'ticket_registered',
+            templateName: $this->template('ticket_registered'),
             bodyParams: [
                 $ticket->client->full_name,
                 $ticket->event->name,
@@ -191,7 +203,7 @@ class WhatsAppCloudService
 
         return $this->sendTemplate(
             to: $participant->client->phone,
-            templateName: 'thank_you', // approved under this name, not "session_thank_you"
+            templateName: $this->template('thank_you'), // approved under this name, not "session_thank_you"
             bodyParams: [
                 $participant->client->full_name,
             ],

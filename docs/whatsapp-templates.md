@@ -7,7 +7,7 @@ Submit each one in WhatsApp Manager → Message templates → Create template.
 - **Variables:** keep `{{1}}`, `{{2}}`… exactly where they are below. The code fills them in that order.
 - **Button:** a "Visit website" button with a **dynamic** URL, always `https://ventiq.co.ls/{{1}}`. The code fills in the rest of the address, so the button opens the same page as the email's button. Replace `https://ventiq.co.ls` with the live domain if it's different.
 
-Once Meta approves a template, put its name in `.env`; that message starts sending straight away. Until then, people with an email address get the same message by email.
+Every template is listed in `config/constants.php` under `whatsapp_templates`. When Meta approves one, set its `'approved' => true` there and deploy; that message starts sending. Until then, people with an email address get the same message by email. If Meta makes you rename a template, or you leave out the button, change its `name` or `button` there too.
 
 ---
 
@@ -22,7 +22,6 @@ Sent once per ticket, 10 minutes after an online payment fails or gets no answer
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`, {{3}} `8 Oct, 18:00`
 - **Button:** "Finish paying" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). Opens the ticket's pay page.
-- **.env:** `WHATSAPP_TEMPLATE_PAYMENT_FAILED=payment_failed`
 
 ## 2. payment_reminder
 
@@ -35,7 +34,6 @@ Sent halfway through the payment window, while the ticket is still unpaid.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`, {{3}} `8 Oct, 18:00`
 - **Button:** "Pay now" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). Opens the ticket's pay page.
-- **.env:** `WHATSAPP_TEMPLATE_PAYMENT_REMINDER=payment_reminder`
 
 ## 3. payment_rejected
 
@@ -48,20 +46,18 @@ Sent when the organizer says a payment they were sent never arrived.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`
 - **Button:** "Check my payment" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). Opens the ticket's pay page.
-- **.env:** `WHATSAPP_TEMPLATE_PAYMENT_REJECTED=payment_rejected`
 
 ## 4. payment_expired
 
 Sent when the time to pay ran out and the place was released.
 
 - **Name:** `payment_expired`
-- **Body:**
+- **Body (as submitted, after the first version was rejected):**
 
-  > Hi {{1}}, the time to pay for your {{2}} ticket has run out, so your place was released. If places are still available you can register again, or contact the organizer.
+  > Hi {{1}}, your payment window for the {{2}} ticket has expired. Your ticket is no longer active and the place has been released. No payment is required for this ticket.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`
-- **Button:** "Register again" → `https://ventiq.co.ls/{{1}}` (sample: `e/myn/maseru-youth-summit`). Opens the event page, where they can register afresh if places are left.
-- **.env:** `WHATSAPP_TEMPLATE_PAYMENT_EXPIRED=payment_expired`
+- **Button:** none. The email version still links to the event page so they can register again.
 
 ## 5. payment_submitted (to the organizer)
 
@@ -74,7 +70,6 @@ Sent to the organization's phone when an attendee says they paid the organizer d
 
 - **Samples:** {{1}} `Lerato Mokoena`, {{2}} `M250.00`, {{3}} `EcoCash — Events Account`, {{4}} `MP240101.1234.A12345`
 - **Button:** "Review payment" → `https://ventiq.co.ls/{{1}}` (sample: `payment-review/12?expires=1760000000&signature=abc`)
-- **.env:** `WHATSAPP_TEMPLATE_PAYMENT_SUBMITTED=payment_submitted`
 
 ---
 

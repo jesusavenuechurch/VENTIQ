@@ -144,7 +144,8 @@ it('shows a paid ticket\'s QR code at its private address', function () {
 
 it('points WhatsApp buttons where the email points: pay page, or the event once the place is gone', function () {
     \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['messages' => [['id' => 'x']]])]);
-    config(['services.whatsapp.templates.payment_failed' => 'payment_failed', 'services.whatsapp.templates.payment_expired' => 'payment_expired',
+    config(['constants.whatsapp_templates.payment_failed.approved' => true, 'constants.whatsapp_templates.payment_expired.approved' => true,
+        'constants.whatsapp_templates.payment_expired.button' => true,
         'services.whatsapp.phone_number_id' => '1', 'services.whatsapp.access_token' => 't']);
     $notifier = app(\App\Services\Notifications\AttendeeNotifier::class);
 
