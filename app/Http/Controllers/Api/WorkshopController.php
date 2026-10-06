@@ -56,7 +56,7 @@ class WorkshopController extends Controller
                 'checked_in_at'  => $ticket->checked_in_at,
             ],
             'client' => [
-                'full_name'   => $ticket->client->full_name,
+                'full_name'   => $ticket->holder_name,
                 'phone'       => $ticket->client->phone,
                 'email'       => $ticket->client->email,
             ],

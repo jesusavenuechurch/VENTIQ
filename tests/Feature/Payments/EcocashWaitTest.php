@@ -181,7 +181,8 @@ it('picks up the unpaid ticket when the same number registers again for the same
     ]);
 
     $register()->assertRedirect($this->paymentPage);
-    expect(Ticket::count())->toBe(1)->and($this->ticket->client->fresh()->full_name)->toBe('Lerato M');
+    expect(Ticket::count())->toBe(1)->and($this->ticket->fresh()->holder_name)->toBe('Lerato M')
+        ->and($this->ticket->client->fresh()->full_name)->toBe('Lerato');   // the contact isn't renamed
 
     // Once it's paid, a new registration is a new ticket.
     $this->ticket->update(['status' => 'active', 'payment_status' => 'completed']);

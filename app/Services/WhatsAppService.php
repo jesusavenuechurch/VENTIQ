@@ -30,7 +30,7 @@ class WhatsAppService
 
             $message =
                 "🎫 *{$ticket->event->name}*\n\n" .
-                "Hi {$ticket->client->full_name}! 👋\n\n" .
+                "Hi {$ticket->holder_name}! 👋\n\n" .
                 "Your ticket is ready!\n\n" .
                 "📄 *Ticket:* {$ticket->ticket_number}\n" .
                 "🎟️ *Tier:* {$ticket->tier->tier_name}\n" .

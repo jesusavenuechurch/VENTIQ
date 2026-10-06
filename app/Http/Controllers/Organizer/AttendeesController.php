@@ -68,6 +68,7 @@ class AttendeesController extends Controller
         return $query->where(fn ($q) => $q
             ->where('ticket_number', 'like', $like)
             ->orWhere('voucher_code', 'like', $like)
+            ->orWhere('attendee_name', 'like', $like)
             ->orWhereHas('client', fn ($c) => $c
                 ->where('full_name', 'like', $like)
                 ->orWhere('email', 'like', $like)
@@ -91,7 +92,7 @@ class AttendeesController extends Controller
         $ticket->update(['status' => 'pending', 'payment_due_at' => PaymentWindow::dueAt($ticket->event)]);
         Log::info("Ticket {$ticket->id} reinstated by user {$request->user()->id}");
 
-        return back()->with('status', "{$ticket->client->full_name}'s ticket is reserved again.");
+        return back()->with('status', "{$ticket->holder_name}'s ticket is reserved again.");
     }
 
     /** Withdraw an unpaid ticket. Paid tickets need a refund decision first, so they're left alone. */
@@ -107,7 +108,7 @@ class AttendeesController extends Controller
         $ticket->update(['status' => 'cancelled', 'payment_due_at' => null]);
         Log::info("Ticket {$ticket->id} cancelled by user {$request->user()->id}");
 
-        return back()->with('status', "{$ticket->client->full_name}'s ticket has been cancelled.");
+        return back()->with('status', "{$ticket->holder_name}'s ticket has been cancelled.");
     }
 
     /** Super admins only: VENTIQ waives (or resumes) its fees on this event. */

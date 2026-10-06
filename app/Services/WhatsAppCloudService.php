@@ -155,7 +155,7 @@ class WhatsAppCloudService
             to: $ticket->client->phone,
             templateName: $this->template('ticket_ready'),
             bodyParams: [
-                $ticket->client->full_name,
+                $ticket->holder_name,
                 $ticket->event->name,
                 $ticket->ticket_number,
                 $ticket->tier->tier_name,
@@ -180,7 +180,7 @@ class WhatsAppCloudService
             to: $ticket->client->phone,
             templateName: $this->template('ticket_registered'),
             bodyParams: [
-                $ticket->client->full_name,
+                $ticket->holder_name,
                 $ticket->event->name,
                 $ticket->ticket_number,
                 number_format((float) $ticket->amount, 2),

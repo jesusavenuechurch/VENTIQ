@@ -62,7 +62,7 @@ class TicketsController extends Controller
         }
 
         return redirect()->route('organizer.events.attendees', $event)->with('status',
-            "{$ticket->client->full_name} is on the guest list!" . ($request->boolean('send_whatsapp') ? ' Their ticket is on its way on WhatsApp.' : ''));
+            "{$ticket->holder_name} is on the guest list!" . ($request->boolean('send_whatsapp') ? ' Their ticket is on its way on WhatsApp.' : ''));
     }
 
     /**

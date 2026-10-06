@@ -29,7 +29,7 @@ class Ticket extends Model
     public const SCAN_INVALID               = 'invalid';
 
     protected $fillable = [
-        'event_id', 'client_id', 'event_tier_id', 'ticket_number', 'qr_code',
+        'event_id', 'client_id', 'attendee_name', 'event_tier_id', 'ticket_number', 'qr_code',
         'qr_code_path', 'status', 'payment_method', 'amount', 'payment_status',
         'payment_date', 'payment_reference', 'delivery_method', 'delivered_at',
         'checked_in_at', 'checked_in_by', 'created_by', 'ticket_preference',
@@ -163,6 +163,12 @@ class Ticket extends Model
      * ticket's own link, never at an address built from its number.
      */
     public const FILES_DISK = 'local';
+
+    /** Whose ticket this is: its own name, else its contact's. */
+    public function getHolderNameAttribute(): ?string
+    {
+        return $this->attendee_name ?: $this->client?->full_name;
+    }
 
     public function getAvatarUrlAttribute(): ?string
     {

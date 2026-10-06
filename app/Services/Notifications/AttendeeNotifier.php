@@ -41,7 +41,7 @@ class AttendeeNotifier
             ],
             actionText: 'Pay now',
             actionUrl: $this->paymentUrl($ticket),
-            whatsappParams: [$ticket->client?->full_name, $ticket->event->name, $this->heldUntil($ticket)],
+            whatsappParams: [$ticket->holder_name, $ticket->event->name, $this->heldUntil($ticket)],
         );
     }
 
@@ -60,7 +60,7 @@ class AttendeeNotifier
             ],
             actionText: 'Finish paying',
             actionUrl: $this->paymentUrl($ticket),
-            whatsappParams: [$ticket->client?->full_name, $ticket->event->name, $this->heldUntil($ticket)],
+            whatsappParams: [$ticket->holder_name, $ticket->event->name, $this->heldUntil($ticket)],
         );
     }
 
@@ -95,7 +95,7 @@ class AttendeeNotifier
             if ($ticket->client?->email) {
                 Notification::route('mail', $ticket->client->email)->notify(new AttendeeTicketNotice(
                     subject: $subject,
-                    greeting: "Hi {$ticket->client->full_name},",
+                    greeting: "Hi {$ticket->holder_name},",
                     lines: array_values($lines),
                     actionText: $actionText,
                     actionUrl: $actionUrl,
@@ -107,7 +107,7 @@ class AttendeeNotifier
                 $sent = app(WhatsAppCloudService::class)->sendTemplate(
                     to: $ticket->client->phone,
                     templateName: $templateName,
-                    bodyParams: array_map('strval', $whatsappParams ?? [$ticket->client->full_name, $ticket->event->name]),
+                    bodyParams: array_map('strval', $whatsappParams ?? [$ticket->holder_name, $ticket->event->name]),
                     // The template's button is "https://<domain>/{{1}}": it opens
                     // the same page as the email's button (pay page, or the
                     // event to register again once the place is released).

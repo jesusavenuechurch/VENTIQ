@@ -257,7 +257,7 @@ class MopayController extends Controller
                 'redirectUrl'   => route('online-payment.ticket.callback'),
                 'description'   => $ticket->event->name . ' — ' . $ticket->tier->tier_name,
                 'customerEmail' =>  $ticket->client->email ?? 'noreply@ventiq.com',
-                'customerName'  => $ticket->client->full_name,
+                'customerName'  => $ticket->holder_name,
             ]);
 
             PaymentSession::create([

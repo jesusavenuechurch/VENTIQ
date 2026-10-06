@@ -103,7 +103,7 @@
                                         @endif
                                     </p>
                                     <h4 class="text-2xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
-                                        {{ $singleTicket->client->full_name }}
+                                        {{ $singleTicket->holder_name }}
                                     </h4>
                                 </div>
                                 @if($loop->first)
@@ -142,8 +142,8 @@
                 @if($ticket->payment_status !== 'completed')
                     <div class="pt-10 border-t border-dashed border-slate-200 space-y-6">
                         <div class="flex justify-between items-end">
-                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Investment Due</p>
-                            <span class="text-4xl font-black tracking-tighter italic leading-none text-slate-900">M{{ number_format($allTickets->sum('amount')) }}</span>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{{ $allTickets->sum('amount_paid') > 0 ? 'Balance left' : 'To pay' }}</p>
+                            <span class="text-4xl font-black tracking-tighter italic leading-none text-slate-900">M{{ number_format(max(0, $allTickets->sum('amount') - $allTickets->sum('amount_paid')), 2) }}</span>
                         </div>
 
                         @if($byHand ?? false)
@@ -160,13 +160,18 @@
                                         <i class="fas fa-info-circle text-white"></i>
                                     </div>
                                     <div>
-                                        <p class="text-[9px] font-black text-[#F07F22] uppercase tracking-[0.3em]">Protocol Steps</p>
-                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{{ $paymentMethodDetails->payment_method }}</p>
+                                        <p class="text-[9px] font-black text-[#F07F22] uppercase tracking-[0.3em]">Paid to</p>
+                                        <p class="text-[12px] font-bold text-white">{{ $paymentMethodDetails->display_label }}</p>
+                                        @if($paymentMethodDetails->account_number)
+                                            <p class="text-[12px] font-mono text-slate-300">{{ $paymentMethodDetails->account_number }}</p>
+                                        @endif
                                     </div>
                                 </div>
-                                <p class="text-xs font-bold leading-relaxed text-slate-300 italic">
-                                    "{{ $paymentMethodDetails->instructions }}"
-                                </p>
+                                @if($paymentMethodDetails->instructions)
+                                    <p class="text-xs font-bold leading-relaxed text-slate-300 italic">
+                                        "{{ $paymentMethodDetails->instructions }}"
+                                    </p>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -203,6 +208,8 @@
                 </div>
             </div>
         </div>
+
+        @include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-6'])
 
         <p class="mt-8 text-center text-[9px] font-black text-slate-300 uppercase tracking-[1em] ml-[1em] opacity-50">Ventiq Protocol</p>
     </main>

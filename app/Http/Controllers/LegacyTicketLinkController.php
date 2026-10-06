@@ -35,7 +35,7 @@ class LegacyTicketLinkController extends Controller
         if ($email && Cache::add("ticket-link-sent:{$ticket->id}", true, now()->addHour())) {
             Notification::route('mail', $email)->notify(new AttendeeTicketNotice(
                 subject: "Your ticket link: {$ticket->event->name}",
-                greeting: "Hi {$ticket->client->full_name},",
+                greeting: "Hi {$ticket->holder_name},",
                 lines: ["Here's the private link to your {$ticket->event->name} ticket. Use it to pay, send proof of payment, or show your ticket at the door. Keep it to yourself: anyone with it can see your ticket."],
                 actionText: 'Open my ticket',
                 actionUrl: route('ticket.download', $ticket->qr_code),

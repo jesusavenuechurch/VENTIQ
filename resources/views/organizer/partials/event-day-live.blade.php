@@ -108,7 +108,7 @@
                 <div class="min-w-0 flex items-center gap-3">
                     <x-avatar :seed="$ticket->client->phone" size="w-9 h-9" />
                     <div class="min-w-0">
-                    <p class="text-[13px] font-black text-[#1D4069] truncate">{{ $ticket->client->full_name }}</p>
+                    <p class="text-[13px] font-black text-[#1D4069] truncate">{{ $ticket->holder_name }}</p>
                     <p class="text-[11px] font-medium text-gray-500">
                         {{ $ticket->tier->tier_name }}
                         @if(($ticket->admissions ?? 1) > 1) · {{ $ticket->admitted_count }} of {{ $ticket->admissions }} in @endif

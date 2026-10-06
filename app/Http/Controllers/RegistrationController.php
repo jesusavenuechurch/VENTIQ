@@ -78,6 +78,12 @@ class RegistrationController extends Controller
             'preferred_delivery' => 'nullable|in:email,whatsapp,both',
         ];
 
+        if ($event->event_type === 'workshop') {
+            $rules['position']    = 'required|string|max:150';
+            $rules['institution'] = 'required|string|max:150';
+            $rules['district']    = ['required', \Illuminate\Validation\Rule::in(array_keys(config('constants.workshop_districts', [])))];
+        }
+
         $validated = $request->validate($rules);
 
         // Registering again for the same paid ticket type with the same
@@ -90,7 +96,10 @@ class RegistrationController extends Controller
                 ->latest('id')->first();
 
             if ($held) {
-                $held->client->update(array_filter(['full_name' => $validated['full_name'], 'email' => $validated['email'] ?? null]));
+                $held->update(['attendee_name' => $this->differentName($held->client, $validated['full_name'])]);
+                if (!empty($validated['email']) && !$held->client->email) {
+                    $held->client->update(['email' => $validated['email']]);
+                }
                 if ($held->payment_due_at) {
                     $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
                 }
@@ -137,16 +146,19 @@ class RegistrationController extends Controller
                 ]
             );
 
-            if (!$primaryClient->wasRecentlyCreated) {
-                $primaryClient->update([
-                    'full_name' => $validated['full_name'],
-                    'email'     => $validated['email'] ?? null,
-                ]);
+            // A phone shared by several people (a parent registering
+            // children, friends) keeps its contact's name: this ticket
+            // carries its own instead of renaming the earlier ones. An
+            // email is added, never wiped.
+            $attendeeName = $primaryClient->wasRecentlyCreated ? null : $this->differentName($primaryClient, $validated['full_name']);
+            if (!$primaryClient->wasRecentlyCreated && !empty($validated['email']) && !$primaryClient->email) {
+                $primaryClient->update(['email' => $validated['email']]);
             }
 
             $ticket = Ticket::create([
                 'event_id'          => $event->id,
                 'client_id'         => $primaryClient->id,
+                'attendee_name'     => $attendeeName,
                 'event_tier_id'     => $tier->id,
                 'qr_code'           => 'QR-' . Str::uuid(),
                 'status'            => $ticketStatus,
@@ -191,7 +203,11 @@ class RegistrationController extends Controller
             DB::commit();
 
             // ── Emails + WhatsApp ────────────────────────────────────────
+            // The ticket is saved: a message that fails to send must not
+            // look like a failed registration (people register again and
+            // hold two places). Failures are logged on the ticket instead.
             foreach ($createdTickets as $ticket) {
+              try {
                 $ticket->load(['client', 'event', 'tier', 'event.organization']);
 
                 if ($ticket->client->email) {
@@ -225,6 +241,10 @@ class RegistrationController extends Controller
                         $ticket->logDeliveryFailure('whatsapp', 'Failed to send registration WhatsApp message via Meta Cloud API');
                     }
                 }
+              } catch (\Throwable $e) {
+                \Log::error('Registration message failed', ['ticket' => $ticket->id, 'error' => $e->getMessage()]);
+                $ticket->logDeliveryFailure('registration', $e->getMessage());
+              }
             }
 
             // ── Route: paid tickets go to the payment screen, free tickets go straight to confirmation ──
@@ -237,7 +257,7 @@ class RegistrationController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Registration failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return back()->withInput()->with('error', 'Registration failed. Please try again. Error: ' . $e->getMessage());
+            return back()->withInput()->with('error', "Something went wrong and you weren't registered. Please try again.");
         }
     }
 
@@ -522,6 +542,12 @@ class RegistrationController extends Controller
         if ($hasEmail) return 'email';
 
         return 'whatsapp';
+    }
+
+    /** The name given, when it isn't the contact's own; null when it is. */
+    private function differentName(Client $client, string $name): ?string
+    {
+        return mb_strtolower(trim($client->full_name)) === mb_strtolower(trim($name)) ? null : trim($name);
     }
 
     private function normalizePhone($phone): string

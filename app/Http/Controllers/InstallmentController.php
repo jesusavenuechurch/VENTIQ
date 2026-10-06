@@ -6,8 +6,8 @@ use App\Models\Ticket;
 use Illuminate\Http\Request;
 
 /**
- * "Pay the rest of my ticket": find a ticket by its number and the phone
- * it was registered with, then carry on at its private link, where the
+ * "Find my ticket": the phone it was registered with plus its ticket
+ * number or entry code (VQ-…) opens its private link, where the
  * balance is paid like any other payment (online, or to the organizer,
  * who confirms it). The old per-ticket installment page took payments the
  * organizer never saw; it's gone.
@@ -29,12 +29,14 @@ class InstallmentController extends Controller
         $digits = preg_replace('/\D/', '', $data['phone']);
         $phone  = '+' . (str_starts_with($digits, '266') ? $digits : '266' . $digits);
 
-        $ticket = Ticket::where('ticket_number', trim($data['ticket_number']))
+        // Ticket number or entry code, typed any which way.
+        $code = preg_replace('/\s+/', '', $data['ticket_number']);
+        $ticket = Ticket::where(fn ($q) => $q->where('ticket_number', $code)->orWhere(fn ($v) => $v->byVoucherCode($code)))
             ->whereHas('client', fn ($q) => $q->where('phone', $phone))
-            ->first();
+            ->latest('id')->first();
 
         if (!$ticket) {
-            return back()->withErrors(['ticket_number' => 'No ticket matches that number and phone. Please check both and try again.'])->withInput();
+            return back()->withErrors(['ticket_number' => 'No ticket matches that phone and code. Check both and try again, or ask the organizer to send your ticket.'])->withInput();
         }
 
         return $ticket->payment_status === 'completed'

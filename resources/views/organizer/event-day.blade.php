@@ -44,12 +44,12 @@
         @forelse($whatsapp['failed'] as $ticket)
             <div class="py-2.5 border-t border-gray-50 flex flex-wrap items-center justify-between gap-3">
                 <div class="min-w-0">
-                    <p class="text-[13px] font-black text-[#1D4069]">{{ $ticket->client->full_name }}</p>
+                    <p class="text-[13px] font-black text-[#1D4069]">{{ $ticket->holder_name }}</p>
                     <p class="text-[11px] font-semibold text-rose-600"><i class="fas fa-triangle-exclamation mr-1"></i>Not delivered to {{ $ticket->client->phone }}</p>
                 </div>
                 <form method="POST" action="{{ route('organizer.tickets.resend', $ticket) }}" class="flex items-center gap-2">
                     @csrf
-                    <input name="phone" value="{{ $ticket->client->phone }}" inputmode="tel" aria-label="WhatsApp number for {{ $ticket->client->full_name }}"
+                    <input name="phone" value="{{ $ticket->client->phone }}" inputmode="tel" aria-label="WhatsApp number for {{ $ticket->holder_name }}"
                            class="w-40 bg-slate-50 rounded-full px-3 py-1.5 text-[12px] font-semibold text-[#1D4069] focus:bg-white focus:outline-[#F07F22]">
                     <button class="px-3 py-1.5 rounded-full bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest"><i class="fab fa-whatsapp mr-1"></i>Send again</button>
                     <a href="{{ route('ticket.download', $ticket->qr_code) }}" target="_blank" class="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-500 text-[10px] font-black uppercase tracking-widest">View</a>

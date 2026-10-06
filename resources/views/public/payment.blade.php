@@ -401,6 +401,8 @@
                 </form>
             </div>
         </div>
+
+        @include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-6'])
     </main>
 
     <script>

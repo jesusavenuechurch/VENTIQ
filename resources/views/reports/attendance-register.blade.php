@@ -235,7 +235,7 @@
                 <tr>
                     <td style="color:#94a3b8; text-align:center;">{{ $i + 1 }}</td>
                     <td style="font-weight:600;">
-                        {{ $ticket->client->full_name }}
+                        {{ $ticket->holder_name }}
                         @if(($ticket->admissions ?? 1) > 1)
                             <span style="font-weight:normal; color:#64748b;">· group of {{ $ticket->admissions }} ({{ $ticket->admitted_count }} arrived)</span>
                         @endif

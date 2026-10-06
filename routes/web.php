@@ -162,6 +162,9 @@ Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSl
     return view('public.registration-error', compact('organization', 'event', 'error', 'retryUrl'));
 })->name('registration.error');
 
+// Find my ticket (also how a balance is paid): phone + ticket number or entry code.
+Route::get('/find-ticket', [InstallmentController::class, 'search'])->name('ticket.find');
+
 // Installment payment routes
 Route::prefix('installment')->name('installment.')->group(function () {
     Route::get('/search', [InstallmentController::class, 'search'])->name('search');
@@ -169,6 +172,8 @@ Route::prefix('installment')->name('installment.')->group(function () {
     Route::get('/{ticket}', [InstallmentController::class, 'show'])->whereNumber('ticket')->name('show');
 });
 
+
+Route::view('/terms', 'public.terms')->name('terms');
 
 Route::get('/pricing', function () {
     return view('public.pricing');

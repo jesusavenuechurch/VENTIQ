@@ -32,6 +32,12 @@
             Back to Event Details
         </a>
 
+        @if (session('error'))
+            <div role="alert" class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl text-sm font-bold text-rose-700">
+                <i class="fas fa-circle-exclamation mr-1"></i>{{ session('error') }}
+            </div>
+        @endif
+
         @if ($errors->any())
             <div class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl">
                 <h4 class="text-[10px] font-black text-rose-900 uppercase tracking-widest mb-2">Registration Errors</h4>
@@ -85,7 +91,7 @@
                                 </label>
                                 <div class="flex">
                                     <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
-                                    <input type="tel" name="phone" id="phone_input" value="{{ old('phone') }}" required
+                                    <input type="tel" name="phone" id="phone_input" value="{{ preg_replace('/^266(?=\d{8}$)/', '', preg_replace('/\D/', '', (string) old('phone'))) }}" required
                                         class="flex-1 bg-slate-50 border-2 border-slate-50 rounded-r-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900"
                                         placeholder="5949 4756" maxlength="10">
                                 </div>
@@ -207,7 +213,7 @@
                     <div class="pt-10 border-t border-gray-50 space-y-6">
                         <label class="flex items-start cursor-pointer group">
                             <input type="checkbox" name="terms" class="mt-1 w-5 h-5 text-[#F07F22] border-gray-300 rounded" required>
-                            <span class="ml-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">I agree to the terms and payment protocols.</span>
+                            <span class="ml-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">I agree to the <a href="{{ route('terms') }}" target="_blank" rel="noopener" class="underline text-[#1D4069] hover:text-[#F07F22]">ticket terms</a>.</span>
                         </label>
 
                         <button type="submit" class="hidden lg:block w-full py-6 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-xl active:scale-[0.98] transition-all">
@@ -253,7 +259,7 @@
                     {{ isset($selectedTier) && $selectedTier->price > 0 ? 'M' . number_format($selectedTier->price) : 'Free' }}
                 </span>
             </div>
-            <button onclick="document.getElementById('regForm').submit()" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
+            <button type="submit" form="regForm" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
                 {{ isset($selectedTier) && $selectedTier->price > 0 ? 'Continue to Payment' : 'Register' }}
             </button>
         </div>
@@ -297,9 +303,12 @@
                 emailInput.removeAttribute('name');
             }
 
+            // The server adds +266; only the 8 local digits are sent, so a
+            // number re-shown after an error can't get the prefix twice.
             if (phoneInput) {
                 let cleanPhone = phoneInput.value.replace(/\D/g, '');
-                phoneInput.value = '+266' + cleanPhone;
+                if (cleanPhone.length > 8 && cleanPhone.startsWith('266')) cleanPhone = cleanPhone.slice(3);
+                phoneInput.value = cleanPhone;
             }
 
         });

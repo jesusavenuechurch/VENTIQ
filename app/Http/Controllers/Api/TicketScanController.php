@@ -109,7 +109,7 @@ public function getEvents(Request $request)
                         'checked_in_at' => $ticket->checked_in_at,
                         'client' => [
                             'id' => $ticket->client->id,
-                            'full_name' => $ticket->client->full_name,
+                            'full_name' => $ticket->holder_name,
                             'phone' => $ticket->client->phone ?? '',
                             'email' => $ticket->client->email ?? '',
                         ],
@@ -183,7 +183,7 @@ public function getEvents(Request $request)
                     'payment_status' => $ticket->payment_status,
                     'checked_in_at' => $ticket->checked_in_at,
                     'client' => [
-                        'full_name' => $ticket->client->full_name,
+                        'full_name' => $ticket->holder_name,
                         'phone' => $ticket->client->phone ?? '',
                     ],
                     'tier' => [

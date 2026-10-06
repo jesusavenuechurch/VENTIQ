@@ -12,7 +12,7 @@
             <x-avatar :seed="$ticket->client->phone" size="w-12 h-12" />
             <div>
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">{{ $ticket->event->name }}</p>
-            <p class="text-lg font-black text-[#1D4069] leading-tight mt-1">{{ $ticket->client->full_name }}</p>
+            <p class="text-lg font-black text-[#1D4069] leading-tight mt-1">{{ $ticket->holder_name }}</p>
             <p class="text-[12px] font-medium text-gray-500 mt-1">
                 {{ $ticket->tier->tier_name }}
                 @if(($ticket->admissions ?? 1) > 1) · Group of {{ $ticket->admissions }} @endif

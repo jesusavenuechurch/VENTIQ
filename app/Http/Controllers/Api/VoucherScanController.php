@@ -41,7 +41,7 @@ class VoucherScanController extends Controller
                 'id'             => $ticket->id,
                 'ticket_number'  => $ticket->ticket_number,
                 'voucher_code'   => $ticket->voucher_code,
-                'client_name'    => $ticket->client?->full_name,
+                'client_name'    => $ticket->holder_name,
                 'event_name'     => $ticket->event?->name,
                 'tier_name'      => $ticket->tier?->tier_name,
                 'status'         => $ticket->status,
@@ -109,11 +109,11 @@ class VoucherScanController extends Controller
  
         return response()->json([
             'success'     => true,
-            'message'     => "Welcome, {$ticket->client?->full_name}! ✓",
+            'message'     => "Welcome, {$ticket->holder_name}! ✓",
             'ticket'      => [
                 'ticket_number'  => $ticket->ticket_number,
                 'voucher_code'   => $ticket->voucher_code,
-                'client_name'    => $ticket->client?->full_name,
+                'client_name'    => $ticket->holder_name,
                 'event_name'     => $ticket->event?->name,
                 'tier_name'      => $ticket->tier?->tier_name,
                 'checked_in_at'  => $ticket->fresh()->checked_in_at,

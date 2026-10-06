@@ -77,7 +77,7 @@ class WhatsAppController extends Controller
             
             // Build message
             $message = "🎉 *Payment Approved!*\n\n"
-                     . "Hi {$ticket->client->full_name}! 👋\n\n"
+                     . "Hi {$ticket->holder_name}! 👋\n\n"
                      . "Your ticket for *{$ticket->event->name}* is ready!\n\n"
                      . "📄 *Ticket:* {$ticket->ticket_number}\n"
                      . "🎟️ *Tier:* {$ticket->tier->tier_name}\n"
@@ -270,7 +270,7 @@ class WhatsAppController extends Controller
         // Check if payment is approved
         if ($ticket->payment_status !== 'completed') {
             $message = "⏳ *Payment Pending*\n\n"
-                      . "Hi {$ticket->client->full_name}!\n\n"
+                      . "Hi {$ticket->holder_name}!\n\n"
                       . "Your ticket *{$ticketNumber}* is awaiting payment approval.\n\n"
                       . "We'll send your ticket automatically as soon as payment is confirmed.\n\n"
                       . "Thank you for your patience! 🙏";

@@ -139,12 +139,12 @@
                         </div>
 
                         <div class="mt-8 pt-6 border-t border-gray-50 space-y-3">
-                            <a href="{{ route('installment.search') }}" class="block text-center px-5 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-xl transition-all group">
+                            <a href="{{ route('ticket.find') }}" class="block text-center px-5 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-xl transition-all group">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-search-dollar text-[#F07F22] text-sm"></i>
                                     <span class="text-[10px] font-black uppercase tracking-widest text-gray-700">Find My Ticket</span>
                                 </div>
-                                <p class="text-[9px] text-amber-600 mt-1 font-medium">Complete installment payment</p>
+                                <p class="text-[9px] text-amber-600 mt-1 font-medium">Already registered? Pay or open your ticket</p>
                             </a>
                         </div>
                     </div>

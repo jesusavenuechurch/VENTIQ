@@ -154,7 +154,7 @@ class VentiqMoneyController extends Controller
         $ticket = Ticket::with(['client', 'event', 'tier'])->findOrFail($session->payable_id);
         $activation->activate($ticket, TicketActivationService::SOURCE_VENTIQ_ONLINE, $session->payment_method, $session->transaction_id, $request->user()->id, $session);
 
-        return back()->with('status', "Received. {$ticket->client->full_name}'s ticket is active and on its way to them.");
+        return back()->with('status', "Received. {$ticket->holder_name}'s ticket is active and on its way to them.");
     }
 
     public function onlineProof(PaymentSession $session)

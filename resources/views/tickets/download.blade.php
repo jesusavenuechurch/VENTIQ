@@ -69,7 +69,7 @@
                         <div class="grid grid-cols-2 gap-y-10 gap-x-8">
                             <div>
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Guest Name</p>
-                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->client->full_name }}</p>
+                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->holder_name }}</p>
                             </div>
                             <div>
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date & Time</p>

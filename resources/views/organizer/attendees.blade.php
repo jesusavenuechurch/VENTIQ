@@ -81,7 +81,7 @@
                     <x-avatar :seed="$ticket->client->phone" size="w-10 h-10" />
                     <div class="min-w-0">
                     <p class="text-[14px] font-black text-[#1D4069]">
-                        {{ $ticket->client->full_name }}
+                        {{ $ticket->holder_name }}
                         @if($ticket->is_complimentary)
                             <span class="ml-1 px-2 py-0.5 rounded-full bg-lilac text-lilac-ink text-[9px] font-black uppercase tracking-widest align-middle" title="{{ $ticket->complimentary_reason }}"><i class="fas fa-gift mr-0.5"></i>Comp</span>
                         @endif

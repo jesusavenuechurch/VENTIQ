@@ -69,7 +69,7 @@ class AttendanceRegisterExport implements
         return $tickets->map(function ($ticket, $index) {
             $row = [
                 $index + 1,
-                $ticket->client->full_name,
+                $ticket->holder_name,
                 $ticket->client->phone ?? '—',
                 $ticket->client->email ?? '—',
                 $ticket->ticket_number,

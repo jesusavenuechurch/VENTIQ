@@ -39,7 +39,7 @@
                 <div class="grid grid-cols-2 gap-6 mt-6 text-sm">
                     <div>
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Guest</p>
-                        <p class="font-extrabold text-slate-900">{{ $ticket->client->full_name }}</p>
+                        <p class="font-extrabold text-slate-900">{{ $ticket->holder_name }}</p>
                         @if(($ticket->admissions ?? 1) > 1)
                             <p class="text-[11px] font-bold text-slate-500">Group of {{ $ticket->admissions }}</p>
                         @endif

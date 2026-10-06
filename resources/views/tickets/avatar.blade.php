@@ -170,7 +170,7 @@
                             <tr>
                                 <td width="50%">
                                     <div class="label">Guest Name</div>
-                                    <div class="value">{{ $ticket->client->full_name }}</div>
+                                    <div class="value">{{ $ticket->holder_name }}</div>
                                 </td>
                                 <td width="50%">
                                     <div class="label">Event Date</div>

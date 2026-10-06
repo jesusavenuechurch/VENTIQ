@@ -30,7 +30,7 @@
                     Find Your Ticket
                 </h2>
                 <p class="text-gray-600 text-center mb-8">
-                    Enter your details to make an installment payment
+                    Enter the phone you registered with to open your ticket: pay, pay the rest, or show it at the door.
                 </p>
 
                 <!-- Error Messages -->
@@ -74,17 +74,17 @@
                         <!-- Ticket Number -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                Ticket Number <span class="text-red-500">*</span>
+                                Ticket number or entry code <span class="text-red-500">*</span>
                             </label>
                             <input type="text" 
                                    name="ticket_number" 
                                    value="{{ old('ticket_number') }}"
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                   placeholder="e.g., TKT-6-00001"
+                                   placeholder="e.g. VQ-X82L or TKT-6-AB12CD34"
                                    required>
                             <p class="text-sm text-gray-600 mt-1">
                                 <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-                                Found in your registration confirmation
+                                In your registration email or WhatsApp message
                             </p>
                         </div>
 
@@ -101,10 +101,10 @@
                 <div class="mt-8 pt-8 border-t border-gray-200">
                     <p class="text-sm text-gray-600 text-center mb-3">
                         <i class="fas fa-question-circle text-gray-500 mr-1"></i>
-                        Don't have your ticket number?
+                        Can't find either?
                     </p>
                     <p class="text-xs text-gray-500 text-center">
-                        Check your email or WhatsApp for your registration confirmation
+                        Ask the event's organizer to send your ticket again.
                     </p>
                 </div>
             </div>
