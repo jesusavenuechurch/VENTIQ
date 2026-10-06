@@ -310,9 +310,10 @@
             <div class="flex items-center gap-4 md:gap-6 shrink-0">
                 {{-- Icons with a tooltip on hover/focus; the label is also read out. --}}
                 <div class="flex items-center gap-1">
-                    <a href="{{ route('pricing') }}" aria-label="Pricing" class="group relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1D4069] hover:bg-gray-50 focus-visible:text-[#1D4069] focus-visible:bg-gray-50 outline-none transition-colors {{ request()->routeIs('pricing') ? 'text-[#F07F22]' : '' }}">
+                    <a href="{{ route('pricing') }}" aria-label="Pricing" class="group relative w-10 md:w-auto md:px-4 md:gap-2 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1D4069] hover:bg-gray-50 focus-visible:text-[#1D4069] focus-visible:bg-gray-50 outline-none transition-colors {{ request()->routeIs('pricing') ? 'text-[#F07F22]' : '' }}">
                         <i class="fas fa-tag text-sm"></i>
-                        <span class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap rounded-lg bg-[#1D4069] px-2.5 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Pricing</span>
+                        <span class="hidden md:inline text-[10px] font-bold uppercase tracking-widest">Pricing</span>
+                        <span class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap rounded-lg bg-[#1D4069] px-2.5 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:hidden">Pricing</span>
                     </a>
                     <button type="button" @click="showChat = true" aria-label="Support" class="group relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1D4069] hover:bg-gray-50 focus-visible:text-[#1D4069] focus-visible:bg-gray-50 outline-none transition-colors">
                         <i class="fas fa-headset text-sm"></i>
