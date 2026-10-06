@@ -26,6 +26,10 @@
          GitHub Actions on push; see .github/workflows/build-assets.yml),
          so the server needs no Node and pages load no CDN styles. --}}
     @vite('resources/css/app.css')
+    {{-- Alpine comes with Livewire. Loaded on every page, not only those
+         with a Livewire component, or the menus, search and contact box
+         stop working (they use Alpine). --}}
+    @livewireStyles
     {{-- No separate Alpine script here — Livewire 3 bundles and boots its
          own Alpine instance. Loading a second copy (as this page did) is a
          documented Livewire footgun: pure-Alpine toggles like x-show can
@@ -33,7 +37,6 @@
          other Livewire-Alpine integration points silently stop binding —
          exactly the "click/Enter do nothing, form falls back to a native
          submit" symptom this caused for the Ask Ventiq widget. --}}
-    <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
     
     <style>
         [x-cloak] { display: none !important; }
@@ -214,15 +217,11 @@
 
     <div class="flex flex-col items-center gap-4">
 
-        <dotlottie-player
-            id="loader-lottie"
-            src="{{ asset('animation/loader.json') }}"
-            background="transparent"
-            speed="0.6"
-            style="width: 220px; height: 220px;"
-            autoplay
-            loop>
-        </dotlottie-player>
+        {{-- Pure CSS: no animation player to download first. --}}
+        <span class="relative flex h-16 w-16 items-center justify-center">
+            <span class="absolute inset-0 rounded-full bg-[#F07F22]/30 animate-ping"></span>
+            <span class="relative h-10 w-10 rounded-full bg-[#F07F22]"></span>
+        </span>
 
         <div class="flex flex-col items-center gap-1">
             <span class="text-2xl font-black tracking-tighter uppercase text-white">
@@ -247,7 +246,7 @@
 
                 <!-- Brand Block -->
                 <a href="/" class="flex items-center gap-3 shrink-0 transition-transform active:scale-95">
-                    <img src="{{ asset('images/ventiq-noback.png') }}" alt="VENTIQ" class="h-6 md:h-7 w-auto object-contain">
+                    <img src="{{ asset('images/ventiq-logo-112.webp') }}" width="151" height="112" alt="VENTIQ" class="h-6 md:h-7 w-auto object-contain">
                     <div class="hidden sm:flex flex-col leading-none">
                         <span class="text-sm font-black tracking-tighter uppercase text-[#1D4069]">
                             VENTI<span class="text-[#F07F22]">Q</span>
@@ -633,7 +632,6 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const loader = document.getElementById('page-loader');
-        const player = document.getElementById('loader-lottie');
         let dismissed = false;
 
         // Has this browser tab already seen VENTIQ boot up once this session?
@@ -652,16 +650,12 @@
             // Skip the theatrics, dismiss almost immediately.
             dismissLoader(true);
         } else {
-            // Cold entry — first load this session. Let the lottie play properly.
+            // Cold entry: a short hello, then the page. Never wait for images
+            // (window "load" waits for every poster on the page).
             sessionStorage.setItem('ventiq_booted', '1');
+            requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 250));
 
-            if (document.readyState === 'complete') {
-                requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 150));
-            } else {
-                window.addEventListener('load', () => setTimeout(() => dismissLoader(false), 150));
-            }
-
-            // Safety net for cold loads only
+            // Safety net
             setTimeout(() => dismissLoader(false), 900);
         }
     });
@@ -669,5 +663,6 @@
 @if(config('constants.packages_for_sale'))
     @livewire('upgrade-package-modal')
 @endif
+@livewireScripts
 </body>
 </html>

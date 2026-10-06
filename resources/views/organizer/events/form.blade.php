@@ -93,7 +93,7 @@
             <div>
                 <label class="{{ $label }}" for="banner">Poster or flyer <span class="normal-case text-gray-300">(optional, up to 10 MB)</span></label>
                 @if($event->banner_image)
-                    <img src="{{ Storage::url($event->banner_image) }}" alt="Current poster" class="mb-3 h-32 rounded-xl object-cover">
+                    <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" alt="Current poster" class="mb-3 h-32 rounded-xl object-cover">
                 @endif
                 <input id="banner" type="file" name="banner" accept="image/jpeg,image/png,image/webp" class="text-[12px] font-semibold text-gray-600">
             </div>

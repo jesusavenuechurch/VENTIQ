@@ -256,7 +256,7 @@ class PublicEventController extends Controller
             'count' => $count,
             'events' => $sampleNames,
             'remaining' => $remaining,
-            'image' => $coverEvent ? asset('storage/' . $coverEvent->banner_image) : null,
+            'image' => $coverEvent ? \App\Support\Thumb::url($coverEvent->banner_image, 960) : null,
             'href' => route('events.browse', $href),
         ];
     }
@@ -295,7 +295,7 @@ class PublicEventController extends Controller
             'subtitle' => trim(($e->venue ?? '') . ($e->city ? ' · ' . $e->city : '')),
             'date' => $e->event_date?->format('M d, Y'),
             'url' => $e->public_url,
-            'image' => $e->banner_image ? asset('storage/' . $e->banner_image) : null,
+            'image' => $e->banner_image ? \App\Support\Thumb::url($e->banner_image, 480) : null,
             'is_local' => $validDistrict ? ($e->city === $district) : null,
         ]));
     }
@@ -335,7 +335,7 @@ class PublicEventController extends Controller
             'organizer' => $e->organization->name ?? null,
             'date' => $e->event_date?->format('M d'),
             'time' => $e->event_date?->format('g:i A'),
-            'image' => $e->banner_image ? asset('storage/' . $e->banner_image) : null,
+            'image' => $e->banner_image ? \App\Support\Thumb::url($e->banner_image, 480) : null,
             'url' => $e->public_url,
         ]));
     }

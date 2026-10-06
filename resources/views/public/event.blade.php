@@ -23,7 +23,7 @@
     <div class="lg:col-span-7 space-y-6">
         @if($event->banner_image)
             <div class="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white">
-                <img src="{{ Storage::url($event->banner_image) }}" alt="{{ $event->name }} poster" class="w-full max-h-[420px] object-contain bg-slate-50">
+                <img src="{{ \App\Support\Thumb::url($event->banner_image, 960) }}" alt="{{ $event->name }} poster" class="w-full max-h-[420px] object-contain bg-slate-50">
             </div>
         @endif
 

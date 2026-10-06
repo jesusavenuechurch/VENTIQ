@@ -110,6 +110,7 @@ class EventService
 
         if ($banner) {
             $event->banner_image = $banner->store('event-banners', 'public');
+            \App\Support\Thumb::makeAll($event->banner_image);
         }
     }
 
