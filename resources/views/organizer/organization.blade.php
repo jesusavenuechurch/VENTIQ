@@ -8,9 +8,10 @@
 @endphp
 <div class="max-w-4xl mx-auto px-4 py-8">
     @include('organizer.partials.header', [
-        'title'    => 'Organization',
+        'title'    => 'Settings',
         'subtitle' => 'Who\'s hosting: the name, logo and contact details attendees see on your events and tickets.',
     ])
+    @include('organizer.partials.settings-nav')
 
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">

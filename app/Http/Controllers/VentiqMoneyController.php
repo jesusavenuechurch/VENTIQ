@@ -47,7 +47,7 @@ class VentiqMoneyController extends Controller
             ],
             'gatewayRate' => (float) config('constants.payment.gateway_fee_rate'),
             'payoutsDue' => $payoutsDue,
-            'batches'    => Settlement::with('organization:id,name')->where('status', 'pending')->latest()->get(),
+            'batches'    => Settlement::with('organization')->where('status', 'pending')->latest()->get(),
             'toInvoice'  => $toInvoice,
             'awaiting'   => $awaiting,
             'methods'    => ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash'],

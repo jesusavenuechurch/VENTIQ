@@ -132,6 +132,7 @@
                     <div>
                         <p class="text-[14px] font-black text-[#1D4069]">{{ $row->organization?->name ?? 'Organization #' . $row->organization_id }}</p>
                         <p class="text-[11px] text-gray-500">{{ $row->line_count }} online {{ \Illuminate\Support\Str::plural('payment', $row->line_count) }} · VENTIQ fees {{ $m($row->fees) }} taken off</p>
+                        @include('ventiq.payout-to', ['org' => $row->organization])
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-lg font-black text-[#1D4069]">{{ $m($row->owed) }}</span>
@@ -153,6 +154,7 @@
                         <div>
                             <p class="text-[14px] font-black text-[#1D4069]">{{ $batch->organization?->name }} · {{ $m($batch->amount_owed_to_org) }}</p>
                             <p class="text-[11px] text-gray-500">Batch #{{ $batch->id }} · created {{ $batch->created_at->format('j M, H:i') }}</p>
+                            @include('ventiq.payout-to', ['org' => $batch->organization])
                         </div>
                         <form method="POST" action="{{ route('ventiq.money.payouts.paid', $batch) }}" class="flex flex-wrap items-center gap-2">@csrf
                             <select name="method" class="{{ $input }}" aria-label="How it was paid">
