@@ -276,6 +276,7 @@ return [
         'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => false],
         // Organizers
         'payment_submitted' => ['name' => 'payment_submitted', 'approved' => true,  'button' => true],
+        'payment_unfinished' => ['name' => 'payment_unfinished', 'approved' => false, 'button' => true],
         // VENTIQ Sessions
         'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
     ],

@@ -5,7 +5,7 @@ namespace App\Jobs;
 use App\Models\PaymentSession;
 use App\Services\Payments\Contracts\WaitsForPayment;
 use App\Services\Payments\DTOs\PaymentInitiationData;
-use App\Services\Payments\{PaymentCompletion, PaymentGatewayFactory};
+use App\Services\Payments\{PaymentCompletion, PaymentGatewayFactory, UnfinishedPaymentFollowUp};
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
@@ -64,5 +64,12 @@ class ChargeMobileMoney implements ShouldQueue
             ? ['status' => 'failed', 'callback_payload' => $payload + ['failure' => $result->message]]
             // No clear answer: stays pending, for a person to check.
             : ['callback_payload' => $payload + ['no_answer' => true]]);
+
+        // That was their last try: tell them (and the organizer) now, not later.
+        try {
+            app(UnfinishedPaymentFollowUp::class)->consider($session->fresh());
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

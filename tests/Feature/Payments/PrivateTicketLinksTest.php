@@ -120,6 +120,10 @@ it('follows up once on a failed payment the attendee walked away from', function
 
     $failed->forceFill(['created_at' => now()->subMinutes(11)])->save();
     $this->artisan('tickets:payment-follow-ups');
+    Notification::assertNothingSent();   // still within the 30 minutes
+
+    $failed->forceFill(['created_at' => now()->subMinutes(31)])->save();
+    $this->artisan('tickets:payment-follow-ups');
     $this->artisan('tickets:payment-follow-ups');
     Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
     Notification::assertSentOnDemand(AttendeeTicketNotice::class, fn ($n) => str_contains($n->subject, "didn't go through") && str_contains($n->actionUrl, "/ticket/{$this->ticket->qr_code}/pay"));
@@ -129,10 +133,35 @@ it('follows up once on a failed payment the attendee walked away from', function
     PaymentSession::create([
         'payable_type' => 'ticket', 'payable_id' => $paid->id, 'gateway' => 'paylesotho', 'client_reference' => 'R' . Str::random(8),
         'payment_method' => 'ecocash', 'amount' => 200, 'status' => 'failed', 'organization_id' => $this->org->id,
-    ])->forceFill(['created_at' => now()->subMinutes(11)])->save();
+    ])->forceFill(['created_at' => now()->subMinutes(31)])->save();
     $paid->payments()->first()->update(['submitted_at' => now()]);
     $this->artisan('tickets:payment-follow-ups');
     Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
+});
+
+it('follows up straight away once all tries are used, and tells the organizer', function () {
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+    $admin = User::factory()->create(['organization_id' => $this->org->id]);
+    $admin->assignRole('org_admin');
+
+    $push = fn (string $status) => PaymentSession::create([
+        'payable_type' => 'ticket', 'payable_id' => $this->ticket->id, 'gateway' => 'paylesotho', 'client_reference' => 'R' . Str::random(8),
+        'payment_method' => 'ecocash', 'amount' => 200, 'status' => $status, 'organization_id' => $this->org->id,
+    ]);
+    $followUp = app(\App\Services\Payments\UnfinishedPaymentFollowUp::class);
+
+    expect($followUp->consider($push('failed')))->toBeFalse();   // two tries left
+    expect($followUp->consider($push('failed')))->toBeFalse();   // one left
+    expect($followUp->consider($push('failed')))->toBeTrue();    // none left: now
+
+    Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
+    Notification::assertSentTo($admin, \App\Notifications\Payments\PaymentUnfinishedNotification::class,
+        fn ($n) => $n->tries === 3 && str_contains($n->attendeesUrl, 'filter=awaiting'));
+
+    // Once per ticket, however often the schedule runs.
+    $this->artisan('tickets:payment-follow-ups');
+    Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
+    Notification::assertSentToTimes($admin, \App\Notifications\Payments\PaymentUnfinishedNotification::class, 1);
 });
 
 it('shows a paid ticket\'s QR code at its private address', function () {
