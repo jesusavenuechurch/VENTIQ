@@ -395,6 +395,9 @@ Route::middleware(['auth'])->prefix('organizer/act-as')->name('organizer.act-as.
     Route::post('/exit', [App\Http\Controllers\Organizer\ActAsController::class, 'stop'])->name('stop');
 });
 
+// The unused-account warning's "Keep my account" link (signed, no login).
+Route::get('/account/keep/{user}', App\Http\Controllers\KeepAccountController::class)->middleware(['signed', 'throttle:10,1'])->name('account.keep');
+
 // The organizer's one-tap review link (email / WhatsApp). The signature
 // is the credential, so no login; it expires after a week.
 Route::middleware('signed')->group(function () {

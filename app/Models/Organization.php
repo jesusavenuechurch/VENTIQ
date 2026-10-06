@@ -15,6 +15,7 @@ class Organization extends Model
 {
     use HasFactory, HasPackageEntitlements;
     protected $fillable = [
+        'keep_account',
         'name',
         'email',
         'phone',
@@ -46,6 +47,8 @@ class Organization extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'keep_account' => 'boolean',
+        'removal_warned_at' => 'datetime',
         'registered_via_agent_at' => 'datetime',
         'agent_commission_events_count' => 'integer',
         'agent_commission_events_limit' => 'integer',

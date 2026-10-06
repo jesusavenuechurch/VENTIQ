@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             ]);
 
+            // When people last used VENTIQ (unused accounts are removed after two months).
+            $middleware->web(append: [\App\Http\Middleware\TrackLastActive::class]);
+
             $middleware->validateCsrfTokens(except: [
                 'payment/paylesotho/callback/*',
             ]);

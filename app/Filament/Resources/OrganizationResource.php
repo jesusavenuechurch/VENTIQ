@@ -134,6 +134,12 @@ class OrganizationResource extends Resource
                 ->disabled(! $isSuperAdmin)
                 ->helperText($isSuperAdmin ? null : 'Managed by VENTIQ.'),
 
+            // Unused accounts are removed after two months (accounts:remove-unused).
+            Forms\Components\Toggle::make('keep_account')
+                ->label('Keep even if unused')
+                ->helperText('For an organization set up ahead of time, e.g. by VENTIQ for a client who hasn\'t started yet.')
+                ->visible($isSuperAdmin),
+
             Forms\Components\Toggle::make('workshop_enabled')
                 ->label('Workshop Mode Enabled')
                 ->helperText('Grants access to workshop events, signatures, and attendance registers.')

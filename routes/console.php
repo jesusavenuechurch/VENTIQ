@@ -13,3 +13,7 @@ Artisan::command('inspire', function () {
 
 // Online payments that failed and weren't finished: a nudge with the ticket link.
 \Illuminate\Support\Facades\Schedule::command('tickets:payment-follow-ups')->everyFiveMinutes()->withoutOverlapping();
+
+// Accounts that never created anything and haven't been used for two months:
+// warned a week ahead, then removed.
+\Illuminate\Support\Facades\Schedule::command('accounts:remove-unused')->dailyAt('06:10')->withoutOverlapping();
