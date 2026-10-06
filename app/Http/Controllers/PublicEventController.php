@@ -42,8 +42,14 @@ class PublicEventController extends Controller
         return view('public.event', compact('organization', 'event', 'canRegister', 'closedReason', 'tierAvailability'));
     }
 
+    /**
+     * An organization's own events page. It's to become a paid feature, so
+     * until that's decided only super admins can open it.
+     */
     public function listEvents($orgSlug)
     {
+        abort_unless(auth()->user()?->isSuperAdmin(), 404);
+
         $organization = Organization::where('slug', $orgSlug)->firstOrFail();
 
         $events = Event::listed()

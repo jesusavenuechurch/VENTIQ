@@ -93,6 +93,8 @@
             <textarea id="description" name="description" rows="4" maxlength="1000" class="{{ $field }}">{{ old('description', $organization->description) }}</textarea>
         </div>
 
+        {{-- The organization's own events page: super admins only until it's sold. --}}
+        @if(auth()->user()->isSuperAdmin())
         <div class="md:col-span-2 p-4 rounded-2xl bg-slate-50 text-[12px] text-gray-500">
             <p class="font-black text-gray-600"><i class="fas fa-link mr-1"></i>Your events page</p>
             <a href="{{ route('public.events', $organization->slug) }}" target="_blank" rel="noopener" class="font-mono text-[#1D4069] break-all hover:underline">{{ route('public.events', $organization->slug) }}</a>
@@ -102,6 +104,7 @@
                 <p class="mt-1">Until you create your first event, this address follows your organization's name. After that it stays fixed.</p>
             @endif
         </div>
+        @endif
 
         @if($canEdit)
             <div class="md:col-span-2">

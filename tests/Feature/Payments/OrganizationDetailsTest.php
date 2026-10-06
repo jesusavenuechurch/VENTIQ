@@ -33,7 +33,10 @@ it('lets an admin edit an existing organization, keeping its web address once it
     Storage::disk('public')->assertExists($org->logo_path);
 
     // The logo now shows to attendees (public pages read ->logo).
-    $this->get(route('public.events', $slug))->assertSee(Storage::url($org->logo_path));
+    $super = User::factory()->create(['organization_id' => null]);
+    $super->assignRole('super_admin');
+    $this->actingAs($super)->get(route('public.events', $slug))->assertSee(Storage::url($org->logo_path));
+    $this->actingAs($this->admin);
 
     $this->put(route('organizer.organization.update'), ['name' => 'Maseru Youth Network', 'phone' => '58000000', 'remove_logo' => '1']);
     expect($this->org->fresh()->logo_path)->toBeNull();
@@ -59,4 +62,13 @@ it('lets the web address follow the name before there are any events', function 
     $this->actingAs($this->admin)->put(route('organizer.organization.update'), ['name' => 'Brand New Name', 'phone' => '58000000']);
 
     expect($this->org->fresh()->slug)->toBe('brand-new-name');
+});
+
+it('keeps the organization\'s own events page to super admins for now', function () {
+    $this->actingAs($this->admin)->get(route('public.events', $this->org->slug))->assertNotFound();
+    $this->get(route('organizer.organization.edit'))->assertDontSee(route('public.events', $this->org->slug));
+
+    $super = User::factory()->create(['organization_id' => null]);
+    $super->assignRole('super_admin');
+    $this->actingAs($super)->get(route('public.events', $this->org->slug))->assertOk();
 });

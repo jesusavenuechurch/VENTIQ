@@ -37,7 +37,8 @@
                 <div class="h-4 w-[1px] bg-gray-200"></div>
                 <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">{{ $organization->name }}</span>
             </div>
-            <a href="{{ route('public.events', $organization->slug) }}" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Directory</a>
+            {{-- The organization's own page is for super admins until it's sold. --}}
+            <a href="{{ auth()->user()?->isSuperAdmin() ? route('public.events', $organization->slug) : route('events.browse') }}" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">More events</a>
         </div>
     </header>
 
