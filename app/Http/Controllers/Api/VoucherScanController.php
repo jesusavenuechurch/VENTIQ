@@ -24,17 +24,20 @@ class VoucherScanController extends Controller
             'event_id'     => 'nullable|integer',
         ]);
  
-        $ticket = $this->scopeToScanner(Ticket::byVoucherCode($request->voucher_code), $request->integer('event_id') ?: null)
+        // Found across the scanner's organization, so a code for another of
+        // its events can say so (wrong_event) instead of "not found".
+        $eventId = $request->integer('event_id') ?: null;
+        $ticket = $this->scopeToScanner(Ticket::byVoucherCode($request->voucher_code))
             ->with(['client', 'event', 'tier'])
             ->first();
- 
+
         if (!$ticket) {
             return response()->json([
                 'found'    => false,
                 'message'  => 'No ticket found for this voucher code.',
             ], 404);
         }
- 
+
         return response()->json([
             'found'   => true,
             'ticket'  => [
@@ -46,13 +49,15 @@ class VoucherScanController extends Controller
                 'tier_name'      => $ticket->tier?->tier_name,
                 'status'         => $ticket->status,
                 'payment_status' => $ticket->payment_status,
-                'is_valid'       => $ticket->isValid(),
-                'scan_outcome'   => $ticket->scanOutcome(),
+                'is_valid'       => $ticket->isValid() && (!$eventId || $ticket->event_id === $eventId),
+                'scan_outcome'   => $ticket->scanOutcome($eventId),
                 'admissions'     => $ticket->admissions,
                 'admitted_count' => $ticket->admitted_count,
                 'is_checked_in'  => $ticket->isCheckedIn(),
                 'is_complimentary' => $ticket->is_complimentary,
             ],
+            // The same shape as a downloaded ticket, for the app.
+            'scanner_ticket' => \App\Support\ScannerTicket::present($ticket, $eventId),
         ]);
     }
  

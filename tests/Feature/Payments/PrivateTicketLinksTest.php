@@ -95,7 +95,16 @@ it('lets door devices look up entry codes for their own organization only', func
 
     $own = User::factory()->create(['organization_id' => $this->org->id]);
     $this->actingAs($own, 'sanctum')->postJson('/api/scanner/voucher/lookup', ['voucher_code' => $code])->assertOk()->assertJsonPath('ticket.client_name', 'Lerato Mokoena');
-    $this->actingAs($own, 'sanctum')->postJson('/api/scanner/voucher/lookup', ['voucher_code' => $code, 'event_id' => $this->event->id + 99])->assertNotFound();
+    // A code for another of the organization's events says so, rather than "not found".
+    $this->actingAs($own, 'sanctum')->postJson('/api/scanner/voucher/lookup', ['voucher_code' => $code, 'event_id' => $this->event->id + 99])
+        ->assertOk()->assertJsonPath('scanner_ticket.scan_outcome', 'wrong_event')->assertJsonPath('scanner_ticket.is_scannable', false);
+
+    // The live QR check gives the same full ticket the download does, aware of the door's event.
+    $this->actingAs($own, 'sanctum')->getJson("/api/scanner/verify/{$this->ticket->qr_code}?event_id={$this->event->id}")
+        ->assertOk()->assertJsonPath('ticket.is_scannable', true)->assertJsonPath('ticket.client.full_name', 'Lerato Mokoena')
+        ->assertJsonPath('ticket.admissions', 1);
+    $this->getJson("/api/scanner/verify/{$this->ticket->qr_code}?event_id=" . ($this->event->id + 99))->assertJsonPath('ticket.scan_outcome', 'wrong_event');
+    $this->actingAs($stranger, 'sanctum')->getJson("/api/scanner/verify/{$this->ticket->qr_code}")->assertNotFound();
 });
 
 it('limits how often one phone number can register', function () {

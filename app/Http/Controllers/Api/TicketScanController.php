@@ -23,8 +23,10 @@ public function getEvents(Request $request)
     try {
         $user = $request->user();
 
-        // ✅ BYPASS: Get ALL published events (no date filter)
-        $query = Event::where('status', 'published');
+        // Events that are on, about to be, or just finished (a few days back,
+        // for multi-day events), soonest first.
+        $query = Event::where('status', 'published')
+            ->where('event_date', '>=', now()->subDays(3)->startOfDay());
 
         // Filter by organization (unless super admin)
         if (!$user->hasRole('super_admin')) {
@@ -32,7 +34,7 @@ public function getEvents(Request $request)
         }
 
         $events = $query->with(['tiers'])
-            ->orderBy('event_date', 'desc')  // ← Changed from 'date' to 'event_date'
+            ->orderBy('event_date')
             ->get()
             ->map(function ($event) {
                 $totalTickets = $event->tickets()->count();
@@ -90,37 +92,7 @@ public function getEvents(Request $request)
                 ->where('status', '!=', 'void')
                 ->with(['client', 'tier'])
                 ->get()
-                ->map(function ($ticket) {
-                    return [
-                        'id' => $ticket->id,
-                        'ticket_number' => $ticket->ticket_number,
-                        'qr_code' => $ticket->qr_code,
-                        'status' => $ticket->status,
-                        // The server's gate decision; the app should admit
-                        // only when is_scannable is true rather than
-                        // interpreting status/payment_status itself.
-                        'is_scannable' => $ticket->isValid(),
-                        'scan_outcome' => $ticket->scanOutcome(),
-                        'admissions' => $ticket->admissions,
-                        'admitted_count' => $ticket->admitted_count,
-                        'payment_status' => $ticket->payment_status,
-                        'amount' => (float) $ticket->amount,
-                        'amount_paid' => (float) $ticket->amount_paid,
-                        'checked_in_at' => $ticket->checked_in_at,
-                        'client' => [
-                            'id' => $ticket->client->id,
-                            'full_name' => $ticket->holder_name,
-                            'phone' => $ticket->client->phone ?? '',
-                            'email' => $ticket->client->email ?? '',
-                        ],
-                        'tier' => [
-                            'id' => $ticket->tier->id,
-                            'name' => $ticket->tier->tier_name,
-                            'color' => $ticket->tier->color ?? '#3B82F6',
-                            'price' => (float) $ticket->tier->price,
-                        ],
-                    ];
-                });
+                ->map(fn ($ticket) => \App\Support\ScannerTicket::present($ticket, $eventId));
 
             return response()->json([
                 'success' => true,
@@ -144,67 +116,23 @@ public function getEvents(Request $request)
     }
 
     /**
-     * Verify a single ticket by QR code (optional - for testing)
+     * One ticket by QR code, live: for a ticket the phone hasn't downloaded
+     * (registered after the download) or whose payment may have been
+     * confirmed since. ?event_id= is the event the door is scanning.
      */
     public function verifyTicket(Request $request, string $qrCode)
     {
-        try {
-            $ticket = Ticket::where('qr_code', $qrCode)
-                ->with(['client', 'tier', 'event'])
-                ->first();
+        $ticket = Ticket::where('qr_code', $qrCode)->with(['client', 'tier', 'event'])->first();
 
-            if (!$ticket) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Ticket not found',
-                ], 404);
-            }
-
-            // Check permissions
-            $user = $request->user();
-            if (!$user->hasRole('super_admin') && $ticket->event->organization_id !== $user->organization_id) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Unauthorized',
-                ], 403);
-            }
-
-            return response()->json([
-                'success' => true,
-                'ticket' => [
-                    'id' => $ticket->id,
-                    'ticket_number' => $ticket->ticket_number,
-                    'qr_code' => $ticket->qr_code,
-                    'status' => $ticket->status,
-                    'is_scannable' => $ticket->isValid(),
-                    'scan_outcome' => $ticket->scanOutcome(),
-                    'admissions' => $ticket->admissions,
-                    'admitted_count' => $ticket->admitted_count,
-                    'payment_status' => $ticket->payment_status,
-                    'checked_in_at' => $ticket->checked_in_at,
-                    'client' => [
-                        'full_name' => $ticket->holder_name,
-                        'phone' => $ticket->client->phone ?? '',
-                    ],
-                    'tier' => [
-                        'name' => $ticket->tier->tier_name,
-                        'color' => $ticket->tier->color ?? '#3B82F6',
-                    ],
-                    'event' => [
-                        'name' => $ticket->event->name,
-                        'date' => $ticket->event->event_date,
-                    ],
-                ],
-            ], 200);
-
-        } catch (\Exception $e) {
-            \Log::error('Verify ticket error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'error' => 'Verification failed',
-            ], 500);
+        $user = $request->user();
+        if (!$ticket || (!$user->hasRole('super_admin') && $ticket->event?->organization_id !== $user->organization_id)) {
+            return response()->json(['success' => false, 'error' => 'Ticket not found'], 404);
         }
+
+        return response()->json([
+            'success' => true,
+            'ticket'  => \App\Support\ScannerTicket::present($ticket, $request->integer('event_id') ?: null),
+        ]);
     }
 
     /**
