@@ -304,7 +304,7 @@
     "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2"
   },
   "resources/css/app.css": {
-    "file": "assets/app-C5RZn9nW.css",
+    "file": "assets/app-CJoAP_Vr.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -331,6 +331,12 @@
     "file": "assets/standalone-DNRFt0LY.js",
     "name": "standalone",
     "src": "resources/js/standalone.js",
+    "isEntry": true
+  },
+  "resources/js/ticket.js": {
+    "file": "assets/ticket-31ArCPKI.js",
+    "name": "ticket",
+    "src": "resources/js/ticket.js",
     "isEntry": true
   }
 }
