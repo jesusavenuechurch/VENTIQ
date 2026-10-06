@@ -33,6 +33,7 @@ function eventForm(array $overrides = []): array
         'event_time'   => '18:00',
         'venue'        => 'Convention Centre',
         'payment_mode' => 'free',
+        'expected_attendance' => '150',
         'status'       => 'draft',
     ], $overrides);
 }
@@ -44,7 +45,7 @@ function paidForm(object $t, array $overrides = []): array
         'online'       => '1',
         'account_ids'  => [$t->events->id],
         'tiers'        => [
-            ['tier_name' => 'General', 'price' => '250', 'quantity_per_purchase' => '1', 'is_active' => '1'],
+            ['tier_name' => 'General', 'price' => '250', 'quantity_available' => '80', 'quantity_per_purchase' => '1', 'is_active' => '1'],
             ['tier_name' => 'Table of 3', 'price' => '750', 'quantity_available' => '10', 'quantity_per_purchase' => '3', 'is_active' => '1'],
         ],
     ], $overrides));
@@ -71,7 +72,9 @@ describe('creating events', function () {
             ->and($event->payment_mode)->toBe('free')
             ->and($event->slug)->not->toBeEmpty()
             ->and($event->enabled_payment_method_ids)->toBeNull()
-            ->and($event->tiers()->pluck('tier_name')->all())->toBe(['Free']);
+            ->and($event->tiers()->pluck('tier_name')->all())->toBe(['Free'])
+            ->and($event->tiers()->first()->quantity_available)->toBe(150)
+            ->and($event->capacity)->toBe(150);
     });
 
     it('creates a paid event with ticket types, a group ticket and payment options', function () {
@@ -99,7 +102,19 @@ describe('creating events', function () {
         expect($table->quantity_per_purchase)->toBe(3)
             ->and((bool) $table->is_group_ticket)->toBeTrue()
             ->and($table->quantity_available)->toBe(10)
-            ->and($event->tiers()->count())->toBe(2);
+            ->and($event->tiers()->count())->toBe(2)
+            ->and($event->fresh()->capacity)->toBe(110);   // 80 + 10 tables of 3
+    });
+
+    it('needs a number for every ticket type, and for a free event the people expected', function () {
+        $form = paidForm($this);
+        unset($form['tiers'][0]['quantity_available']);
+        $this->actingAs($this->admin)->post(route('organizer.events.store'), $form)
+            ->assertSessionHasErrors(['tiers.0.quantity_available' => 'Enter how many tickets of each type you expect to sell.']);
+
+        $this->post(route('organizer.events.store'), eventForm(['expected_attendance' => '']))
+            ->assertSessionHasErrors('expected_attendance');
+        expect(Event::count())->toBe(0);
     });
 
     it('needs a way to pay and a ticket type for paid events, and a future date', function () {
@@ -140,7 +155,7 @@ describe('editing events', function () {
 
     it('updates details and ticket types, removing an unsold type', function () {
         $form = paidForm($this, ['name' => 'Maseru Youth Summit 2026', 'account_ids' => [$this->main->id]]);
-        $form['tiers'] = [['id' => $this->general->id, 'tier_name' => 'General Admission', 'price' => '300', 'quantity_per_purchase' => '1', 'is_active' => '1']];
+        $form['tiers'] = [['id' => $this->general->id, 'tier_name' => 'General Admission', 'price' => '300', 'quantity_available' => '80', 'quantity_per_purchase' => '1', 'is_active' => '1']];
 
         $this->put(route('organizer.events.update', $this->event), $form)
             ->assertRedirect(route('organizer.events.edit', $this->event));
@@ -161,7 +176,7 @@ describe('editing events', function () {
         Ticket::create(['event_id' => $this->event->id, 'client_id' => $client->id, 'event_tier_id' => $this->table->id, 'status' => 'pending', 'payment_status' => 'pending', 'amount' => 750, 'admissions' => 3]);
 
         $form = paidForm($this, ['payment_mode' => 'free']);
-        $form['tiers'] = [['id' => $this->general->id, 'tier_name' => 'General', 'price' => '250', 'quantity_per_purchase' => '1', 'is_active' => '1']];
+        $form['tiers'] = [['id' => $this->general->id, 'tier_name' => 'General', 'price' => '250', 'quantity_available' => '80', 'quantity_per_purchase' => '1', 'is_active' => '1']];
 
         $this->put(route('organizer.events.update', $this->event), $form)
             ->assertSessionHas('status', fn ($s) => str_contains($s, 'Table of 3') && str_contains($s, 'switched off'));

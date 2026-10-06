@@ -1,6 +1,6 @@
 # WhatsApp templates
 
-All approved by Meta (October 2026) and switched on in `config/constants.php`. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
+All approved by Meta (October 2026) and switched on in `config/constants.php`, except **tickets_sold_out** (section 6), which still needs submitting. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
 
 - **Category:** Utility (not Marketing).
 - **Language:** English (US). The code sends `en_US`.
@@ -70,6 +70,22 @@ Sent to the organization's phone when an attendee says they paid the organizer d
 
 - **Samples:** {{1}} `Lerato Mokoena`, {{2}} `M250.00`, {{3}} `EcoCash — Events Account`, {{4}} `MP240101.1234.A12345`
 - **Button:** "Review payment" → `https://ventiq.co.ls/{{1}}` (sample: `payment-review/12?expires=1760000000&signature=abc`)
+
+---
+
+## 6. tickets_sold_out (to the organizer, new: submit this one)
+
+Sent to the organization's phone once when a ticket type reaches its number of tickets (sales stop there). Raising the number reopens sales; if it sells out again they're told again. Until approved, the organizer's admins get it by email only.
+
+- **Name:** `tickets_sold_out`
+- **Body:**
+
+  > Your {{1}} tickets for {{2}} are sold out ({{3}} taken). If you can take more people, you can allow more tickets on your event and sales reopen straight away.
+
+- **Samples:** {{1}} `VIP`, {{2}} `Maseru Youth Summit`, {{3}} `20`
+- **Button:** "Allow more tickets" → `https://ventiq.co.ls/{{1}}` (sample: `organizer/events/12/edit`)
+
+Once Meta approves it, set `'approved' => true` for `tickets_sold_out` in `config/constants.php` and deploy.
 
 ---
 

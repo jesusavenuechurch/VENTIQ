@@ -421,6 +421,23 @@ class Ticket extends Model
         // VENTIQ's fee is charged once, the moment a ticket becomes usable:
         // free and complimentary tickets on creation, paid ones when
         // activated (FeeService).
+        // A ticket that takes a place may be the one that sells the type out.
+        static::saved(function ($ticket) {
+            $takesPlace = in_array($ticket->status, \App\Support\TierCapacity::HOLDING_STATUSES, true)
+                && ($ticket->wasRecentlyCreated || $ticket->wasChanged('status') || $ticket->wasChanged('event_tier_id'));
+            if ($takesPlace && $ticket->event_tier_id) {
+                \Illuminate\Support\Facades\DB::afterCommit(function () use ($ticket) {
+                    try {
+                        if ($tier = \App\Models\EventTier::find($ticket->event_tier_id)) {
+                            \App\Support\TierCapacity::noticeIfSoldOut($tier);
+                        }
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                });
+            }
+        });
+
         static::saved(function ($ticket) {
             $becameActive = in_array($ticket->status, ['active', 'checked_in'], true)
                 && ($ticket->wasRecentlyCreated || $ticket->wasChanged('status') || $ticket->wasChanged('is_complimentary'));

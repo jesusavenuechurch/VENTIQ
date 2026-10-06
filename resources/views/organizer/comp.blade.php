@@ -11,6 +11,7 @@
     @include('organizer.partials.header', [
         'title'    => 'Complimentary ticket',
         'subtitle' => $event->name . ' · free entry for a speaker, sponsor or guest. It\'s active straight away.',
+        'crumbs'   => [['Events', route('organizer.home')], [$event->name, route('organizer.events.attendees', $event)], ['Complimentary ticket']],
     ])
     {{-- Narrower than the page frame, left-aligned under the tabs. --}}
     <div class="max-w-3xl">

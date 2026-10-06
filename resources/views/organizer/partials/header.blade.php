@@ -49,7 +49,24 @@
         @endforeach
     </nav>
 
-    <h1 class="mt-4 sm:mt-0 text-2xl font-black text-[#1D4069] tracking-tight">{{ $title }}</h1>
+    {{-- Where this page sits, on pages below a tab: Events › Summit › Edit.
+         $crumbs is [[label, url], ..., [label]]; the last is this page. --}}
+    @isset($crumbs)
+        <nav aria-label="Breadcrumb" class="mt-4 sm:mt-0 mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-bold text-gray-400">
+            @foreach($crumbs as $i => $crumb)
+                @if($i > 0)<i class="fas fa-chevron-right text-[8px] text-gray-300" aria-hidden="true"></i>@endif
+                @if(isset($crumb[1]))
+                    <a href="{{ $crumb[1] }}" wire:navigate class="hover:text-[#1D4069] max-w-[14rem] truncate">
+                        @if($i === 0)<i class="fas fa-arrow-left mr-1"></i>@endif{{ $crumb[0] }}
+                    </a>
+                @else
+                    <span class="text-gray-500 max-w-[14rem] truncate" aria-current="page">{{ $crumb[0] }}</span>
+                @endif
+            @endforeach
+        </nav>
+    @endisset
+
+    <h1 class="{{ isset($crumbs) ? '' : 'mt-4 sm:mt-0' }} text-2xl font-black text-[#1D4069] tracking-tight">{{ $title }}</h1>
 
     {{-- Sections of this area (Settings), right under its unchanging title. --}}
     @isset($subnav)

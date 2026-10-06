@@ -10,6 +10,7 @@
     @include('organizer.partials.header', [
         'title'    => 'Import a guest list',
         'subtitle' => $event->name . ' · tickets for many people at once, from a spreadsheet.',
+        'crumbs'   => [['Events', route('organizer.home')], [$event->name, route('organizer.events.attendees', $event)], ['Import a guest list']],
     ])
     {{-- Narrower than the page frame, left-aligned under the tabs. --}}
     <div class="max-w-3xl">

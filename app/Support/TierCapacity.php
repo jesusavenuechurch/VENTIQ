@@ -23,4 +23,21 @@ class TierCapacity
     {
         return !$tier->quantity_available || static::taken($tier) < $tier->quantity_available;
     }
+
+    /**
+     * Once a ticket type fills up, tell the organizer, once, that they can
+     * allow more tickets. Run after the ticket that filled it is saved.
+     */
+    public static function noticeIfSoldOut(EventTier $tier): void
+    {
+        if (!$tier->quantity_available || $tier->sold_out_notified_at || static::hasRoom($tier)) {
+            return;
+        }
+
+        // Only the first to get here sends it.
+        $claimed = EventTier::whereKey($tier->id)->whereNull('sold_out_notified_at')->update(['sold_out_notified_at' => now()]);
+        if ($claimed) {
+            app(\App\Services\Notifications\OrganizerNotifier::class)->tierSoldOut($tier->fresh(['event.organization']));
+        }
+    }
 }

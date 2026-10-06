@@ -5,6 +5,7 @@
     @include('organizer.partials.header', [
         'title'    => $event->name,
         'subtitle' => 'Everyone who\'s coming, where each ticket stands, and the money so far.',
+        'crumbs'   => [['Events', route('organizer.home')], [$event->name]],
     ])
 
     <div class="flex flex-wrap gap-2 -mt-4 mb-6">

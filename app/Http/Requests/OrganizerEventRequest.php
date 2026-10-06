@@ -70,7 +70,9 @@ class OrganizerEventRequest extends FormRequest
             'tiers.*.id'                     => 'nullable|integer',
             'tiers.*.tier_name'              => 'required|string|max:255|distinct:ignore_case',
             'tiers.*.price'                  => 'required|numeric|min:0',
-            'tiers.*.quantity_available'     => 'nullable|integer|min:1',
+            'tiers.*.quantity_available'     => 'required|integer|min:1|max:100000',
+            // Free events: how many people they expect (the Free ticket type's number).
+            'expected_attendance'            => [Rule::requiredIf(fn () => $this->paymentMode() === 'free'), 'nullable', 'integer', 'min:1', 'max:100000'],
             'tiers.*.description'            => 'nullable|string|max:1000',
             'tiers.*.quantity_per_purchase'  => 'nullable|integer|min:1|max:100',
             'tiers.*.color'                  => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -83,6 +85,8 @@ class OrganizerEventRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator) {
+            $this->checkNumbersAboveBooked($validator);
+
             if ($this->paymentMode() !== 'paid') {
                 return;
             }
@@ -97,9 +101,37 @@ class OrganizerEventRequest extends FormRequest
         }];
     }
 
+    /** A ticket type's number can't go below the places already taken. */
+    private function checkNumbersAboveBooked(Validator $validator): void
+    {
+        $event = $this->route('event');
+        if (!$event) {
+            return;
+        }
+
+        $tiers = $event->tiers()->get()->keyBy('id');
+        $check = function (?\App\Models\EventTier $tier, $number, string $field) use ($validator) {
+            $taken = $tier ? \App\Support\TierCapacity::taken($tier) : 0;
+            if ($tier && is_numeric($number) && (int) $number < $taken) {
+                $validator->errors()->add($field, "{$taken} {$tier->tier_name} " . ($taken === 1 ? 'ticket is' : 'tickets are') . " already taken, so the number can't be lower than {$taken}.");
+            }
+        };
+
+        if ($this->paymentMode() === 'free') {
+            $check($tiers->first(), $this->input('expected_attendance'), 'expected_attendance');
+            return;
+        }
+        foreach ((array) $this->input('tiers', []) as $i => $row) {
+            $check($tiers->get((int) ($row['id'] ?? 0)), $row['quantity_available'] ?? null, "tiers.{$i}.quantity_available");
+        }
+    }
+
     public function messages(): array
     {
         return [
+            'tiers.*.quantity_available.required' => 'Enter how many tickets of each type you expect to sell.',
+            'tiers.*.quantity_available.min'      => 'Each ticket type needs at least 1 ticket.',
+            'expected_attendance.required'        => 'Enter how many people you expect.',
             'online_methods.*.in' => 'That online payment method isn\'t available yet.',
             'tiers.*.tier_name.required' => 'Every ticket type needs a name.',
             'tiers.*.tier_name.distinct' => 'Two ticket types have the same name.',

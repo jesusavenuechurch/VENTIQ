@@ -2,16 +2,16 @@
 // app/Services/Notifications/OrganizerNotifier.php
 namespace App\Services\Notifications;
 
-use App\Models\{TicketPayment, User};
+use App\Models\{EventTier, TicketPayment, User};
 use App\Notifications\Payments\PaymentSubmittedNotification;
 use App\Services\WhatsAppCloudService;
 use Illuminate\Support\Facades\{Log, Notification, URL};
 
 /**
  * Brings the organizer to a pending payment instead of expecting them to
- * find it. Sent when an attendee submits a payment, not when they
- * register or when an online try fails: before that there's nothing for
- * the organizer to do.
+ * find it. Sent when an attendee submits a payment (not when they
+ * register or an online try fails: there's nothing to do yet), and when
+ * a ticket type sells out, since only the organizer can allow more.
  */
 class OrganizerNotifier
 {
@@ -49,6 +49,33 @@ class OrganizerNotifier
             }
         } catch (\Throwable $e) {
             Log::error("Organizer notice failed for payment {$payment->id}: {$e->getMessage()}");
+        }
+    }
+
+    /** A ticket type reached its number: they can allow more tickets if they expect more people. */
+    public function tierSoldOut(EventTier $tier): void
+    {
+        $organization = $tier->event->organization;
+        $editUrl = route('organizer.events.edit', $tier->event);
+
+        try {
+            $recipients = User::where('organization_id', $organization->id)
+                ->get()
+                ->filter(fn (User $user) => $user->can('edit_event'));
+
+            Notification::send($recipients, new \App\Notifications\Organizer\TierSoldOut($tier, $editUrl));
+
+            $templateName = \App\Support\WhatsAppTemplates::name('tickets_sold_out');
+            if ($templateName && $organization->phone) {
+                app(WhatsAppCloudService::class)->sendTemplate(
+                    to: $organization->phone,
+                    templateName: $templateName,
+                    bodyParams: [$tier->tier_name, $tier->event->name, (string) (int) $tier->quantity_available],
+                    buttonUrlSuffix: ltrim((string) parse_url($editUrl, PHP_URL_PATH), '/'),
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::error("Sold-out notice failed for tier {$tier->id}: {$e->getMessage()}");
         }
     }
 

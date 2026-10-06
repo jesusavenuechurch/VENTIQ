@@ -36,17 +36,19 @@
 
     <div class="space-y-3">
         @forelse($events as $event)
-            <div class="bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6 flex flex-wrap items-center justify-between gap-4">
+            {{-- The whole card opens Attendees & money; its buttons sit above that link. --}}
+            <div class="relative bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6 flex flex-wrap items-center justify-between gap-4 hover:border-gray-200 hover:shadow-md transition-all">
                 <div class="min-w-0">
                     <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                         {{ $event->event_date?->format('d M Y') }} · {{ ucfirst($event->status) }}
                     </p>
-                    <p class="text-lg font-black text-[#1D4069] leading-tight mt-1 truncate">{{ $event->name }}</p>
+                    <a href="{{ route('organizer.events.attendees', $event) }}" wire:navigate
+                       class="block text-lg font-black text-[#1D4069] leading-tight mt-1 truncate after:absolute after:inset-0 after:rounded-[1.5rem] focus:outline-none">{{ $event->name }}</a>
                     <div class="flex flex-wrap gap-2 mt-3 text-[11px] font-bold">
                         <span class="px-2.5 py-1 rounded-full bg-mint text-mint-ink">{{ $event->active_count }} active</span>
                         <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">{{ $event->awaiting_count }} awaiting payment</span>
                         @if($event->to_confirm_count)
-                            <a href="{{ route('organizer.payments.index', ['event' => $event->id]) }}" wire:navigate class="px-2.5 py-1 rounded-full bg-action-soft text-action-ink hover:underline">{{ $event->to_confirm_count }} to confirm</a>
+                            <a href="{{ route('organizer.payments.index', ['event' => $event->id]) }}" wire:navigate class="relative z-10 px-2.5 py-1 rounded-full bg-action-soft text-action-ink hover:underline">{{ $event->to_confirm_count }} to confirm</a>
                         @endif
                         @if($event->collected_total > 0)
                             <span class="px-2.5 py-1 rounded-full bg-mint text-mint-ink">M{{ number_format($event->collected_total, 2) }} collected</span>
@@ -56,7 +58,7 @@
                         @endif
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="relative z-10 flex flex-wrap gap-2">
                     @if($event->event_date && $event->event_date->isToday())
                         <a href="{{ route('organizer.events.day', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-action text-white text-[10px] font-black uppercase tracking-widest hover:bg-action-ink"><i class="fas fa-door-open mr-1"></i>Event day</a>
                     @endif

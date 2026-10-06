@@ -116,8 +116,14 @@ class EventsController extends Controller
                     'color'                 => $t->color,
                     'is_active'             => (bool) $t->is_active,
                     'sold'                  => $t->tickets()->count(),
+                    'taken'                 => \App\Support\TierCapacity::taken($t),
                 ])->all()
-                : [['tier_name' => 'General Admission', 'price' => null, 'quantity_per_purchase' => 1, 'is_active' => true]]),
+                : [['tier_name' => 'General Admission', 'price' => null, 'quantity_available' => null, 'quantity_per_purchase' => 1, 'is_active' => true]]),
+            // Free events: the Free ticket type's number.
+            'expected'         => old('expected_attendance', $event->exists && $event->payment_mode === 'free'
+                ? $event->tiers()->orderBy('id')->value('quantity_available') : null),
+            'freeTaken'        => $event->exists && $event->payment_mode === 'free' && ($free = $event->tiers()->orderBy('id')->first())
+                ? \App\Support\TierCapacity::taken($free) : 0,
         ];
     }
 

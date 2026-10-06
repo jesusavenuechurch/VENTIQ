@@ -37,13 +37,15 @@ class EventService
                 $event->tiers()->create([
                     'tier_name'             => 'Free',
                     'price'                 => 0,
-                    'quantity_available'    => null,
+                    'quantity_available'    => $data['expected_attendance'] ?? null,
                     'is_active'             => true,
                     'quantity_per_purchase' => 1,
                 ]);
             } else {
                 $this->syncTiers($event, $data['tiers'] ?? []);
             }
+
+            $this->syncCapacity($event);
 
             return $event;
         });
@@ -65,12 +67,33 @@ class EventService
 
             if ($event->payment_mode === 'paid') {
                 $this->syncTiers($event, $data['tiers'] ?? []);
-            } elseif (!$event->tiers()->exists()) {
-                $event->tiers()->create(['tier_name' => 'Free', 'price' => 0, 'is_active' => true, 'quantity_per_purchase' => 1]);
+            } elseif ($free = $event->tiers()->orderBy('id')->first()) {
+                if (isset($data['expected_attendance'])) {
+                    $free->update(['quantity_available' => (int) $data['expected_attendance']]);
+                }
+            } else {
+                $event->tiers()->create(['tier_name' => 'Free', 'price' => 0, 'is_active' => true, 'quantity_per_purchase' => 1,
+                    'quantity_available' => $data['expected_attendance'] ?? null]);
             }
+
+            $this->syncCapacity($event);
 
             return $event;
         });
+    }
+
+    /**
+     * The event's expected attendance: people across the ticket types on
+     * sale (a table of 4 counts 4). Unknown while any type has no number.
+     */
+    private function syncCapacity(Event $event): void
+    {
+        $tiers = $event->tiers()->where('is_active', true)->get();
+        $capacity = $tiers->isNotEmpty() && $tiers->every(fn ($t) => $t->quantity_available)
+            ? $tiers->sum(fn ($t) => (int) $t->quantity_available * max(1, (int) $t->quantity_per_purchase))
+            : null;
+
+        $event->forceFill(['capacity' => $capacity])->saveQuietly();
     }
 
     /** Whether the last save changed which payment options the event offers. */
@@ -93,7 +116,6 @@ class EventService
                 ? Carbon::parse($data['registration_deadline_date'] . ' ' . ($data['registration_deadline_time'] ?? '23:59'))
                 : null,
             'venue'                 => $data['venue'] ?? null,
-            'capacity'              => $data['capacity'] ?? null,
             'location'              => $data['location'] ?? null,
         ]);
 

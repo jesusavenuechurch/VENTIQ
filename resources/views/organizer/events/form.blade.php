@@ -21,8 +21,24 @@
         installments: @js((bool) old('allow_installments', $event->allow_installments)),
         accounts: @js($accounts->map(fn ($a) => ['id' => $a->id, 'label' => $a->display_label, 'number' => $a->account_number])->values()),
         driverLabels: @js($driverLabels),
-        addTier() { this.tiers.push({ tier_name: '', price: null, quantity_available: null, description: '', quantity_per_purchase: 1, color: null, is_active: true }) },
+        addTier() { this.tiers.push({ tier_name: '', price: null, quantity_available: null, description: '', quantity_per_purchase: 1, color: null, is_active: true, taken: 0 }) },
         removeTier(i) { this.tiers.splice(i, 1) },
+        expected: @js($expected),
+        fees: { pct: {{ (float) config('constants.fees.service_percent') }}, perPerson: {{ (float) config('constants.fees.operational_per_person') }}, sponsored: @js((bool) $event->fees_sponsored) },
+        {{-- The order: what the organizer expects to sell, make and pay VENTIQ. --}}
+        get order() {
+            const rows = this.mode === 'free'
+                ? [{ people: +this.expected || 0, sales: 0 }]
+                : this.tiers.filter(t => t.is_active).map(t => {
+                    const n = +t.quantity_available || 0, per = Math.max(1, +t.quantity_per_purchase || 1);
+                    return { people: n * per, sales: n * (+t.price || 0) };
+                });
+            const people = rows.reduce((a, r) => a + r.people, 0);
+            const sales = rows.reduce((a, r) => a + r.sales, 0);
+            const fees = this.fees.sponsored ? 0 : rows.reduce((a, r) => a + Math.round(r.sales * this.fees.pct * 100) / 100 + r.people * this.fees.perPerson, 0);
+            return { people, sales, fees, keep: sales - fees };
+        },
+        money(v) { return 'M' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
         get chosenAccounts() { return this.accounts.filter(a => this.selected.includes(a.id)) },
      }"
      x-init="window.Livewire && Livewire.on('ventiq-assist-fill-form', ({ name: n, tagline: t, description: d }) => { if (n) name = n; if (t) tagline = t; if (d) description = d; })">
@@ -30,6 +46,7 @@
     @include('organizer.partials.header', [
         'title'    => $event->exists ? 'Edit event' : 'Create an event',
         'subtitle' => $event->exists ? $event->name : 'Fill in the details, choose how people pay, and publish when ready.',
+        'crumbs'   => $event->exists ? [['Events', route('organizer.home')], [$event->name, route('organizer.events.attendees', $event)], ['Edit']] : [['Events', route('organizer.home')], ['New event']],
     ])
     {{-- Narrower than the page frame, left-aligned under the tabs. --}}
     <div class="max-w-3xl">
@@ -134,10 +151,6 @@
                     <label class="{{ $label }}" for="venue">Venue <span class="normal-case text-gray-300">(optional)</span></label>
                     <input id="venue" name="venue" maxlength="255" class="{{ $field }}" value="{{ old('venue', $event->venue) }}" placeholder="e.g. Maseru Convention Centre">
                 </div>
-                <div>
-                    <label class="{{ $label }}" for="capacity">Total capacity <span class="normal-case text-gray-300">(optional)</span></label>
-                    <input id="capacity" type="number" min="1" name="capacity" class="{{ $field }}" value="{{ old('capacity', $event->capacity) }}">
-                </div>
             </div>
             <div>
                 <label class="{{ $label }}" for="location">Address <span class="normal-case text-gray-300">(optional)</span></label>
@@ -178,6 +191,18 @@
                 @endif
             </div>
 
+            <div x-show="mode === 'free'" x-cloak class="space-y-4">
+                <div>
+                <label class="{{ $label }}" for="expected_attendance">How many people are you expecting?</label>
+                <input id="expected_attendance" name="expected_attendance" type="number" min="{{ max(1, $freeTaken) }}" x-model="expected" placeholder="e.g. 150"
+                       :required="mode === 'free'" :disabled="mode !== 'free'" class="{{ $field }} sm:max-w-xs">
+                @if($freeTaken)
+                    <p class="mt-1 ml-1 text-[11px] font-medium text-gray-400">{{ $freeTaken }} registered so far.</p>
+                @endif
+                </div>
+                @include('organizer.events.partials.order-summary')
+            </div>
+
             <div x-show="mode === 'paid'" x-cloak class="space-y-6">
                 {{-- Ticket types --}}
                 <div>
@@ -187,9 +212,20 @@
                             <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
                                 <input type="hidden" :name="`tiers[${i}][id]`" :value="tier.id ?? ''">
                                 <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
-                                    <input :name="`tiers[${i}][tier_name]`" x-model="tier.tier_name" placeholder="Name, e.g. VIP" required class="sm:col-span-3 {{ $field }} bg-white">
-                                    <input :name="`tiers[${i}][price]`" x-model="tier.price" type="number" min="0" step="0.01" placeholder="Price (M)" required class="sm:col-span-1 {{ $field }} bg-white">
-                                    <input :name="`tiers[${i}][quantity_available]`" x-model="tier.quantity_available" type="number" min="1" placeholder="How many (∞)" class="sm:col-span-2 {{ $field }} bg-white">
+                                    <div class="sm:col-span-3">
+                                        <label class="{{ $label }}" :for="`tier-name-${i}`">Ticket name</label>
+                                        <input :id="`tier-name-${i}`" :name="`tiers[${i}][tier_name]`" x-model="tier.tier_name" placeholder="e.g. VIP" required :disabled="mode !== 'paid'" class="{{ $field }} bg-white">
+                                    </div>
+                                    <div class="sm:col-span-1">
+                                        <label class="{{ $label }}" :for="`tier-price-${i}`">Price (M)</label>
+                                        <input :id="`tier-price-${i}`" :name="`tiers[${i}][price]`" x-model="tier.price" type="number" min="0" step="0.01" placeholder="100" required :disabled="mode !== 'paid'" class="{{ $field }} bg-white">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="{{ $label }}" :for="`tier-qty-${i}`">Number of tickets</label>
+                                        <input :id="`tier-qty-${i}`" :name="`tiers[${i}][quantity_available]`" x-model="tier.quantity_available" type="number" :min="Math.max(1, tier.taken || 0)" placeholder="e.g. 80" required :disabled="mode !== 'paid'" class="{{ $field }} bg-white">
+                                        <p x-show="tier.taken" class="mt-1 ml-1 text-[11px] font-medium text-gray-400"
+                                           x-text="`${tier.taken} taken` + (tier.quantity_available && tier.taken >= tier.quantity_available ? ' · sold out' : '')"></p>
+                                    </div>
                                 </div>
                                 <textarea :name="`tiers[${i}][description]`" x-model="tier.description" rows="1" placeholder="What's included (optional)" class="{{ $field }} bg-white"></textarea>
                                 <div class="flex flex-wrap items-center gap-4 text-[12px] font-bold text-gray-600">
@@ -205,12 +241,11 @@
                                         <input type="hidden" :name="`tiers[${i}][is_active]`" :value="tier.is_active ? 1 : 0">
                                         <input type="checkbox" x-model="tier.is_active" class="w-4 h-4 accent-[#F07F22]"> On sale
                                     </label>
-                                    <span x-show="tier.sold" class="text-[11px] text-gray-400" x-text="`${tier.sold} sold`"></span>
                                     <button type="button" @click="removeTier(i)" x-show="tiers.length > 1" class="ml-auto text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-rose-600"
                                             :title="tier.sold ? 'Already sold, so it will be switched off rather than removed' : ''">Remove</button>
                                 </div>
                                 <p x-show="tier.quantity_per_purchase > 1" class="text-[11px] font-medium text-gray-500"
-                                   x-text="`One ticket and one QR for ${tier.quantity_per_purchase} people; the price is for the whole group.`"></p>
+                                   x-text="`One ticket and one QR for ${tier.quantity_per_purchase} people; the price is for the whole group.` + (tier.quantity_available ? ` ${tier.quantity_available} tickets is ${tier.quantity_available * tier.quantity_per_purchase} people.` : '')"></p>
                             </div>
                         </template>
                     </div>
@@ -218,6 +253,8 @@
                         <i class="fas fa-plus mr-1"></i>Add ticket type
                     </button>
                 </div>
+
+                @include('organizer.events.partials.order-summary')
 
                 {{-- How people pay --}}
                 <div class="space-y-3">
