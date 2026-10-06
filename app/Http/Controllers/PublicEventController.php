@@ -275,7 +275,7 @@ class PublicEventController extends Controller
         $district = $request->get('district');
         $validDistrict = $district && in_array($district, config('constants.districts'));
 
-        $query = Event::listed()
+        $query = Event::upcoming()
             ->where(function ($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")
                     ->orWhere('venue', 'like', "%{$q}%")

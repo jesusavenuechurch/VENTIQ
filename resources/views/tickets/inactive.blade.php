@@ -12,7 +12,7 @@
      screenshot can't be mistaken for a valid ticket. --}}
 @php
     [$headline, $body, $tone] = match ($ticket->status) {
-        'expired'   => ['Payment window ended', 'This ticket was not paid in time, so its place has been released. Contact the organizer if you still want to attend.', 'rose'],
+        'expired'   => ['Payment window ended', 'This ticket was not paid in time, so its place has been released. No payment is needed for it. If places are still available, you can register again.', 'rose'],
         'cancelled', 'void', 'refunded' => ['Ticket cancelled', 'This ticket is no longer valid. Contact the organizer if you think this is a mistake.', 'rose'],
         default     => $submitted
             ? ['Payment being confirmed', 'Your payment is being confirmed. This ticket activates as soon as it is, and we will let you know. There is no need to pay again.', 'sky']
@@ -50,7 +50,7 @@
                     </div>
                     <div>
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ticket</p>
-                        <p class="font-extrabold text-slate-900">{{ $ticket->tier->tier_name }}</p>
+                        <p class="font-extrabold text-slate-900">{{ $ticket->tier->tier_name }}@if(($ticket->admissions ?? 1) > 1) · admits {{ $ticket->admissions }}@endif</p>
                     </div>
                     <div>
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Amount</p>
@@ -71,6 +71,12 @@
                 <div class="px-8 pb-8">
                     <a href="{{ $paymentUrl }}" class="block w-full text-center py-4 rounded-2xl bg-slate-900 hover:bg-[#1D4069] text-white text-[11px] font-black uppercase tracking-[0.2em]">
                         Pay or submit your payment
+                    </a>
+                </div>
+            @elseif($ticket->status === 'expired' && !$ticket->event->registrationClosedReason())
+                <div class="px-8 pb-8">
+                    <a href="{{ route('registration.form', [$ticket->event->organization->slug, $ticket->event->slug]) }}" class="block w-full text-center py-4 rounded-2xl bg-[#F07F22] hover:bg-[#1D4069] text-white text-[11px] font-black uppercase tracking-[0.2em]">
+                        Register again
                     </a>
                 </div>
             @elseif($ticket->status === 'pending')

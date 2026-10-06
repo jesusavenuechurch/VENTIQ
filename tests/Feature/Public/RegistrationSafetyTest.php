@@ -86,3 +86,22 @@ it('shows the balance and the account paid to on the confirmation page', functio
 
     $this->get(route('ticket.registered', $ticket->qr_code))->assertSee('Balance left')->assertSee('M140.00')->assertSee('62000000');
 });
+
+it('closes registration once the event day is over, but not on the day', function () {
+    $this->event->update(['event_date' => now()->subHours(2)]);
+    expect($this->event->fresh()->registrationClosedReason())->toBeNull();
+
+    $this->event->update(['event_date' => now()->subDay()->startOfDay()->addHours(18)]);
+    expect($this->event->fresh()->registrationClosedReason())->toBe('This event has ended.')
+        ->and(\App\Models\Event::upcoming()->whereKey($this->event->id)->exists())->toBeFalse();
+    $this->get('/sitemap.xml')->assertOk()->assertDontSee($this->event->slug);
+});
+
+it('sends an expired ticket to its page, which offers to register again', function () {
+    ($this->register)();
+    $ticket = Ticket::sole();
+    $ticket->update(['status' => 'expired']);
+
+    $this->get(route('ticket.pay', $ticket->qr_code))->assertRedirect(route('ticket.download', $ticket->qr_code));
+    $this->get(route('ticket.download', $ticket->qr_code))->assertSee('No payment is needed')->assertSee('Register again');
+});

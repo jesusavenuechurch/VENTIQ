@@ -315,7 +315,8 @@ class RegistrationController extends Controller
     {
         [$ticket, $event, $organization] = $this->ticketByCode($code, ['client', 'tier']);
 
-        if ($ticket->payment_status === 'completed') {
+        // Paid, or expired/cancelled: nothing to pay; the ticket page says which.
+        if ($ticket->payment_status === 'completed' || !in_array($ticket->status, ['pending', 'active'], true)) {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
         }
 
@@ -415,7 +416,7 @@ class RegistrationController extends Controller
     {
         [$ticket, $event, $organization] = $this->ticketByCode($code, ['tier', 'payments']);
 
-        if ($ticket->payment_status === 'completed') {
+        if ($ticket->payment_status === 'completed' || !in_array($ticket->status, ['pending', 'active'], true)) {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
         }
 

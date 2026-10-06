@@ -566,10 +566,14 @@ class Ticket extends Model
             }
 
             $color = $this->tier_color;
-            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.png';
 
-            // Generate QR code with tier color
-            $qrContent = QrCode::format('png')
+            // PNG needs the imagick extension; without it, an SVG (which the
+            // ticket page and the PDF pass both show) so no pass goes out
+            // without a code.
+            $format = extension_loaded('imagick') ? 'png' : 'svg';
+            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.' . $format;
+
+            $qrContent = QrCode::format($format)
                 ->size(300)
                 ->margin(2)
                 ->color($color['r'], $color['g'], $color['b'])

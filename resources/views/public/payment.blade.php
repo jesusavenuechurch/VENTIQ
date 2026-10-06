@@ -113,9 +113,10 @@
                             </label>
                             <div class="flex">
                                 <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
-                                <input type="tel" id="online_phone_input"
+                                @php $regDigits = preg_replace('/^266/', '', preg_replace('/\D/', '', (string) $ticket->client?->phone)); @endphp
+                                <input type="tel" id="online_phone_input" value="{{ strlen($regDigits) === 8 ? substr($regDigits, 0, 4) . ' ' . substr($regDigits, 4) : '' }}"
                                     class="flex-1 bg-slate-50 border-2 border-slate-50 rounded-r-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900"
-                                    placeholder="5949 4756" maxlength="10">
+                                    placeholder="5949 4756" inputmode="tel" autocomplete="tel-national">
                             </div>
                             <p id="online-error" class="hidden text-[10px] font-bold text-rose-500 uppercase mt-2 ml-1"></p>
                         </div>
@@ -266,7 +267,7 @@
                 </div>
             @endif
 
-            <div id="manual-panel" class="accordion-panel {{ $onlineEnabled ? '' : 'open' }}">
+            <div id="manual-panel" class="accordion-panel {{ !$onlineEnabled || $errors->hasAny(['payment_method_id', 'payment_reference', 'proof', 'deposit_amount']) ? 'open' : '' }}">
                 <form method="POST" action="{{ route('ticket.pay.manual', $ticket->qr_code) }}" enctype="multipart/form-data" class="p-6 sm:p-8 pt-0 space-y-6">
                     @csrf
 
@@ -337,7 +338,7 @@
                                     <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
                                         data-instructions="{{ $method->instructions }}"
                                         data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
-                                        {{ $loop->first ? 'checked' : '' }} required>
+                                        {{ (int) old('payment_method_id', $paymentMethods->first()?->id) === $method->id ? 'checked' : '' }} required>
 
                                     <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
                                         <div class="flex items-center mb-3">
@@ -482,6 +483,8 @@
         const onlinePhoneInput = document.getElementById('online_phone_input');
         onlinePhoneInput?.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
+            // "+266 5949 4756" pasted whole: drop the country code, not the end.
+            if (value.length > 8 && value.startsWith('266')) value = value.substring(3);
             if (value.length > 8) value = value.substring(0, 8);
             if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
             e.target.value = value;

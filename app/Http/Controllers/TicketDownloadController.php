@@ -114,14 +114,13 @@ class TicketDownloadController extends Controller
         $ticket = Ticket::with('event', 'tier')->where('qr_code', $qrCode)->firstOrFail();
 
         abort_unless(in_array($ticket->status, ['active', 'checked_in'], true), 404);
-        if ((!$ticket->qr_code_path || !Storage::disk(Ticket::FILES_DISK)->exists($ticket->qr_code_path)) && !$ticket->generateQrCode()) {
-            // PNGs need imagick; an SVG doesn't, so the ticket still shows a code.
-            $svg = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(300)->margin(2)->generate(route('ticket.download', $ticket->qr_code));
-
-            return response((string) $svg, 200, ['Content-Type' => 'image/svg+xml', 'Cache-Control' => 'private, max-age=3600']);
+        if (!$ticket->qr_code_path || !Storage::disk(Ticket::FILES_DISK)->exists($ticket->qr_code_path)) {
+            abort_unless($ticket->generateQrCode(), 404);
         }
 
-        return Storage::disk(Ticket::FILES_DISK)->response($ticket->qr_code_path, null, ['Cache-Control' => 'private, max-age=3600']);
+        $type = str_ends_with($ticket->qr_code_path, '.svg') ? 'image/svg+xml' : 'image/png';
+
+        return Storage::disk(Ticket::FILES_DISK)->response($ticket->qr_code_path, null, ['Content-Type' => $type, 'Cache-Control' => 'private, max-age=3600']);
     }
 }
 

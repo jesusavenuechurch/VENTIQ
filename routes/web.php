@@ -44,22 +44,15 @@ Route::get('/sitemap.xml', function () {
             ->setPriority(0.9)
             ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY));
     
-    // Add all public events dynamically (without is_published check)
+    // Public events people can still register for: no drafts, private,
+    // cancelled or past events.
     try {
-        $organizations = \App\Models\Organization::with('events')->get();
-        
-        foreach ($organizations as $org) {
-            if ($org->events) {
-                foreach ($org->events as $event) {
-                    $sitemap->add(
-                        Url::create("/org/{$org->slug}/event/{$event->slug}")
-                            ->setLastModificationDate($event->updated_at ?? now())
-                            ->setPriority(0.9)
-                            ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY)
-                    );
-                }
-            }
-        }
+        \App\Models\Event::upcoming()->with('organization:id,slug')->get()->each(fn ($event) => $sitemap->add(
+            Url::create($event->public_url)
+                ->setLastModificationDate($event->updated_at ?? now())
+                ->setPriority(0.9)
+                ->setChangeFrequency(Url::CHANGE_FREQUENCY_DAILY)
+        ));
     } catch (\Exception $e) {
         // Log error but still return sitemap with base URLs
         \Log::error('Sitemap generation error: ' . $e->getMessage());

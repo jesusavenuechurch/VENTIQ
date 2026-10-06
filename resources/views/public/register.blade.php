@@ -93,7 +93,7 @@
                                     <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
                                     <input type="tel" name="phone" id="phone_input" value="{{ preg_replace('/^266(?=\d{8}$)/', '', preg_replace('/\D/', '', (string) old('phone'))) }}" required
                                         class="flex-1 bg-slate-50 border-2 border-slate-50 rounded-r-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900"
-                                        placeholder="5949 4756" maxlength="10">
+                                        placeholder="5949 4756" inputmode="tel" autocomplete="tel-national">
                                 </div>
                             </div>
                         </div>
@@ -272,6 +272,8 @@
         // Auto-format main phone
         phoneInput?.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
+            // "+266 5949 4756" pasted whole: drop the country code, not the end.
+            if (value.length > 8 && value.startsWith('266')) value = value.substring(3);
             if (value.length > 8) value = value.substring(0, 8);
             if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
             e.target.value = value;

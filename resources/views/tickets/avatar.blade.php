@@ -163,7 +163,7 @@
                     <div class="watermark">VENTIQ</div>
                     
                     <div style="position: relative; z-index: 10;">
-                        <div class="tier-badge">{{ $ticket->tier->tier_name }}</div>
+                        <div class="tier-badge">{{ $ticket->tier->tier_name }}@if(($ticket->admissions ?? 1) > 1) &middot; ADMITS {{ $ticket->admissions }}@endif</div>
                         <h1 class="event-name">{{ $ticket->event->name }}</h1>
 
                         <table width="100%" border="0">
@@ -197,7 +197,7 @@
                         @if($ticket->qr_code_path)
                             @php
                                 $path = \Illuminate\Support\Facades\Storage::disk(\App\Models\Ticket::FILES_DISK)->path($ticket->qr_code_path);
-                                $type = pathinfo($path, PATHINFO_EXTENSION);
+                                $type = pathinfo($path, PATHINFO_EXTENSION) === 'svg' ? 'svg+xml' : pathinfo($path, PATHINFO_EXTENSION);
                                 $data = @file_get_contents($path) ?: '';
                                 $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
                             @endphp
