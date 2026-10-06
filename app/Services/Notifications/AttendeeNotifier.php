@@ -108,7 +108,10 @@ class AttendeeNotifier
                     to: $ticket->client->phone,
                     templateName: $templateName,
                     bodyParams: array_map('strval', $whatsappParams ?? [$ticket->client->full_name, $ticket->event->name]),
-                    buttonUrlSuffix: $ticket->qr_code,
+                    // The template's button is "https://<domain>/{{1}}": it opens
+                    // the same page as the email's button (pay page, or the
+                    // event to register again once the place is released).
+                    buttonUrlSuffix: ltrim((string) parse_url($actionUrl, PHP_URL_PATH), '/'),
                 );
 
                 if (!$sent) {

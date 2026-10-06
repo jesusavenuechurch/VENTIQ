@@ -141,3 +141,17 @@ it('shows a paid ticket\'s QR code at its private address', function () {
     $r = $this->get(route('ticket.qr', $this->ticket->qr_code))->assertOk();
     expect($r->headers->get('Content-Type'))->toMatch('/image\/(png|svg)/');
 });
+
+it('points WhatsApp buttons where the email points: pay page, or the event once the place is gone', function () {
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['messages' => [['id' => 'x']]])]);
+    config(['services.whatsapp.templates.payment_failed' => 'payment_failed', 'services.whatsapp.templates.payment_expired' => 'payment_expired',
+        'services.whatsapp.phone_number_id' => '1', 'services.whatsapp.access_token' => 't']);
+    $notifier = app(\App\Services\Notifications\AttendeeNotifier::class);
+
+    $notifier->paymentFailed($this->ticket);
+    $notifier->paymentWindowExpired($this->ticket);
+
+    $buttons = collect(\Illuminate\Support\Facades\Http::recorded())->map(fn ($pair) => collect($pair[0]['template']['components'] ?? [])
+        ->firstWhere('type', 'button')['parameters'][0]['text'] ?? null);
+    expect($buttons->all())->toBe(["ticket/{$this->ticket->qr_code}/pay", "e/{$this->org->slug}/{$this->event->slug}"]);
+});
