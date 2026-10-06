@@ -338,6 +338,8 @@ Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'dest
 // organization but not the events setup (phone number) step.
 Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {
     Route::get('/team', [App\Http\Controllers\Organizer\TeamController::class, 'index'])->name('team.index');
+    Route::get('/organization', [App\Http\Controllers\Organizer\OrganizationController::class, 'edit'])->name('organization.edit');
+    Route::put('/organization', [App\Http\Controllers\Organizer\OrganizationController::class, 'update'])->name('organization.update');
     Route::middleware('can:manage_staff')->group(function () {
         Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
         Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');

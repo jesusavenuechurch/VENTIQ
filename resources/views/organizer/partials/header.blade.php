@@ -27,7 +27,7 @@
             ['organizer.home',           'Events',              'Events',     'fa-calendar-days', 'organizer.home|organizer.events.*', 0],
             ['organizer.payments.index', 'Payments to confirm', 'To confirm', 'fa-receipt',       'organizer.payments.*',              $toConfirm],
             ['organizer.accounts.index', 'Payment accounts',    'Accounts',   'fa-wallet',        'organizer.accounts.*',              0],
-            ['organizer.team.index',     'Team',                'Team',       'fa-user-group',    'organizer.team.*',                  0],
+            ['organizer.team.index',     'Team',                'Team',       'fa-user-group',    'organizer.team.*|organizer.organization.*', 0],
         ];
         // Only tabs this person can open.
         if (!auth()->user()?->can('view_payment_method')) {

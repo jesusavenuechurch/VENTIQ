@@ -12,6 +12,21 @@
         'subtitle' => 'The people who make your events happen, and what each of them can do.',
     ])
 
+    <a href="{{ route('organizer.organization.edit') }}" class="mb-6 flex items-center justify-between gap-4 p-5 rounded-[1.5rem] bg-white border border-gray-100 shadow-sm hover:border-[#1D4069]">
+        <span class="flex items-center gap-3 min-w-0">
+            @if($currentOrganization->logo_path)
+                <img src="{{ Storage::url($currentOrganization->logo_path) }}" alt="" class="w-11 h-11 rounded-xl object-contain bg-slate-50">
+            @else
+                <span class="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-[#1D4069]"><i class="fas fa-building"></i></span>
+            @endif
+            <span class="min-w-0">
+                <span class="block text-[14px] font-black text-[#1D4069] truncate">{{ $currentOrganization->name }}</span>
+                <span class="block text-[12px] text-gray-500">Name, logo and contact details attendees see</span>
+            </span>
+        </span>
+        <span class="text-[10px] font-black uppercase tracking-widest text-[#F07F22] whitespace-nowrap">{{ auth()->user()->can('edit_organization') ? 'Edit' : 'View' }} <i class="fas fa-arrow-right ml-1"></i></span>
+    </a>
+
     @if($errors->any())
         <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[12px] font-bold text-rose-700">
             @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach

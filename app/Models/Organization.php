@@ -60,8 +60,11 @@ class Organization extends Model
         });
 
         static::updating(function ($organization) {
-            // Only update slug if name changed and we haven't manually set a slug
-            if ($organization->isDirty('name') && !$organization->isDirty('slug')) {
+            // The web address follows the name only until the organization
+            // has events: after that, posters, QR codes and shared links
+            // point at it, so a rename keeps the address.
+            if ($organization->isDirty('name') && !$organization->isDirty('slug')
+                && !\App\Models\Event::where('organization_id', $organization->id)->exists()) {
                 $organization->slug = static::generateUniqueSlug($organization->name);
             }
         });
@@ -269,5 +272,11 @@ class Organization extends Model
     public function invites(): HasMany
     {
         return $this->hasMany(OrganizationInvite::class);
+    }
+
+    /** Public pages ask for "logo"; the file is stored in logo_path. */
+    public function getLogoAttribute(): ?string
+    {
+        return $this->logo_path;
     }
 }
