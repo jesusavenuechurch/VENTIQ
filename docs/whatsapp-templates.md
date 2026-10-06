@@ -1,6 +1,6 @@
-# WhatsApp templates to submit to Meta
+# WhatsApp templates
 
-Submit each one in WhatsApp Manager → Message templates → Create template.
+All approved by Meta (October 2026) and switched on in `config/constants.php`. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
 
 - **Category:** Utility (not Marketing).
 - **Language:** English (US). The code sends `en_US`.

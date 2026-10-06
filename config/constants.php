@@ -270,12 +270,12 @@ return [
         // Attendees
         'ticket_ready'      => ['name' => 'ticket_ready',      'approved' => true,  'button' => true],
         'ticket_registered' => ['name' => 'ticket_registered', 'approved' => true,  'button' => false],
-        'payment_failed'    => ['name' => 'payment_failed',    'approved' => false, 'button' => true],
-        'payment_reminder'  => ['name' => 'payment_reminder',  'approved' => false, 'button' => true],
-        'payment_rejected'  => ['name' => 'payment_rejected',  'approved' => false, 'button' => true],
-        'payment_expired'   => ['name' => 'payment_expired',   'approved' => false, 'button' => false],
+        'payment_failed'    => ['name' => 'payment_failed',    'approved' => true,  'button' => true],
+        'payment_reminder'  => ['name' => 'payment_reminder',  'approved' => true,  'button' => true],
+        'payment_rejected'  => ['name' => 'payment_rejected',  'approved' => true,  'button' => true],
+        'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => false],
         // Organizers
-        'payment_submitted' => ['name' => 'payment_submitted', 'approved' => false, 'button' => true],
+        'payment_submitted' => ['name' => 'payment_submitted', 'approved' => true,  'button' => true],
         // VENTIQ Sessions
         'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
     ],

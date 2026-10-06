@@ -57,6 +57,12 @@ class WhatsAppCloudService
             return false;
         }
 
+        // No WhatsApp account set up here (a local copy, tests): don't call Meta.
+        if (!config('services.whatsapp.phone_number_id') || !config('services.whatsapp.access_token')) {
+            Log::info("WhatsApp not configured, '{$templateName}' skipped", ['to' => $to]);
+            return false;
+        }
+
         $components = [];
 
         if ($headerImageUrl) {
