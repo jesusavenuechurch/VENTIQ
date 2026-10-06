@@ -131,6 +131,8 @@ Route::prefix('register/{orgSlug}/{eventSlug}')->group(function () {
 // push, send proof, see what happens next. /ticket/{code} itself is the pass.
 Route::prefix('ticket/{code}')->group(function () {
     Route::get('/pay', [RegistrationController::class, 'payment'])->name('ticket.pay');
+    // From the payment_failed message: the same page, opened on paying directly.
+    Route::get('/pay/another-way', [RegistrationController::class, 'payAnotherWay'])->name('ticket.pay.another');
     Route::get('/registered', [RegistrationController::class, 'confirmation'])->name('ticket.registered');
     Route::post('/pay/manual', [RegistrationController::class, 'submitManualPayment'])->middleware('throttle:10,1')->name('ticket.pay.manual');
     // After the pushes fail: paid VENTIQ's EcoCash merchant by hand.

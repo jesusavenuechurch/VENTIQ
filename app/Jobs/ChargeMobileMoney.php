@@ -65,7 +65,7 @@ class ChargeMobileMoney implements ShouldQueue
             // No clear answer: stays pending, for a person to check.
             : ['callback_payload' => $payload + ['no_answer' => true]]);
 
-        // That was their last try: tell them (and the organizer) now, not later.
+        // That was their last try: send them the pay-another-way link now, not later.
         try {
             app(UnfinishedPaymentFollowUp::class)->consider($session->fresh());
         } catch (\Throwable $e) {

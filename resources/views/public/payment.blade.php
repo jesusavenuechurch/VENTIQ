@@ -197,7 +197,11 @@
                             <i class="fas fa-route text-[#1D4069] text-2xl"></i>
                         </div>
                         <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Let's try another way</h3>
-                        <p class="text-sm font-bold text-gray-500">The payment prompt didn't work after {{ config('gateways.paylesotho.max_attempts', 3) }} tries. Your place is still held.</p>
+                        <p class="text-sm font-bold text-gray-500">
+                            <span id="fallback-some-left" class="{{ $attemptsLeft > 0 ? '' : 'hidden' }}">The payment prompt didn't go through. Pay directly instead and send us the proof.</span>
+                            <span id="fallback-none-left" class="{{ $attemptsLeft > 0 ? 'hidden' : '' }}">The payment prompt didn't work after {{ config('gateways.paylesotho.max_attempts', 3) }} tries.</span>
+                            Your place is still held.
+                        </p>
                     </div>
 
                     @if($paymentMethods->isNotEmpty())
@@ -234,6 +238,12 @@
                         </form>
                     @else
                         <p class="text-center text-[13px] font-bold text-gray-500">Please contact {{ $organization->name }} to pay for your ticket.</p>
+                    @endif
+
+                    @if($attemptsLeft > 0)
+                        <button type="button" id="fallback-retry" class="mt-4 w-full py-3 text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">
+                            Or try the payment prompt again
+                        </button>
                     @endif
                 </div>
 
@@ -524,6 +534,9 @@
             attemptsLeft = n;
             document.getElementById('attempts-left').textContent = n;
             document.getElementById('attempts-note')?.classList.toggle('hidden', n >= MAX_TRIES);
+            document.getElementById('fallback-retry')?.classList.toggle('hidden', n === 0);
+            document.getElementById('fallback-some-left')?.classList.toggle('hidden', n === 0);
+            document.getElementById('fallback-none-left')?.classList.toggle('hidden', n > 0);
         }
 
         // Out of tries → another way; else back to the form to send again.
@@ -594,6 +607,8 @@
         document.getElementById('timeout-retry')?.addEventListener('click', retryOrFallback);
         document.getElementById('try-again-btn')?.addEventListener('click', retryOrFallback);
 
+        document.getElementById('fallback-retry')?.addEventListener('click', () => showPanel('form'));
+
         document.getElementById('fallback-direct')?.addEventListener('click', function() {
             manualPanel?.classList.add('open');
             manualToggleIcon?.classList.add('rotate-180');
@@ -650,7 +665,7 @@
         @elseif($inFlight)
             document.getElementById('waiting-masked-number').textContent = 'your phone';
             wait({{ $inFlight->id }}, Math.max(5, WAIT_S - {{ (int) $inFlight->created_at->diffInSeconds(now()) }}));
-        @elseif($onlineEnabled && $attemptsLeft === 0)
+        @elseif($onlineEnabled && ($attemptsLeft === 0 || $anotherWay))
             showPanel('fallback');
         @endif
     });

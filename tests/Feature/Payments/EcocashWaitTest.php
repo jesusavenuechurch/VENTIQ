@@ -129,6 +129,24 @@ it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', f
     expect($this->ticket->fresh()->status)->toBe('active');
 });
 
+it('tells VENTIQ by email and WhatsApp when someone pays the merchant by hand', function () {
+    \Illuminate\Support\Facades\Notification::fake();
+    Http::fake(['*' => Http::response(['messages' => [['id' => 'wamid.1']]])]);
+    config(['constants.ventiq_alerts' => ['email' => 'support@ventiq.co.ls', 'whatsapp' => '+26662552155'], 'services.whatsapp.access_token' => 't', 'services.whatsapp.phone_number_id' => '1']);
+
+    $this->post(route('ticket.pay.merchant', $this->ticket->qr_code), ['merchant_phone' => '59494756', 'merchant_reference' => 'MP1.2.3'])->assertRedirect();
+
+    \Illuminate\Support\Facades\Notification::assertSentOnDemand(\App\Notifications\Ventiq\MerchantPaymentClaimed::class,
+        fn ($n, $channels, $notifiable) => $notifiable->routes['mail'] === 'support@ventiq.co.ls'
+            && str_contains($n->toMail($notifiable)->subject, 'M200.00'));
+    Http::assertSent(fn ($r) => str_contains($r->body(), '26662552155') && str_contains($r->body(), 'payment_submitted') && str_contains($r->body(), 'MP1.2.3'));
+});
+
+it('opens the pay page on paying another way from the message link', function () {
+    $this->get(route('ticket.pay.another', $this->ticket->qr_code))->assertOk()
+        ->assertSee("Let's try another way", false)->assertSee('62243375')->assertSee('Or try the payment prompt again');
+});
+
 it('needs a reference or a screenshot to pay the merchant by hand', function () {
     $this->post(route('ticket.pay.merchant', $this->ticket->qr_code), [
         'merchant_phone' => '62552155',

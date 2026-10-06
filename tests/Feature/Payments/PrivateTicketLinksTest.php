@@ -139,11 +139,7 @@ it('follows up once on a failed payment the attendee walked away from', function
     Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
 });
 
-it('follows up straight away once all tries are used, and tells the organizer', function () {
-    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
-    $admin = User::factory()->create(['organization_id' => $this->org->id]);
-    $admin->assignRole('org_admin');
-
+it('follows up straight away once all tries are used', function () {
     $push = fn (string $status) => PaymentSession::create([
         'payable_type' => 'ticket', 'payable_id' => $this->ticket->id, 'gateway' => 'paylesotho', 'client_reference' => 'R' . Str::random(8),
         'payment_method' => 'ecocash', 'amount' => 200, 'status' => $status, 'organization_id' => $this->org->id,
@@ -155,13 +151,10 @@ it('follows up straight away once all tries are used, and tells the organizer', 
     expect($followUp->consider($push('failed')))->toBeTrue();    // none left: now
 
     Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
-    Notification::assertSentTo($admin, \App\Notifications\Payments\PaymentUnfinishedNotification::class,
-        fn ($n) => $n->tries === 3 && str_contains($n->attendeesUrl, 'filter=awaiting'));
 
     // Once per ticket, however often the schedule runs.
     $this->artisan('tickets:payment-follow-ups');
     Notification::assertSentOnDemandTimes(AttendeeTicketNotice::class, 1);
-    Notification::assertSentToTimes($admin, \App\Notifications\Payments\PaymentUnfinishedNotification::class, 1);
 });
 
 it('shows a paid ticket\'s QR code at its private address', function () {
@@ -171,7 +164,7 @@ it('shows a paid ticket\'s QR code at its private address', function () {
     expect($r->headers->get('Content-Type'))->toMatch('/image\/(png|svg)/');
 });
 
-it('points WhatsApp buttons where the email points: pay page, or the event once the place is gone', function () {
+it('points WhatsApp buttons where the email points: paying another way, or the event once the place is gone', function () {
     \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['messages' => [['id' => 'x']]])]);
     config(['constants.whatsapp_templates.payment_failed.approved' => true, 'constants.whatsapp_templates.payment_expired.approved' => true,
         'constants.whatsapp_templates.payment_expired.button' => true,
@@ -183,5 +176,5 @@ it('points WhatsApp buttons where the email points: pay page, or the event once 
 
     $buttons = collect(\Illuminate\Support\Facades\Http::recorded())->map(fn ($pair) => collect($pair[0]['template']['components'] ?? [])
         ->firstWhere('type', 'button')['parameters'][0]['text'] ?? null);
-    expect($buttons->all())->toBe(["ticket/{$this->ticket->qr_code}/pay", "e/{$this->org->slug}/{$this->event->slug}"]);
+    expect($buttons->all())->toBe(["ticket/{$this->ticket->qr_code}/pay/another-way", "e/{$this->org->slug}/{$this->event->slug}"]);
 });

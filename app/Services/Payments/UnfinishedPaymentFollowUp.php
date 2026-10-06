@@ -4,12 +4,12 @@ namespace App\Services\Payments;
 
 use App\Http\Controllers\PayLesothoController;
 use App\Models\{PaymentSession, Ticket};
-use App\Services\Notifications\{AttendeeNotifier, OrganizerNotifier};
+use App\Services\Notifications\AttendeeNotifier;
 
 /**
  * Someone tried to pay online and it didn't go through. Once per ticket we
- * send the attendee their link to try again, pay another way or send proof,
- * and tell the organizer there's an unpaid ticket:
+ * send them a link to pay directly instead (the organizer's account, or
+ * VENTIQ's merchant) and send the reference or a screenshot:
  *   - straight away once all their tries are used up, or
  *   - 30 minutes after their last try, if they stopped before that.
  */
@@ -17,10 +17,7 @@ class UnfinishedPaymentFollowUp
 {
     public const WAIT_MINUTES = 30;
 
-    public function __construct(
-        private AttendeeNotifier $attendees,
-        private OrganizerNotifier $organizers,
-    ) {}
+    public function __construct(private AttendeeNotifier $attendees) {}
 
     /** Sends the follow-up if it's due for this push. True when it was sent. */
     public function consider(PaymentSession $session): bool
@@ -35,7 +32,7 @@ class UnfinishedPaymentFollowUp
             return false;
         }
 
-        $ticket = Ticket::with(['client', 'tier', 'event.organization', 'payments'])->find($session->payable_id);
+        $ticket = Ticket::with(['client', 'event.organization', 'payments'])->find($session->payable_id);
         if (!$ticket || $ticket->status !== 'pending' || $ticket->payment_status === 'completed') {
             return false;
         }
@@ -61,7 +58,6 @@ class UnfinishedPaymentFollowUp
 
         $session->update(['callback_payload' => array_merge($session->callback_payload ?? [], ['followed_up_at' => now()->toIso8601String()])]);
         $this->attendees->paymentFailed($ticket);
-        $this->organizers->paymentUnfinished($ticket, PayLesothoController::pushesFor($ticket)->count());
 
         return true;
     }

@@ -259,6 +259,16 @@ return [
     ],
 
     /*
+     | Where VENTIQ itself hears about payments only VENTIQ can confirm: an
+     | attendee says they paid VENTIQ's EcoCash merchant code by hand.
+     | Leave one empty to stop that channel.
+     */
+    'ventiq_alerts' => [
+        'email'    => env('VENTIQ_ALERT_EMAIL', 'support@ventiq.co.ls'),
+        'whatsapp' => env('VENTIQ_ALERT_WHATSAPP', '+26662552155'),
+    ],
+
+    /*
      | Every WhatsApp template VENTIQ sends, in one place (docs/whatsapp-templates.md
      | has the wording). Meta must approve a template before it can be sent:
      | set 'approved' => true once it is, and that message starts going out.
@@ -276,7 +286,6 @@ return [
         'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => false],
         // Organizers
         'payment_submitted' => ['name' => 'payment_submitted', 'approved' => true,  'button' => true],
-        'payment_unfinished' => ['name' => 'payment_unfinished', 'approved' => false, 'button' => true],
         // VENTIQ Sessions
         'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
     ],

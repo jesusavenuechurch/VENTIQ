@@ -56,10 +56,10 @@ class AttendeeNotifier
             lines: [
                 "Your payment for {$ticket->event->name} didn't go through, so your ticket isn't active yet.",
                 "Your place is held until {$this->heldUntil($ticket)}.",
-                'You can try again, pay another way, or send us proof if you did pay.',
+                'You can pay directly instead and send the reference or a screenshot of the payment, and your ticket is sent once it has been checked. If you did pay, just send the proof.',
             ],
-            actionText: 'Finish paying',
-            actionUrl: $this->paymentUrl($ticket),
+            actionText: 'Pay another way',
+            actionUrl: route('ticket.pay.another', $ticket->qr_code),
             whatsappParams: [$ticket->holder_name, $ticket->event->name, $this->heldUntil($ticket)],
         );
     }

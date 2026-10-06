@@ -311,7 +311,7 @@ class RegistrationController extends Controller
      * behind a "pay another way" toggle. Driven entirely by ticket ID + current
      * payment_status, so it's safe to reload at any point.
      */
-    public function payment(string $code)
+    public function payment(string $code, bool $anotherWay = false)
     {
         [$ticket, $event, $organization] = $this->ticketByCode($code, ['client', 'tier']);
 
@@ -342,7 +342,13 @@ class RegistrationController extends Controller
         ] : null;
         $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'owed'));
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'owed', 'anotherWay'));
+    }
+
+    /** The pay page opened on paying directly (organizer's account or VENTIQ's merchant) and sending proof. */
+    public function payAnotherWay(string $code)
+    {
+        return $this->payment($code, anotherWay: true);
     }
 
     /**
@@ -403,7 +409,43 @@ class RegistrationController extends Controller
         // Waiting on VENTIQ now, not on the attendee: don't let it expire.
         $ticket->update(['payment_due_at' => null]);
 
+        $this->alertVentiq($session, $ticket);
+
         return redirect()->route('ticket.registered', $ticket->qr_code)->with('all_tickets', [$ticket]);
+    }
+
+    /**
+     * Only VENTIQ can see its merchant statement, so it's VENTIQ that's told:
+     * an email and a WhatsApp (the organizers' payment_submitted template).
+     */
+    private function alertVentiq(\App\Models\PaymentSession $session, Ticket $ticket): void
+    {
+        $to = config('constants.ventiq_alerts');
+        $ticket->loadMissing(['event.organization', 'client']);
+
+        try {
+            if (!empty($to['email'])) {
+                \Illuminate\Support\Facades\Notification::route('mail', $to['email'])
+                    ->notify(new \App\Notifications\Ventiq\MerchantPaymentClaimed($session, $ticket));
+            }
+
+            $template = \App\Support\WhatsAppTemplates::name('payment_submitted');
+            if (!empty($to['whatsapp']) && $template) {
+                app(\App\Services\WhatsAppCloudService::class)->sendTemplate(
+                    to: $to['whatsapp'],
+                    templateName: $template,
+                    bodyParams: [
+                        $ticket->holder_name,
+                        'M' . number_format((float) $session->amount, 2),
+                        'VENTIQ merchant ' . config('gateways.paylesotho.ecocash.merchant_code'),
+                        $session->callback_payload['by_hand']['reference'] ?? 'screenshot sent',
+                    ],
+                    buttonUrlSuffix: ltrim((string) parse_url(route('ventiq.money.index'), PHP_URL_PATH), '/'),
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("VENTIQ alert failed for merchant claim {$session->id}: {$e->getMessage()}");
+        }
     }
 
     /**

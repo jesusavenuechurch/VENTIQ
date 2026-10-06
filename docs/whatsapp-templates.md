@@ -1,6 +1,6 @@
 # WhatsApp templates
 
-All approved by Meta (October 2026) and switched on in `config/constants.php`, except **payment_unfinished** (section 6), which still needs submitting. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
+All approved by Meta (October 2026) and switched on in `config/constants.php`. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
 
 - **Category:** Utility (not Marketing).
 - **Language:** English (US). The code sends `en_US`.
@@ -21,7 +21,7 @@ Sent once per ticket when an online payment fails or gets no answer and the pers
   > Hi {{1}}, your payment for {{2}} didn't go through, so your ticket isn't active yet. Your place is held until {{3}}. Tap below to try again, pay another way, or send proof if you did pay.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`, {{3}} `8 Oct, 18:00`
-- **Button:** "Finish paying" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). Opens the ticket's pay page.
+- **Button:** "Finish paying" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). The code now sends `ticket/<code>/pay/another-way`: the pay page opened on paying directly (the organizer's account, or VENTIQ's merchant code) and sending the reference or a screenshot. The button URL is dynamic, so the approved template doesn't change.
 
 ## 2. payment_reminder
 
@@ -61,7 +61,7 @@ Sent when the time to pay ran out and the place was released.
 
 ## 5. payment_submitted (to the organizer)
 
-Sent to the organization's phone when an attendee says they paid the organizer directly.
+Sent to the organization's phone when an attendee says they paid the organizer directly. Also sent to VENTIQ's own number (`ventiq_alerts.whatsapp` in `config/constants.php`) when someone says they paid VENTIQ's merchant code by hand; its button then opens the VENTIQ money page.
 
 - **Name:** `payment_submitted`
 - **Body:**
@@ -70,22 +70,6 @@ Sent to the organization's phone when an attendee says they paid the organizer d
 
 - **Samples:** {{1}} `Lerato Mokoena`, {{2}} `M250.00`, {{3}} `EcoCash — Events Account`, {{4}} `MP240101.1234.A12345`
 - **Button:** "Review payment" → `https://ventiq.co.ls/{{1}}` (sample: `payment-review/12?expires=1760000000&signature=abc`)
-
----
-
-## 6. payment_unfinished (to the organizer, new: submit this one)
-
-Sent to the organization's phone at the same moment as payment_failed: someone's online payment didn't go through and their ticket is unpaid. Until it's approved, the organizer's admins get it by email only.
-
-- **Name:** `payment_unfinished`
-- **Body:**
-
-  > {{1}} tried to pay {{2}} online for {{3}}, but the payment didn't go through. We've sent them their ticket link to try again or pay another way. Their place is held until {{4}}.
-
-- **Samples:** {{1}} `Lerato Mokoena`, {{2}} `M250.00`, {{3}} `Maseru Youth Summit`, {{4}} `8 Oct, 14:30`
-- **Button:** "See unpaid tickets" → `https://ventiq.co.ls/{{1}}` (sample: `organizer/events/12/attendees?filter=awaiting`)
-
-Once Meta approves it, set `'approved' => true` for `payment_unfinished` in `config/constants.php` and deploy.
 
 ---
 
