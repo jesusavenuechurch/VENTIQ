@@ -258,7 +258,7 @@ describe('tickets before they are active', function () {
         $ticket = workflowTicket($this, ['payment_due_at' => now()->addDay()]);
 
         $this->get(route('ticket.download', $ticket->qr_code))
-            ->assertOk()->assertSee('Not active yet: waiting for payment')->assertSee('Pay by')->assertDontSee('Your entry QR code');
+            ->assertOk()->assertSee('Inactive — awaiting payment')->assertSee('Pay by')->assertDontSee('Scan at Entrance');
     });
 
     it('says when an expired ticket has lost its place', function () {

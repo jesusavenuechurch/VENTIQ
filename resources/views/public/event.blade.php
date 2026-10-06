@@ -1,138 +1,253 @@
-@extends('layouts.attendee')
-
-@section('title', "{$event->name} | {$organization->name}")
-@section('width', '5xl')
-
-@push('head')
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $event->name }} - {{ $organization->name }}</title>
+    
     <meta property="og:title" content="{{ $event->name }}">
     <meta property="og:description" content="{{ Str::limit($event->description, 150) }}">
-    @if($event->banner_image)<meta property="og:image" content="{{ Storage::url($event->banner_image) }}">@endif
+    <meta property="og:image" content="{{ Storage::url($event->banner_image) }}">
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:type" content="website">
-@endpush
 
-@php
-    $date = $event->event_date;
-    $openTiers = $event->tiers->filter(fn ($t) => !($tierAvailability[$t->id]['is_sold_out'] ?? false));
-@endphp
+    @vite('resources/css/app.css')
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .ticket-stub { position: relative; transition: all 0.2s ease-in-out; }
+        @media (min-width: 1024px) {
+            .ticket-stub::before, .ticket-stub::after {
+                content: ''; position: absolute; top: 50%; width: 10px; height: 10px;
+                background: #FBFBFC; border-radius: 50%; transform: translateY(-50%); z-index: 10;
+                border: 1px solid #e5e7eb;
+            }
+            .ticket-stub::before { left: -6px; }
+            .ticket-stub::after { right: -6px; }
+        }
+    </style>
+</head>
+<body class="bg-[#FBFBFC] text-[#1D4069] antialiased">
 
-@section('content')
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
-
-    {{-- About the event --}}
-    <div class="lg:col-span-7 space-y-6">
-        @if($event->banner_image)
-            <div class="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white">
-                <img src="{{ \App\Support\Thumb::url($event->banner_image, 960) }}" alt="{{ $event->name }} poster" class="w-full max-h-[420px] object-contain bg-slate-50">
+    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="{{ url('/') }}" class="text-xl font-black tracking-tighter hover:text-[#F07F22] transition-colors cursor-pointer">V.</a>
+                <div class="h-4 w-[1px] bg-gray-200"></div>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">{{ $organization->name }}</span>
             </div>
-        @endif
-
-        <div>
-            @if($event->status === 'draft')
-                <p class="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-lilac text-lilac-ink text-[12px] font-bold"><i class="fas fa-eye"></i>Preview: only your team can see this draft. Publish it to open registration.</p>
-            @elseif($closedReason ?? null)
-                <p class="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-action-soft text-action-ink text-[12px] font-bold"><i class="fas fa-circle-info"></i>{{ $closedReason }}</p>
-            @endif
-            <h1 class="text-3xl md:text-5xl font-black tracking-tight leading-[1.05]">{{ $event->name }}</h1>
-            <p class="mt-2 text-[13px] font-medium text-gray-500">Hosted by {{ $organization->name }}</p>
+            <a href="{{ route('public.events', $organization->slug) }}" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Directory</a>
         </div>
+    </header>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            @if($date)
-            <div class="flex items-start gap-3 p-4 rounded-[1.25rem] bg-white border border-gray-100">
-                <span class="w-10 h-10 shrink-0 rounded-xl bg-action-soft text-action-ink flex items-center justify-center"><i class="far fa-calendar"></i></span>
-                <div>
-                    <p class="text-[14px] font-black">{{ $date->format('l, j F Y') }}</p>
-                    <p class="text-[12px] text-gray-500">Starts {{ $date->format('g:i A') }}</p>
-                </div>
-            </div>
-            @endif
-            @if($event->venue || $event->city)
-            <div class="flex items-start gap-3 p-4 rounded-[1.25rem] bg-white border border-gray-100">
-                <span class="w-10 h-10 shrink-0 rounded-xl bg-mint text-mint-ink flex items-center justify-center"><i class="fas fa-location-dot"></i></span>
-                <div class="min-w-0">
-                    <p class="text-[14px] font-black leading-snug">{{ $event->venue ?: $event->city }}</p>
-                    @if($event->venue && $event->city)<p class="text-[12px] text-gray-500">{{ $event->city }}</p>@endif
-                </div>
-            </div>
-            @endif
-        </div>
+    <main class="max-w-6xl mx-auto px-6 py-10 pb-32 lg:pb-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            
+            <div class="lg:col-span-7 space-y-8">
+                <button onclick="window.history.back()" class="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#1D4069] transition-colors">
+                    <i class="fas fa-arrow-left transition-transform group-hover:-translate-x-1"></i>
+                    <span>Back</span>
+                </button>
 
-        @if($event->description)
-            <section class="p-5 rounded-[1.5rem] bg-white border border-gray-100">
-                <h2 class="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3">About this event</h2>
-                <div class="text-[14px] leading-relaxed text-gray-600 space-y-3">{!! nl2br(e($event->description)) !!}</div>
-            </section>
-        @endif
-    </div>
+                <div class="space-y-6">
+                    <h1 class="text-5xl font-black tracking-tighter uppercase italic leading-[0.85]">{{ $event->name }}</h1>
+                    @if($event->status === 'draft')
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-lilac text-lilac-ink text-[12px] font-bold">Preview: only your team can see this draft. Publish it to open registration.</p>
+                    @elseif($closedReason ?? null)
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action-ink text-[12px] font-bold not-italic normal-case tracking-normal">
+                            <i class="fas fa-circle-info"></i>{{ $closedReason }}
+                        </p>
+                    @endif
 
-    {{-- Tickets --}}
-    <div class="lg:col-span-5" id="tickets">
-        <div class="lg:sticky lg:top-20 space-y-4">
-            <section class="p-5 rounded-[1.5rem] bg-white border border-gray-100 shadow-sm">
-                <h2 class="text-[18px] font-black">Tickets</h2>
-                <p class="text-[12px] text-gray-500 mb-4">
-                    {{ $canRegister ? 'Pick one to register. Paid tickets are held for you while you pay.' : 'Registration is closed.' }}
-                </p>
-
-                <div class="space-y-3">
-                    @forelse($event->tiers as $tier)
-                        @php
-                            $a = $tierAvailability[$tier->id] ?? ['is_sold_out' => false, 'available' => null];
-                            $soldOut = $a['is_sold_out'];
-                            $fewLeft = !$soldOut && $a['available'] !== null && $a['available'] <= 10;
-                            $group = (int) ($tier->quantity_per_purchase ?? 1);
-                        @endphp
-                        <a @unless($soldOut) href="{{ route('registration.form', [$organization->slug, $event->slug, 'tier' => $tier->id]) }}" @endunless
-                           class="block p-4 rounded-[1.25rem] border-2 transition-all {{ $soldOut ? 'border-gray-100 bg-slate-50 opacity-60 cursor-not-allowed' : 'border-gray-100 hover:border-[#F07F22] hover:bg-action-soft/40' }}">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="text-[15px] font-black leading-tight">{{ $tier->tier_name }}</p>
-                                    @if($tier->description)<p class="text-[12px] text-gray-500 mt-0.5">{{ $tier->description }}</p>@endif
-                                </div>
-                                <p class="text-[18px] font-black whitespace-nowrap {{ $tier->price > 0 ? '' : 'text-mint-ink' }}">{{ \App\Support\Money::price($tier->price) }}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i class="far fa-calendar-alt text-[#F07F22]"></i>
+                                <span class="text-[9px] font-black uppercase tracking-widest text-gray-400">Schedule</span>
                             </div>
-                            <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold">
-                                @if($group > 1)
-                                    <span class="px-2.5 py-1 rounded-full bg-lilac text-lilac-ink"><i class="fas fa-users mr-1"></i>Admits {{ $group }}</span>
-                                @endif
-                                @if($event->allow_installments && $tier->price > 0 && !$soldOut)
-                                    <span class="px-2.5 py-1 rounded-full bg-mint text-mint-ink">Pay from {{ \App\Support\Money::price($tier->price * ($event->minimum_deposit_percentage / 100)) }}</span>
-                                @endif
-                                @if($fewLeft)
-                                    <span class="px-2.5 py-1 rounded-full bg-action-soft text-action-ink">Only {{ $a['available'] }} left</span>
-                                @endif
-                                @if($soldOut)
-                                    <span class="px-2.5 py-1 rounded-full bg-gray-200 text-gray-500">{{ $canRegister ? 'Sold out' : 'Closed' }}</span>
-                                @else
-                                    <span class="ml-auto text-[#F07F22] font-black">{{ $tier->price > 0 ? 'Get ticket' : 'Register' }} <i class="fas fa-arrow-right ml-0.5"></i></span>
-                                @endif
+                            <p class="text-sm font-bold text-[#1D4069]">{{ $event->event_date->format('l, d M Y') }}</p>
+                            <p class="text-[10px] text-gray-400 font-medium italic mt-1">Starting @ {{ $event->event_date->format('g:i A') }}</p>
+                        </div>
+
+                        <div class="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i class="fas fa-map-marker-alt text-[#1D4069]"></i>
+                                <span class="text-[9px] font-black uppercase tracking-widest text-gray-400">Venue</span>
                             </div>
-                        </a>
-                    @empty
-                        <p class="text-[13px] text-gray-500">No tickets are on sale yet.</p>
-                    @endforelse
+                            <p class="text-sm font-bold text-[#1D4069] leading-tight">{{ $event->venue }}</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-gray-100">
+                        <h3 class="text-[9px] font-black uppercase tracking-[0.3em] text-gray-300 mb-4">Briefing</h3>
+                        <div class="text-sm text-gray-500 leading-relaxed space-y-4">
+                            {!! nl2br(e($event->description)) !!}
+                        </div>
+                    </div>
+
+                    @if($event->banner_image)
+                    <div class="lg:hidden pt-10 flex flex-col items-center gap-3">
+                        <div class="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm">
+                            <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" class="h-40 w-auto rounded-xl object-contain">
+                        </div>
+                        <span class="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300 italic">Official Event Graphic</span>
+                    </div>
+                    @endif
                 </div>
-            </section>
+            </div>
 
-            <a href="{{ route('ticket.find') }}" class="flex items-center gap-3 p-4 rounded-[1.25rem] bg-white border border-gray-100 hover:border-[#1D4069]">
-                <span class="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-ticket"></i></span>
-                <span class="min-w-0">
-                    <span class="block text-[13px] font-black">Already registered?</span>
-                    <span class="block text-[12px] text-gray-500">Find your ticket to pay, pay the rest, or show it at the door.</span>
-                </span>
-            </a>
-        </div>
-    </div>
-</div>
-
-{{-- Phones: one tap down to the tickets. --}}
-@if($canRegister && $openTiers->isNotEmpty())
-    <div class="lg:hidden fixed inset-x-0 bottom-0 z-30 p-4 bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent">
-        <a href="#tickets" class="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-[#1D4069] text-white text-[12px] font-black uppercase tracking-widest shadow-xl">
-            <i class="fas fa-ticket text-[#F07F22]"></i>Get tickets
-            <span class="font-bold normal-case tracking-normal text-white/70">· from {{ \App\Support\Money::price($openTiers->min('price')) }}</span>
-        </a>
-    </div>
+            <div class="hidden lg:block lg:col-span-5">
+                <div class="sticky top-24 space-y-6">
+                    
+                    <div class="bg-white border border-gray-200 rounded-[2rem] p-8 shadow-sm">
+                        <h3 class="text-[9px] font-black uppercase tracking-[0.3em] text-center text-gray-300 mb-8">Access Selection</h3>
+                        
+                        <div class="space-y-3">
+                            @foreach($event->tiers as $tier)
+                            @php
+                                $availability = $tierAvailability[$tier->id] ?? ['is_sold_out' => false];
+                                $isSoldOut = $availability['is_sold_out'];
+                    $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                    $group = (int) ($tier->quantity_per_purchase ?? 1);
+                                $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                                $group = (int) ($tier->quantity_per_purchase ?? 1);
+                            @endphp
+                            <button onclick="{{ $isSoldOut ? '' : 'selectTier(' . $tier->id . ')' }}" 
+                                    {{ $isSoldOut ? 'disabled' : '' }}
+                                    class="ticket-stub group block w-full bg-slate-50 border {{ $isSoldOut ? 'border-gray-100 opacity-60 cursor-not-allowed' : 'border-transparent hover:border-[#1D4069] hover:bg-white cursor-pointer' }} rounded-xl p-5 transition-all text-left">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div class="pr-4 flex-1">
+                                        <span class="block text-[9px] font-black text-[#F07F22] uppercase tracking-[0.15em]">{{ $tier->tier_name }}</span>
+@if($group > 1)<span class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full bg-[#1D4069]/10 text-[#1D4069] text-[9px] font-black uppercase tracking-wider"><i class="fas fa-users mr-1"></i>Admits {{ $group }}</span>
 @endif
-@endsection
+@if($fewLeft)<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#F07F22]/10 text-[#F07F22] text-[9px] font-black uppercase tracking-wider">Only {{ $availability['available'] }} left</span>
+@endif
+                                        <span class="block text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">{{ $tier->description ?? 'Secure Entry' }}</span>
+                                    </div>
+                                    <span class="text-lg font-black tracking-tighter whitespace-nowrap">{{ \App\Support\Money::price($tier->price) }}</span>
+                                </div>
+
+                                @if($event->allow_installments && $tier->price > 0 && !$isSoldOut)
+                                    <div class="mt-3 p-2.5 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
+                                        <span class="text-[9px] font-black text-emerald-700 uppercase tracking-tight">Deposit Option</span>
+                                        <span class="text-[9px] font-bold text-emerald-600 bg-white px-2 py-0.5 rounded shadow-sm">
+                                            From {{ \App\Support\Money::price($tier->price * ($event->minimum_deposit_percentage / 100)) }}
+                                        </span>
+                                    </div>
+                                @endif
+
+                                @if($isSoldOut)
+                                    <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase tracking-widest text-center rounded-lg italic">
+                                        {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
+                                    </div>
+                                @endif
+                            </button>
+                            @endforeach
+                        </div>
+
+                        <div class="mt-8 pt-6 border-t border-gray-50 space-y-3">
+                            <a href="{{ route('ticket.find') }}" class="block text-center px-5 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-xl transition-all group">
+                                <div class="flex items-center justify-center gap-2">
+                                    <i class="fas fa-search-dollar text-[#F07F22] text-sm"></i>
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-gray-700">Find My Ticket</span>
+                                </div>
+                                <p class="text-[9px] text-amber-600 mt-1 font-medium">Already registered? Pay or open your ticket</p>
+                            </a>
+                        </div>
+                    </div>
+
+                    @if($event->banner_image)
+                    <div class="flex flex-col items-center gap-3 px-8">
+                        <div class="p-1.5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-transform hover:scale-105 duration-300">
+                            <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" alt="Event Badge" class="h-48 w-auto rounded-xl object-contain">
+                        </div>
+                        <span class="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300 italic text-center">Official Event Identity</span>
+                    </div>
+                    @endif
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {{-- Mobile Drawer --}}
+    <div class="lg:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-auto">
+        <button onclick="toggleDrawer()" class="bg-[#1D4069] text-white px-10 py-5 rounded-full font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl flex items-center gap-3 active:scale-95 transition-all">
+            <i class="fas fa-ticket-alt text-[#F07F22]"></i>
+            Get Access
+        </button>
+    </div>
+
+    <div id="drawerOverlay" class="fixed inset-0 bg-[#1D4069]/40 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300" onclick="toggleDrawer()">
+        <div id="drawerContent" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] p-8 translate-y-full transition-transform duration-300" onclick="event.stopPropagation()">
+            <div class="w-10 h-1 bg-gray-100 rounded-full mx-auto mb-8"></div>
+            <div class="space-y-3 max-h-[60vh] overflow-y-auto no-scrollbar pb-10">
+                @foreach($event->tiers as $tier)
+                @php
+                    $availability = $tierAvailability[$tier->id] ?? ['is_sold_out' => false];
+                    $isSoldOut = $availability['is_sold_out'];
+                    $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                    $group = (int) ($tier->quantity_per_purchase ?? 1);
+                @endphp
+                <button onclick="{{ $isSoldOut ? '' : 'selectTier(' . $tier->id . ')' }}" 
+                        {{ $isSoldOut ? 'disabled' : '' }}
+                        class="w-full p-5 rounded-xl bg-gray-50 border {{ $isSoldOut ? 'border-gray-100 opacity-60' : 'border-gray-100 active:bg-gray-200' }} transition-colors">
+                    <div class="flex items-center justify-between {{ $isSoldOut ? '' : 'mb-3' }}">
+                        <div class="text-left flex-1">
+                            <span class="block text-[9px] font-black text-[#F07F22] uppercase tracking-[0.1em]">{{ $tier->tier_name }}</span>
+@if($group > 1)<span class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full bg-[#1D4069]/10 text-[#1D4069] text-[9px] font-black uppercase tracking-wider"><i class="fas fa-users mr-1"></i>Admits {{ $group }}</span>
+@endif
+@if($fewLeft)<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#F07F22]/10 text-[#F07F22] text-[9px] font-black uppercase tracking-wider">Only {{ $availability['available'] }} left</span>
+@endif
+                            <span class="block text-[10px] text-gray-400 italic">{{ $tier->description ?? 'Secure Entry' }}</span>
+                        </div>
+                        <span class="text-lg font-black tracking-tighter ml-4">{{ \App\Support\Money::price($tier->price) }}</span>
+                    </div>
+
+                    @if($event->allow_installments && $tier->price > 0 && !$isSoldOut)
+                        <div class="mt-3 p-2 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
+                            <span class="text-[9px] font-black text-emerald-700 uppercase">Deposit</span>
+                            <span class="text-[9px] font-bold text-emerald-600 bg-white px-2 py-0.5 rounded">
+                                From {{ \App\Support\Money::price($tier->price * ($event->minimum_deposit_percentage / 100)) }}
+                            </span>
+                        </div>
+                    @endif
+
+                    @if($isSoldOut)
+                        <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase text-center rounded-lg italic">
+                            {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
+                        </div>
+                    @endif
+                </button>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDrawer() {
+            const overlay = document.getElementById('drawerOverlay');
+            const content = document.getElementById('drawerContent');
+            if (overlay.classList.contains('hidden')) {
+                overlay.classList.remove('hidden');
+                setTimeout(() => { 
+                    overlay.classList.add('opacity-100'); 
+                    content.classList.remove('translate-y-full'); 
+                }, 10);
+                document.body.style.overflow = 'hidden';
+            } else {
+                overlay.classList.remove('opacity-100'); 
+                content.classList.add('translate-y-full');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+                document.body.style.overflow = 'auto';
+            }
+        }
+        
+        function selectTier(tierId) {
+            window.location.href = `/register/{{ $organization->slug }}/{{ $event->slug }}?tier=${tierId}`;
+        }
+    </script>
+@include('partials.cookie-notice')
+</body>
+</html>

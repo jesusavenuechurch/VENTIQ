@@ -1,40 +1,123 @@
-@extends('layouts.attendee')
-
-@section('title', 'Find my ticket | VENTIQ')
-
-@php $input = 'w-full bg-white border-2 border-gray-100 rounded-2xl px-4 py-3.5 text-[15px] font-bold text-gray-900 outline-none focus:border-[#F07F22] transition-colors'; @endphp
-
-@section('content')
-<section class="rounded-[1.5rem] bg-white border border-gray-100 shadow-sm p-6 sm:p-8">
-    <span class="mb-4 w-14 h-14 rounded-2xl bg-action-soft text-action-ink flex items-center justify-center"><i class="fas fa-ticket text-xl"></i></span>
-    <h1 class="text-2xl font-black">Find my ticket</h1>
-    <p class="mt-1 text-[14px] text-gray-500">Enter the phone you registered with to open your ticket: pay, pay the rest, or show it at the door.</p>
-
-    @if ($errors->any())
-        <div role="alert" class="mt-5 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-[13px] font-bold text-rose-700">
-            @foreach ($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pay Installment</title>
+    @vite('resources/css/app.css')
+</head>
+<body class="h-full flex flex-col bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm flex-shrink-0">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 class="text-xl font-bold text-gray-900">Pay Installment</h1>
         </div>
-    @endif
+    </header>
 
-    <form method="POST" action="{{ route('installment.find') }}" class="mt-5 space-y-5">
-        @csrf
-        <div>
-            <label for="find_phone" class="block text-[12px] font-black text-gray-600 mb-1.5">Phone number</label>
-            <div class="flex">
-                <span class="inline-flex items-center px-3.5 rounded-l-2xl border-2 border-r-0 border-gray-100 bg-slate-50 text-[13px] font-black text-gray-500">+266</span>
-                <input id="find_phone" type="tel" name="phone" value="{{ old('phone') }}" required inputmode="tel" autocomplete="tel-national" placeholder="5949 4756" class="{{ $input }} rounded-l-none">
+    <!-- Main Content -->
+    <main class="flex-grow">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <!-- Icon -->
+                <div class="flex justify-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-search text-blue-600 text-2xl"></i>
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <h2 class="text-2xl font-bold text-gray-900 text-center mb-2">
+                    Find Your Ticket
+                </h2>
+                <p class="text-gray-600 text-center mb-8">
+                    Enter the phone you registered with to open your ticket: pay, pay the rest, or show it at the door.
+                </p>
+
+                <!-- Error Messages -->
+                @if ($errors->any())
+                    <div class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+                        <ul class="list-disc list-inside">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <!-- Search Form -->
+                <form method="POST" action="{{ route('installment.find') }}">
+                    @csrf
+
+                    <div class="space-y-6">
+                        <!-- Phone Number -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Phone Number <span class="text-red-500">*</span>
+                            </label>
+                            <div class="flex">
+                                <span class="inline-flex items-center px-4 py-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-700 font-medium">
+                                    +266
+                                </span>
+                                <input type="tel" 
+                                       name="phone" 
+                                       value="{{ old('phone') }}"
+                                       class="flex-1 px-4 py-3 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                       placeholder="5949 4756"
+                                       required>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">
+                                <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                Phone number used during registration
+                            </p>
+                        </div>
+
+                        <!-- Ticket Number -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Ticket number or entry code <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                   name="ticket_number" 
+                                   value="{{ old('ticket_number') }}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="e.g. VQ-X82L or TKT-6-AB12CD34"
+                                   required>
+                            <p class="text-sm text-gray-600 mt-1">
+                                <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                In your registration email or WhatsApp message
+                            </p>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" 
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center">
+                            <i class="fas fa-search mr-2"></i>
+                            Find My Ticket
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Help Text -->
+                <div class="mt-8 pt-8 border-t border-gray-200">
+                    <p class="text-sm text-gray-600 text-center mb-3">
+                        <i class="fas fa-question-circle text-gray-500 mr-1"></i>
+                        Can't find either?
+                    </p>
+                    <p class="text-xs text-gray-500 text-center">
+                        Ask the event's organizer to send your ticket again.
+                    </p>
+                </div>
             </div>
         </div>
-        <div>
-            <label for="find_code" class="block text-[12px] font-black text-gray-600 mb-1.5">Ticket number or entry code</label>
-            <input id="find_code" type="text" name="ticket_number" value="{{ old('ticket_number') }}" required autocapitalize="characters" placeholder="e.g. VQ-X82L or TKT-6-AB12CD34" class="{{ $input }} font-mono">
-            <p class="mt-1.5 text-[12px] text-gray-500">In your registration email or WhatsApp message, or on the page you saw after registering.</p>
-        </div>
-        <button type="submit" class="w-full py-4 rounded-2xl bg-[#F07F22] hover:bg-[#1D4069] text-white text-[12px] font-black uppercase tracking-widest">
-            <i class="fas fa-magnifying-glass mr-1"></i>Find my ticket
-        </button>
-    </form>
+    </main>
 
-    <p class="mt-6 pt-5 border-t border-gray-100 text-center text-[12px] text-gray-500">Can't find either? Ask the event's organizer to send your ticket again.</p>
-</section>
-@endsection
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white flex-shrink-0">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <p>&copy; {{ date('Y') }} Event Ticketing. All rights reserved.</p>
+            </div>
+        </footer>
+@include('partials.cookie-notice')
+</body>
+</html>

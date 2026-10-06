@@ -1,88 +1,152 @@
-@extends('layouts.attendee')
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ventiq Pass - {{ $ticket->event->name }}</title>
+    @vite(['resources/css/app.css', 'resources/js/ticket.js'])
+    <style>
+        
+        :root {
+            --tier-color: {{ str_contains(strtolower($ticket->tier->tier_name), 'vip') ? '#D4AF37' : '#10b981' }};
+        }
 
-@section('title', "Your ticket | {$ticket->event->name}")
+        body { 
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+        }
 
-@push('head')
-    <meta name="robots" content="noindex">
-    @vite('resources/js/ticket.js')
-@endpush
+        .ticket-shadow {
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6);
+        }
 
-@php
-    $event = $ticket->event;
-    $first = \Illuminate\Support\Str::before($ticket->holder_name ?? '', ' ') ?: 'there';
-    $tierColor = str_contains(strtolower($ticket->tier->tier_name), 'vip') ? '#B8860B' : '#1E7B4B';
-    $admits = (int) ($ticket->admissions ?? 1);
-@endphp
+        /* Perforation Line */
+        .divider-dots {
+            background-image: radial-gradient(#cbd5e1 30%, transparent 30%);
+            background-position: center;
+            background-size: 1px 18px;
+            width: 2px;
+            height: 100%;
+        }
 
-@section('content')
-<div class="text-center mb-5">
-    <h1 class="text-2xl font-black tracking-tight">
-        {{ $ticket->status === 'checked_in' ? "Welcome in, {$first}!" : "You're in, {$first}!" }}
-    </h1>
-    <p class="text-[13px] text-gray-500">Show this QR code at the door. A screenshot or print works too.</p>
-</div>
-
-{{-- The pass (also what "Save image" captures) --}}
-<div id="ticket-capture" class="mx-auto max-w-sm">
-    <div class="rounded-[2rem] overflow-hidden bg-white border border-gray-100 shadow-xl">
-        <div class="p-5 bg-[#1D4069] text-white">
-            <div class="flex items-center justify-between gap-2">
-                <span class="px-2.5 py-1 rounded-full text-[11px] font-black text-white" style="background-color: {{ $tierColor }}">{{ $ticket->tier->tier_name }}</span>
-                @if($ticket->status === 'checked_in')
-                    <span class="px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-black"><i class="fas fa-check mr-1"></i>Checked in</span>
-                @endif
+        /* Fix for potential text clipping in html2canvas */
+        .safe-area-padding {
+            padding-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-slate-900 via-black to-black">
+    
+    <div class="w-full max-w-2xl animate-in fade-in duration-700">
+        
+        <div class="flex justify-between items-center mb-6 px-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-white font-black tracking-tighter text-sm uppercase">Ventiq</span>
+                <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                <span class="text-white/40 font-bold text-[9px] uppercase tracking-[0.3em]">Digital Fulfillment</span>
             </div>
-            <p class="mt-3 text-[22px] font-black leading-tight">{{ $event->name }}</p>
-            <p class="mt-1 text-[12px] text-white/70">
-                {{ $event->event_date?->format('D j M Y, g:i A') }}
-                @if($event->venue ?: $event->location)<br>{{ $event->venue ?: $event->location }}@endif
-            </p>
+            <div class="px-3 py-1 rounded-full border border-white/10">
+                <span class="text-white/60 font-bold text-[9px] uppercase tracking-widest">{{ $ticket->ticket_number }}</span>
+            </div>
         </div>
 
-        <div class="p-6 flex flex-col items-center">
-            <div class="w-60 h-60 p-3 rounded-3xl border border-gray-100 bg-white">
-                <img src="{{ route('ticket.qr', $ticket->qr_code) }}" crossorigin="anonymous" alt="Your entry QR code" class="w-full h-full object-contain">
-            </div>
+        <div id="ticket-capture" class="ticket-shadow">
+            <div class="bg-white rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row relative">
+                
+                <div class="flex-grow p-10 md:p-12 relative bg-white">
+                    <div class="absolute -bottom-6 -left-8 opacity-[0.03] select-none pointer-events-none transform -rotate-12">
+                        <h1 class="text-[120px] font-black italic">VENTIQ</h1>
+                    </div>
 
-            @if($ticket->voucher_code)
-                <div class="mt-4 px-5 py-2.5 rounded-2xl border-2 border-dashed border-gray-200 text-center">
-                    <p class="text-[10px] font-black text-gray-400">Entry code, if the QR won't scan</p>
-                    <p class="font-mono text-[22px] font-black tracking-[0.2em]">{{ $ticket->voucher_code }}</p>
+                    <div class="relative z-10">
+                        <div class="mb-12">
+                            <div class="inline-block px-4 py-1.5 rounded-lg mb-4 text-[11px] font-black text-white uppercase tracking-widest shadow-sm" style="background-color: var(--tier-color)">
+                                {{ $ticket->tier->tier_name }}
+                            </div>
+                            <h2 class="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{{ $ticket->event->name }}</h2>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-y-10 gap-x-8">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Guest Name</p>
+                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->holder_name }}</p>
+                                @if(($ticket->admissions ?? 1) > 1)
+                                    <p class="text-[11px] font-black text-slate-500 uppercase mt-1">Admits {{ $ticket->admissions }}</p>
+                                @endif
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date & Time</p>
+                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->event->event_date->format('d M Y') }}</p>
+                            </div>
+                            <div class="col-span-2 safe-area-padding">
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Venue Location</p>
+                                <p class="text-md font-extrabold text-slate-900 uppercase leading-relaxed max-w-sm">
+                                    {{ $ticket->event->venue ?: $ticket->event->location }}
+                                </p>
+                                @if($ticket->event->venue && $ticket->event->location && $ticket->event->location !== $ticket->event->venue)
+                                    <p class="text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm">{{ $ticket->event->location }}</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="mt-12 flex items-center space-x-2 opacity-40">
+                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-900">{{ $ticket->event->organization->name }}</span>
+                        </div>
+                    </div>
                 </div>
-            @endif
+
+                <div class="w-full md:w-72 bg-slate-50/80 p-10 flex flex-col items-center justify-center relative min-h-[320px]">
+                    <div class="hidden md:block absolute left-0 top-10 bottom-10">
+                        <div class="divider-dots"></div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-3xl shadow-md border border-slate-200 w-44 h-44 flex items-center justify-center">
+                        <img src="{{ route('ticket.qr', $ticket->qr_code) }}"
+                             crossorigin="anonymous"
+                             alt="QR Code"
+                             class="w-full h-full aspect-square object-contain">
+                    </div>
+
+                    <div class="mt-8 text-center">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Entry Pass</p>
+                        <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Scan at Entrance</p>
+                    </div>
+ 
+                    {{-- Voucher code — shown below QR on web view --}}
+                    @if($ticket->voucher_code)
+                    <div class="mt-6 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-center w-full">
+                        <p class="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">
+                            Entry Code
+                        </p>
+                        <p class="text-2xl font-black text-slate-900 tracking-[0.2em]">
+                            {{ $ticket->voucher_code }}
+                        </p>
+                        <p class="text-[8px] text-slate-400 mt-1">
+                            Show this if you cannot scan
+                        </p>
+                    </div>
+                    @endif
+
+                    <div class="absolute bottom-6 flex items-center space-x-1.5 opacity-20">
+                        <span class="text-[8px] font-bold uppercase">Powered by</span>
+                        <span class="text-[10px] font-black tracking-tighter uppercase">Ventiq</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="px-6 pb-6 grid grid-cols-2 gap-4 border-t border-dashed border-gray-200 pt-5">
-            <div class="min-w-0">
-                <p class="text-[10px] font-black text-gray-400">Name</p>
-                <p class="text-[14px] font-black truncate">{{ $ticket->holder_name }}</p>
-            </div>
-            <div class="text-right">
-                <p class="text-[10px] font-black text-gray-400">Admits</p>
-                <p class="text-[14px] font-black">{{ $admits }} {{ $admits === 1 ? 'person' : 'people' }}</p>
-            </div>
-            <div class="col-span-2 flex items-center justify-between text-[11px] text-gray-400">
-                <span class="font-mono">{{ $ticket->ticket_number }}</span>
-                <span>{{ $event->organization->name }} · VENTIQ</span>
-            </div>
+        <div class="mt-10 grid grid-cols-2 gap-4">
+            <button id="download-png" data-filename="Ventiq-{{ $ticket->ticket_number }}.png" class="flex items-center justify-center space-x-3 bg-white text-black py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all">
+                <i class="fas fa-camera text-sm"></i>
+                <span>Save Image</span>
+            </button>
+            <a href="{{ route('ticket.avatar.download', $qrCode) }}" class="flex items-center justify-center space-x-3 bg-white/5 border border-white/10 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 transition-all">
+                <i class="fas fa-file-pdf text-red-500 text-sm"></i>
+                <span>PDF Ticket</span>
+            </a>
         </div>
     </div>
-</div>
 
-<div class="mx-auto max-w-sm mt-5 grid grid-cols-2 gap-3">
-    <button id="download-png" data-filename="Ventiq-{{ $ticket->ticket_number }}.png" class="py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white text-[11px] font-black uppercase tracking-widest">
-        <i class="fas fa-image mr-1"></i>Save image
-    </button>
-    <a href="{{ route('ticket.avatar.download', $qrCode) }}" class="py-4 rounded-2xl bg-white border border-gray-200 hover:border-[#1D4069] text-center text-[11px] font-black uppercase tracking-widest">
-        <i class="fas fa-file-pdf mr-1 text-rose-500"></i>PDF ticket
-    </a>
-</div>
 
-@if($admits > 1)
-    <p class="mx-auto max-w-sm mt-4 p-4 rounded-2xl bg-lilac text-lilac-ink text-[12px] font-bold text-center">
-        <i class="fas fa-users mr-1"></i>One code for your whole group: it's scanned once for each of the {{ $admits }} people.
-    </p>
-@endif
-
-<p class="mx-auto max-w-sm mt-4 text-center text-[12px] text-gray-400">Keep this link to yourself: anyone with it can see your ticket.</p>
-@endsection
+</body>
+</html>

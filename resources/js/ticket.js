@@ -12,7 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
         button.disabled = true;
         button.innerHTML = '<span>Saving…</span>';
         try {
-            const canvas = await html2canvas(pass, { scale: 3, useCORS: true, backgroundColor: null, logging: false });
+            const canvas = await html2canvas(pass, {
+                scale: 3, useCORS: true, backgroundColor: null, logging: false,
+                // Keep the pass's rounded corners in the picture.
+                onclone: (doc) => { const el = doc.getElementById('ticket-capture'); if (el) el.style.borderRadius = '2.5rem'; },
+            });
             const link = document.createElement('a');
             link.download = button.dataset.filename || 'ticket.png';
             link.href = canvas.toDataURL('image/png', 1.0);
