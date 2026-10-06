@@ -1,411 +1,326 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Payment | {{ $event->name }} - {{ $organization->name }}</title>
-    @vite('resources/css/app.css')
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .rounded-ventiq { border-radius: 2.5rem; }
-        @keyframes protocol-pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.4); opacity: 0.3; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .status-pulse { animation: protocol-pulse 2s infinite ease-in-out; }
-        .accordion-panel { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-        .accordion-panel.open { max-height: 3000px; }
-    </style>
-</head>
-<body class="bg-[#FBFBFC] text-[#1D4069] antialiased">
+@extends('layouts.attendee')
 
-    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
-        <div class="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <a href="{{ url('/') }}" class="text-xl font-black tracking-tighter hover:text-[#F07F22]">V.</a>
-                <div class="h-4 w-[1px] bg-gray-200"></div>
-                <span class="text-[9px] font-bold uppercase tracking-widest text-gray-400 truncate max-w-[160px]">{{ $organization->name }}</span>
-            </div>
-            <span class="text-[9px] font-black text-[#F07F22] uppercase tracking-[0.2em]">Payment</span>
-        </div>
-    </header>
+@section('title', "Pay for your ticket | {$event->name}")
 
-    <main class="max-w-3xl mx-auto px-4 lg:px-6 py-8 pb-20">
+@php
+    $card  = 'rounded-[1.5rem] bg-white border border-gray-100 shadow-sm';
+    $input = 'w-full bg-white border-2 border-gray-100 rounded-2xl px-4 py-3.5 text-[15px] font-bold text-gray-900 outline-none focus:border-[#F07F22] transition-colors';
+    $label = 'block text-[12px] font-black text-gray-600 mb-1.5';
+    $primary = 'w-full py-4 rounded-2xl bg-[#F07F22] hover:bg-[#1D4069] text-white text-[12px] font-black uppercase tracking-widest shadow-lg transition-colors';
+    $dark = 'w-full py-4 rounded-2xl bg-[#1D4069] hover:bg-[#F07F22] text-white text-[12px] font-black uppercase tracking-widest transition-colors';
+    $first = \Illuminate\Support\Str::before($ticket->holder_name ?? '', ' ') ?: 'there';
+@endphp
 
-        {{-- ── SUMMARY CARD ───────────────────────────────────────── --}}
-        <div class="bg-gray-900 rounded-ventiq shadow-2xl overflow-hidden mb-8">
-            <div class="p-8 text-white flex items-center justify-between">
-                <div>
-                    <span class="text-[9px] font-black uppercase tracking-[0.4em] text-[#F07F22]">Amount Due</span>
-                    <h2 class="text-4xl font-black tracking-tighter mt-1">M{{ number_format($owed, 2) }}</h2>
-                    @if($owed < (float) $ticket->amount)
-                        <p class="text-[11px] font-bold text-white/70 mt-1">Balance left of M{{ number_format($ticket->amount, 2) }}</p>
-                    @endif
-                    <p class="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-2">{{ $event->name }} &middot; {{ $ticket->tier->tier_name }}</p>
-                    @if($ticket->payment_due_at)
-                        <p class="text-[11px] font-bold text-[#F07F22] mt-2"><i class="fas fa-hourglass-half mr-1"></i>Your place is held until {{ $ticket->payment_due_at->format('j M, H:i') }}</p>
-                    @endif
-                </div>
-                <div class="text-right">
-                    <span class="text-[9px] font-black text-white/40 uppercase tracking-widest">Ref</span>
-                    <p class="text-sm font-mono font-black">{{ $ticket->ticket_number }}</p>
-                </div>
-            </div>
-        </div>
-
-        @if (session('status'))
-            <div class="mb-6 p-5 bg-mint text-mint-ink rounded-3xl text-[13px] font-bold"><i class="fas fa-hand mr-1"></i>{{ session('status') }}</div>
-        @endif
-
-        @if ($errors->any())
-            <div class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl">
-                <ul class="list-disc list-inside">
-                    @foreach ($errors->all() as $error)
-                        <li class="text-xs font-bold text-rose-600">{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
-        {{-- ── ONLINE PAYMENT (DEFAULT) ───────────────────────────── --}}
-        @if($onlineEnabled)
-        <div class="bg-white rounded-ventiq shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100 mb-6">
-            <div class="p-8 sm:p-10 border-b border-gray-50">
-                <div class="flex items-center gap-3 mb-2">
-                    <div class="w-10 h-10 bg-[#F07F22]/10 rounded-xl flex items-center justify-center text-[#F07F22]">
-                        <i class="fas fa-bolt"></i>
-                    </div>
-                    <h2 class="text-2xl font-black text-gray-900 tracking-tighter uppercase italic leading-none">Pay Online</h2>
-                </div>
-                <p class="text-gray-500 font-medium text-sm">Payment processed securely through VENTIQ. Your ticket activates as soon as the payment goes through.</p>
-            </div>
-
-            <div class="p-8 sm:p-10">
-
-                {{-- Provider + mobile number form --}}
-                <div id="online-form-panel">
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Choose Provider</label>
-                            <div class="grid grid-cols-2 gap-4">
-                                @if(in_array('mpesa', $onlineMethods))
-                                <button type="button" id="provider-mpesa" data-method="mpesa"
-                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 {{ $onlineMethods[0] === 'mpesa' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
-                                    <i class="fas fa-mobile-alt text-xl text-red-600"></i>
-                                    <span class="text-xs font-black uppercase tracking-tight text-gray-900">M-Pesa</span>
-                                </button>
-                                @endif
-                                @if(in_array('ecocash', $onlineMethods))
-                                <button type="button" id="provider-ecocash" data-method="ecocash"
-                                    class="provider-btn p-5 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 {{ $onlineMethods[0] === 'ecocash' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
-                                    <i class="fas fa-mobile-alt text-xl text-blue-600"></i>
-                                    <span class="text-xs font-black uppercase tracking-tight text-gray-900">EcoCash</span>
-                                </button>
-                                @endif
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">
-                                Mobile Number <span class="text-rose-500">*</span>
-                            </label>
-                            <div class="flex">
-                                <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
-                                @php $regDigits = preg_replace('/^266/', '', preg_replace('/\D/', '', (string) $ticket->client?->phone)); @endphp
-                                <input type="tel" id="online_phone_input" value="{{ strlen($regDigits) === 8 ? substr($regDigits, 0, 4) . ' ' . substr($regDigits, 4) : '' }}"
-                                    class="flex-1 bg-slate-50 border-2 border-slate-50 rounded-r-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900"
-                                    placeholder="5949 4756" inputmode="tel" autocomplete="tel-national">
-                            </div>
-                            <p id="online-error" class="hidden text-[10px] font-bold text-rose-500 uppercase mt-2 ml-1"></p>
-                        </div>
-
-                        <button type="button" id="send-payment-request"
-                            class="w-full py-6 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-xl active:scale-[0.98] transition-all">
-                            Send Payment Request
-                        </button>
-                        <p id="attempts-note" class="text-center text-[11px] font-bold text-gray-400 {{ $attemptsLeft < config('gateways.paylesotho.max_attempts', 3) ? '' : 'hidden' }}">
-                            <span id="attempts-left">{{ $attemptsLeft }}</span> of {{ config('gateways.paylesotho.max_attempts', 3) }} tries left
-                        </p>
-                    </div>
-                </div>
-
-                {{-- Waiting state --}}
-                <div id="online-waiting-panel" class="hidden text-center py-6">
-                    <div class="relative flex items-center justify-center mx-auto mb-6" style="width: 80px; height: 80px;">
-                        <span class="status-pulse absolute inline-flex h-full w-full rounded-full bg-[#F07F22] opacity-20"></span>
-                        <div class="relative w-16 h-16 bg-[#F07F22] rounded-2xl flex items-center justify-center shadow-xl">
-                            <i class="fas fa-mobile-alt text-white text-2xl"></i>
-                        </div>
-                    </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Check Your Phone</h3>
-                    <p class="text-sm font-bold text-gray-500 mb-1">A payment prompt was sent to</p>
-                    <p class="text-lg font-black text-[#1D4069] mb-6" id="waiting-masked-number"></p>
-                    <p class="text-[13px] font-bold text-gray-600 mb-4">Enter your EcoCash PIN on your phone to approve the payment.</p>
-                    <div class="max-w-xs mx-auto">
-                        <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div id="waiting-bar" class="h-full bg-[#F07F22] transition-all duration-1000" style="width:100%"></div></div>
-                        <p class="mt-2 text-[11px] font-black text-gray-400 tabular-nums" id="waiting-countdown">1:30</p>
-                    </div>
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2" id="waiting-status-text">Please keep this page open</p>
-                </div>
-
-                {{-- The wait ran out without an answer --}}
-                <div id="online-pin-panel" class="hidden text-center py-6">
-                    <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                        <i class="fas fa-mobile-screen text-amber-500 text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Did you enter your PIN?</h3>
-                    <p class="text-sm font-bold text-gray-500 mb-6">We haven't heard back from EcoCash yet.</p>
-                    <div class="space-y-3">
-                        <button type="button" id="pin-yes" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">Yes, I approved it</button>
-                        <button type="button" id="pin-no" class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">No, send it again</button>
-                    </div>
-                </div>
-
-                {{-- Timed-out state --}}
-                <div id="online-timeout-panel" class="hidden text-center py-6">
-                    <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                        <i class="fas fa-clock text-amber-500 text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">We're confirming it</h3>
-                    <p class="text-sm font-bold text-gray-500 mb-6">If you entered your PIN and approved the payment, you're done. Please don't pay again: we'll confirm it and send your ticket. Your place is held meanwhile.</p>
-                    <a href="{{ route('ticket.download', $ticket->qr_code) }}"
-                        class="block w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
-                        View my ticket
-                    </a>
-                    <button type="button" id="timeout-retry" class="mt-4 text-[11px] font-bold text-gray-400 hover:text-[#1D4069]">I didn't pay, try again</button>
-                </div>
-
-                {{-- Failed state --}}
-                <div id="online-failed-panel" class="hidden text-center py-6">
-                    <div class="w-16 h-16 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                        <i class="fas fa-times text-rose-500 text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Payment Failed</h3>
-                    <p class="text-sm font-bold text-gray-500 mb-6" id="failed-reason-text">The payment wasn't completed. You can try again.</p>
-                    <button type="button" id="try-again-btn"
-                        class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all">
-                        Try Again
-                    </button>
-                </div>
-
-                {{-- Out of tries: pay another way --}}
-                <div id="online-fallback-panel" class="hidden py-2">
-                    <div class="text-center mb-6">
-                        <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-route text-[#1D4069] text-2xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">Let's try another way</h3>
-                        <p class="text-sm font-bold text-gray-500">The payment prompt didn't work after {{ config('gateways.paylesotho.max_attempts', 3) }} tries. Your place is still held.</p>
-                    </div>
-
-                    @if($paymentMethods->isNotEmpty())
-                        <button type="button" id="fallback-direct" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">
-                            Pay the organizer directly
-                        </button>
-                    @elseif($merchant)
-                        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-5 mb-5 text-[13px] font-bold text-gray-700 space-y-2">
-                            <p>On your phone, pay with EcoCash:</p>
-                            <ol class="list-decimal list-inside space-y-1 text-gray-600">
-                                <li>Open the EcoCash menu and choose <strong>Pay merchant</strong></li>
-                                <li>Merchant code <span class="font-mono text-[#1D4069] text-[15px]">{{ $merchant['code'] }}</span> ({{ $merchant['name'] }})</li>
-                                <li>Amount <span class="font-mono text-[#1D4069]">M{{ number_format($owed, 2) }}</span></li>
-                            </ol>
-                            <p class="text-gray-500 font-medium">Then tell us below, so we can match it and send your ticket.</p>
-                        </div>
-                        <form method="POST" action="{{ route('ticket.pay.merchant', $ticket->qr_code) }}" enctype="multipart/form-data" class="space-y-4">
-                            @csrf
-                            <div>
-                                <label for="merchant_phone" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Number you paid from</label>
-                                <input id="merchant_phone" name="merchant_phone" type="tel" required value="{{ old('merchant_phone') }}" placeholder="5949 4756"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
-                            </div>
-                            <div>
-                                <label for="merchant_reference" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference from the EcoCash message</label>
-                                <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference') }}" placeholder="e.g. MP240101.1234.A12345"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
-                            </div>
-                            <div>
-                                <label for="merchant_proof" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Or a screenshot of it</label>
-                                <input id="merchant_proof" name="proof" type="file" accept="image/*,application/pdf" class="w-full text-[12px] text-gray-500">
-                            </div>
-                            <button class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">I've paid</button>
-                        </form>
-                    @else
-                        <p class="text-center text-[13px] font-bold text-gray-500">Please contact {{ $organization->name }} to pay for your ticket.</p>
-                    @endif
-                </div>
-
-                {{-- Paid the merchant by hand, waiting for VENTIQ --}}
-                <div id="online-byhand-panel" class="hidden text-center py-6">
-                    <div class="w-16 h-16 bg-mint rounded-2xl flex items-center justify-center mx-auto mb-6">
-                        <i class="fas fa-magnifying-glass-dollar text-mint-ink text-2xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">We're checking your payment</h3>
-                    <p class="text-sm font-bold text-gray-500">Your ticket is sent as soon as we've matched it, usually within a few hours. No need to pay again.</p>
-                </div>
-
-            </div>
-        </div>
-        @endif
-
-        {{-- ── OR PAY ANOTHER WAY (COLLAPSED — expanded by default when online isn't offered) ── --}}
-        <div class="bg-white rounded-ventiq shadow-lg shadow-gray-200/40 overflow-hidden border border-gray-100">
-            @if($onlineEnabled)
-                <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
-                    <span>
-                        <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Or pay directly to the organizer</span>
-                        <span class="block text-[11px] font-medium text-gray-400 mt-1 normal-case">Payment is made directly to the event organizer, who confirms it before your ticket activates.</span>
-                    </span>
-                    <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" id="manual-toggle-icon"></i>
-                </button>
-            @else
-                <div class="p-6 sm:p-8 pb-0">
-                    <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Pay directly to the organizer</span>
-                    <span class="block text-[11px] font-medium text-gray-400 mt-1">Payment is made directly to the event organizer, who confirms it before your ticket activates.</span>
-                </div>
+@section('content')
+{{-- What's owed --}}
+<div class="mb-4 p-5 rounded-[1.5rem] bg-[#1D4069] text-white">
+    <p class="text-[13px] font-bold text-white/70">Hi {{ $first }}, almost there!</p>
+    <div class="mt-2 flex items-end justify-between gap-4">
+        <div class="min-w-0">
+            <p class="text-[11px] font-bold text-white/60">{{ $owed < (float) $ticket->amount ? 'Balance to pay' : 'To pay' }}</p>
+            <p class="text-[32px] font-black leading-none">M{{ number_format($owed, 2) }}</p>
+            @if($owed < (float) $ticket->amount)
+                <p class="text-[12px] text-white/70 mt-1">of M{{ number_format($ticket->amount, 2) }}</p>
             @endif
+        </div>
+        <div class="text-right min-w-0">
+            <p class="text-[13px] font-black truncate">{{ $ticket->tier->tier_name }}@if(($ticket->admissions ?? 1) > 1) · admits {{ $ticket->admissions }}@endif</p>
+            <p class="text-[11px] text-white/60 truncate">{{ $event->name }}</p>
+        </div>
+    </div>
+    @if($ticket->payment_due_at)
+        <p class="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-[12px] font-bold">
+            <i class="fas fa-hourglass-half text-[#F07F22]"></i>Your place is held until {{ $ticket->payment_due_at->format('j M, H:i') }}
+        </p>
+    @endif
+</div>
 
-            <div id="manual-panel" class="accordion-panel {{ !$onlineEnabled || $errors->hasAny(['payment_method_id', 'payment_reference', 'proof', 'deposit_amount']) ? 'open' : '' }}">
-                <form method="POST" action="{{ route('ticket.pay.manual', $ticket->qr_code) }}" enctype="multipart/form-data" class="p-6 sm:p-8 pt-0 space-y-6">
-                    @csrf
+@if (session('status'))
+    <div class="mb-4 p-4 rounded-2xl bg-mint text-mint-ink text-[13px] font-bold"><i class="fas fa-hand mr-1"></i>{{ session('status') }}</div>
+@endif
 
-                    @if($paymentMethods->isNotEmpty())
+@if ($errors->any())
+    <div role="alert" class="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-100">
+        <ul class="list-disc list-inside text-[13px] font-bold text-rose-600">
+            @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+        </ul>
+    </div>
+@endif
 
-                        {{-- Payment Plan (Full vs Installments) --}}
-                        @if($event->allow_installments && (float) $ticket->amount_paid <= 0)
-                        <div class="space-y-4">
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Plan</label>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <label class="relative cursor-pointer group">
-                                    <input type="radio" name="payment_type" value="full" class="peer sr-only" checked required>
-                                    <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-[#1D4069] peer-checked:bg-white peer-checked:shadow-xl">
-                                        <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Full Amount</h4>
-                                        <p class="text-2xl font-black text-[#F07F22] mt-1">M{{ number_format($owed) }}</p>
-                                    </div>
-                                </label>
-                                <label class="relative cursor-pointer group">
-                                    <input type="radio" name="payment_type" value="deposit" class="peer sr-only">
-                                    <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-emerald-600 peer-checked:bg-white peer-checked:shadow-xl">
-                                        <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Installments</h4>
-                                        <p class="text-2xl font-black text-emerald-600 mt-1">M{{ number_format($ticket->amount * ($event->minimum_deposit_percentage / 100)) }}+</p>
-                                        <p class="text-[10px] font-bold text-gray-500 uppercase mt-2">{{ number_format($event->minimum_deposit_percentage, 0) }}% Min Deposit</p>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
+{{-- ── Online (the default) ── --}}
+@if($onlineEnabled)
+<section class="{{ $card }} mb-4 overflow-hidden">
+    <div class="p-5 sm:p-6 border-b border-gray-50 flex items-start gap-3">
+        <span class="w-10 h-10 shrink-0 rounded-xl bg-action-soft text-action-ink flex items-center justify-center"><i class="fas fa-bolt"></i></span>
+        <div>
+            <h2 class="text-[18px] font-black leading-tight">Pay Online</h2>
+            <p class="text-[12px] text-gray-500">Payment processed securely through VENTIQ. Your ticket activates as soon as it goes through.</p>
+        </div>
+    </div>
 
-                        <div id="deposit-amount-section" class="hidden">
-                            <div class="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-8">
-                                <label class="block text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em] mb-4 text-center">Initial Payment Amount</label>
-                                <div class="relative max-w-xs mx-auto">
-                                    <span class="absolute left-6 top-1/2 -translate-y-1/2 text-emerald-400 font-black">M</span>
-                                    <input type="number" name="deposit_amount" id="deposit_amount" step="0.01"
-                                        min="{{ $ticket->amount * ($event->minimum_deposit_percentage / 100) }}"
-                                        max="{{ $ticket->amount }}"
-                                        value="{{ old('deposit_amount', $ticket->amount * ($event->minimum_deposit_percentage / 100)) }}"
-                                        class="w-full pl-12 pr-6 py-5 bg-white border-2 border-emerald-200 rounded-2xl focus:border-emerald-500 outline-none text-2xl font-black text-emerald-900 shadow-inner">
-                                </div>
-                                @php
-                                    $minDeposit = $ticket->amount * ($event->minimum_deposit_percentage / 100);
-                                    $halfAmount = $ticket->amount / 2;
-                                    $fullAmount = $ticket->amount;
-                                @endphp
-                                <div class="flex flex-wrap justify-center gap-2 mt-6">
-                                    <button type="button" onclick="setDepositAmount({{ $minDeposit }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Min</button>
-                                    <button type="button" onclick="setDepositAmount({{ $halfAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Half</button>
-                                    <button type="button" onclick="setDepositAmount({{ $fullAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Full</button>
-                                </div>
-                            </div>
-                        </div>
-                        @else
-                            <input type="hidden" name="payment_type" value="full">
-                        @endif
-
-                        {{-- Payment Methods --}}
-                        <div class="space-y-4">
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Method</label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            @foreach($paymentMethods as $method)
-                                @php
-                                    $config = config('constants.payment_methods.' . $method->payment_method, []);
-                                    $icon = $config['icon'] ?? 'fa-money-bill';
-                                    $color = $config['color'] ?? 'text-gray-600';
-                                    $label = $method->display_label;
-                                @endphp
-                                <label class="relative cursor-pointer group">
-                                    <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
-                                        data-instructions="{{ $method->instructions }}"
-                                        data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
-                                        {{ (int) old('payment_method_id', $paymentMethods->first()?->id) === $method->id ? 'checked' : '' }} required>
-
-                                    <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
-                                        <div class="flex items-center mb-3">
-                                            <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm {{ $color }}">
-                                                <i class="fas {{ $icon }} text-lg"></i>
-                                            </div>
-                                            <span class="text-xs font-black text-gray-900 uppercase tracking-tight truncate">{{ $label }}</span>
-                                        </div>
-
-                                        @if($method->payment_method !== 'cash' && $method->account_number)
-                                            <div class="mt-auto bg-gray-50 rounded-lg p-2 border border-gray-100">
-                                                <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">{{ $config['account_label'] ?? 'Send to' }}</p>
-                                                <p class="text-[11px] font-mono font-bold text-gray-900 break-all leading-none">{{ $method->account_number }}</p>
-                                            </div>
-                                        @else
-                                            <div class="mt-auto py-2">
-                                                <p class="text-[10px] font-bold text-gray-400 uppercase text-center italic tracking-wider">Pay in person</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </label>
-                            @endforeach
-                            </div>
-                        </div>
-
-                        {{-- Payment Instructions --}}
-                        <div id="payment-instructions" class="hidden bg-[#1D4069] border border-[#1D4069] rounded-2xl p-5">
-                            <div class="flex items-start">
-                                <i class="fas fa-info-circle text-white text-lg mr-4 mt-0.5"></i>
-                                <div class="flex-1">
-                                    <p class="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-1">Payment Instructions</p>
-                                    <p class="text-sm font-bold text-white leading-relaxed" id="instruction-text"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Payment Reference --}}
-                        <div>
-                            <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference <span class="lowercase text-gray-300">(not needed for cash)</span></label>
-                            <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Enter transaction reference"
-                                class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
-                        </div>
-
-                        <div>
-                            <label for="manual_proof" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Screenshot of the payment <span class="lowercase text-gray-300">(optional, or instead of the reference)</span></label>
-                            <input type="file" id="manual_proof" name="proof" accept="image/*,application/pdf" class="w-full text-[12px] text-gray-500">
-                            @error('proof')<p class="text-[10px] font-bold text-rose-500 mt-2 ml-1">{{ $message }}</p>@enderror
-                            @error('payment_reference')<p class="text-[10px] font-bold text-rose-500 mt-2 ml-1">{{ $message }}</p>@enderror
-                        </div>
-
-                        <button type="submit" class="w-full py-5 bg-slate-900 hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-[0.98] transition-all">
-                            Confirm Payment Details
+    <div class="p-5 sm:p-6">
+        {{-- Provider + number --}}
+        <div id="online-form-panel" class="space-y-5">
+            <div>
+                <p class="{{ $label }}">Pay with</p>
+                <div class="grid grid-cols-2 gap-3">
+                    @if(in_array('ecocash', $onlineMethods))
+                        <button type="button" id="provider-ecocash" data-method="ecocash"
+                            class="provider-btn p-4 rounded-2xl border-2 flex items-center justify-center gap-2 transition-all {{ $onlineMethods[0] === 'ecocash' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
+                            <i class="fas fa-mobile-screen text-blue-600"></i><span class="text-[13px] font-black text-gray-900">EcoCash</span>
                         </button>
-
-                    @else
-                        <div class="bg-amber-50 border-2 border-amber-100 rounded-3xl p-6 text-center">
-                            <i class="fas fa-exclamation-triangle text-amber-500 mb-2"></i>
-                            <h4 class="text-[10px] font-black text-amber-900 uppercase tracking-widest leading-none">No Other Payment Methods Configured</h4>
-                        </div>
                     @endif
-                </form>
+                    @if(in_array('mpesa', $onlineMethods))
+                        <button type="button" id="provider-mpesa" data-method="mpesa"
+                            class="provider-btn p-4 rounded-2xl border-2 flex items-center justify-center gap-2 transition-all {{ $onlineMethods[0] === 'mpesa' ? 'border-[#F07F22] bg-[#F07F22]/5' : 'border-slate-100 bg-slate-50' }}">
+                            <i class="fas fa-mobile-screen text-red-600"></i><span class="text-[13px] font-black text-gray-900">M-Pesa</span>
+                        </button>
+                    @endif
+                </div>
+            </div>
+
+            <div>
+                <label for="online_phone_input" class="{{ $label }}">Number to pay from <span class="text-rose-500">*</span></label>
+                <div class="flex">
+                    <span class="inline-flex items-center px-3.5 rounded-l-2xl border-2 border-r-0 border-gray-100 bg-slate-50 text-[13px] font-black text-gray-500">+266</span>
+                    @php $regDigits = preg_replace('/^266/', '', preg_replace('/\D/', '', (string) $ticket->client?->phone)); @endphp
+                    <input type="tel" id="online_phone_input" value="{{ strlen($regDigits) === 8 ? substr($regDigits, 0, 4) . ' ' . substr($regDigits, 4) : '' }}"
+                        class="{{ $input }} rounded-l-none" placeholder="5949 4756" inputmode="tel" autocomplete="tel-national">
+                </div>
+                <p id="online-error" class="hidden text-[12px] font-bold text-rose-600 mt-2"></p>
+                <p class="mt-2 text-[12px] text-gray-500">You'll get a prompt on this phone to enter your PIN.</p>
+            </div>
+
+            <button type="button" id="send-payment-request" class="{{ $primary }}">Send payment request</button>
+            <p id="attempts-note" class="text-center text-[12px] font-bold text-gray-400 {{ $attemptsLeft < config('gateways.paylesotho.max_attempts', 3) ? '' : 'hidden' }}">
+                <span id="attempts-left">{{ $attemptsLeft }}</span> of {{ config('gateways.paylesotho.max_attempts', 3) }} tries left
+            </p>
+        </div>
+
+        {{-- Waiting for the PIN --}}
+        <div id="online-waiting-panel" class="hidden text-center py-4">
+            <div class="relative mx-auto mb-5 w-20 h-20 flex items-center justify-center">
+                <span class="soft-pulse absolute inset-0 rounded-full bg-[#F07F22]"></span>
+                <span class="relative w-16 h-16 rounded-2xl bg-[#F07F22] text-white flex items-center justify-center shadow-xl"><i class="fas fa-mobile-screen text-2xl"></i></span>
+            </div>
+            <h3 class="text-[22px] font-black">Check your phone</h3>
+            <p class="text-[13px] text-gray-500">A payment prompt was sent to</p>
+            <p class="text-[17px] font-black mb-3" id="waiting-masked-number"></p>
+            <p class="text-[13px] font-bold text-gray-600 mb-4">Enter your PIN to approve the payment.</p>
+            <div class="max-w-xs mx-auto">
+                <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div id="waiting-bar" class="h-full bg-[#F07F22] transition-all duration-1000" style="width:100%"></div></div>
+                <p class="mt-2 text-[12px] font-black text-gray-400 tabular-nums" id="waiting-countdown">1:30</p>
+            </div>
+            <p class="text-[12px] text-gray-400 mt-1" id="waiting-status-text">Please keep this page open</p>
+        </div>
+
+        {{-- No answer in time --}}
+        <div id="online-pin-panel" class="hidden text-center py-4">
+            <span class="mx-auto mb-5 w-16 h-16 rounded-2xl bg-action-soft text-action-ink flex items-center justify-center"><i class="fas fa-mobile-screen text-2xl"></i></span>
+            <h3 class="text-[22px] font-black">Did you enter your PIN?</h3>
+            <p class="text-[13px] text-gray-500 mb-5">We haven't heard back from EcoCash yet.</p>
+            <div class="space-y-3">
+                <button type="button" id="pin-yes" class="{{ $dark }}">Yes, I approved it</button>
+                <button type="button" id="pin-no" class="{{ $primary }}">No, send it again</button>
             </div>
         </div>
 
-        @include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-6'])
-    </main>
+        {{-- Approved, still confirming --}}
+        <div id="online-timeout-panel" class="hidden text-center py-4">
+            <span class="mx-auto mb-5 w-16 h-16 rounded-2xl bg-mint text-mint-ink flex items-center justify-center"><i class="fas fa-clock text-2xl"></i></span>
+            <h3 class="text-[22px] font-black">We're confirming it</h3>
+            <p class="text-[13px] text-gray-500 mb-5">If you entered your PIN and approved the payment, you're done. Please don't pay again: we'll confirm it and send your ticket. Your place is held meanwhile.</p>
+            <a href="{{ route('ticket.download', $ticket->qr_code) }}" class="block {{ $dark }}">View my ticket</a>
+            <button type="button" id="timeout-retry" class="mt-4 text-[12px] font-bold text-gray-400 hover:text-[#1D4069]">I didn't pay, try again</button>
+        </div>
 
+        {{-- Declined --}}
+        <div id="online-failed-panel" class="hidden text-center py-4">
+            <span class="mx-auto mb-5 w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center"><i class="fas fa-xmark text-2xl"></i></span>
+            <h3 class="text-[22px] font-black">That didn't go through</h3>
+            <p class="text-[13px] text-gray-500 mb-5" id="failed-reason-text">The payment wasn't completed. You can try again.</p>
+            <button type="button" id="try-again-btn" class="{{ $primary }}">Try again</button>
+        </div>
+
+        {{-- Out of tries --}}
+        <div id="online-fallback-panel" class="hidden py-2">
+            <div class="text-center mb-5">
+                <span class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center"><i class="fas fa-route text-2xl"></i></span>
+                <h3 class="text-[22px] font-black">Let's try another way</h3>
+                <p class="text-[13px] text-gray-500">The payment prompt didn't work after {{ config('gateways.paylesotho.max_attempts', 3) }} tries. Your place is still held.</p>
+            </div>
+
+            @if($paymentMethods->isNotEmpty())
+                <button type="button" id="fallback-direct" class="{{ $dark }}">Pay the organizer directly</button>
+            @elseif($merchant)
+                <div class="rounded-2xl bg-slate-50 p-4 mb-4 text-[13px] text-gray-700 space-y-2">
+                    <p class="font-black">On your phone, pay with EcoCash:</p>
+                    <ol class="list-decimal list-inside space-y-1">
+                        <li>Open the EcoCash menu and choose <strong>Pay merchant</strong></li>
+                        <li>Merchant code <span class="font-mono font-black text-[#1D4069] text-[15px]">{{ $merchant['code'] }}</span> ({{ $merchant['name'] }})</li>
+                        <li>Amount <span class="font-mono font-black text-[#1D4069]">M{{ number_format($owed, 2) }}</span></li>
+                    </ol>
+                    <p class="text-gray-500">Then tell us below, so we can match it and send your ticket.</p>
+                </div>
+                <form method="POST" action="{{ route('ticket.pay.merchant', $ticket->qr_code) }}" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label for="merchant_phone" class="{{ $label }}">Number you paid from</label>
+                        <input id="merchant_phone" name="merchant_phone" type="tel" required value="{{ old('merchant_phone') }}" placeholder="5949 4756" class="{{ $input }}">
+                    </div>
+                    <div>
+                        <label for="merchant_reference" class="{{ $label }}">Reference from the EcoCash message</label>
+                        <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference') }}" placeholder="e.g. MP240101.1234.A12345" class="{{ $input }}">
+                    </div>
+                    <div>
+                        <label for="merchant_proof" class="{{ $label }}">Or a screenshot of it</label>
+                        <input id="merchant_proof" name="proof" type="file" accept="image/*,application/pdf" class="w-full">
+                    </div>
+                    <button class="{{ $primary }}">I've paid</button>
+                </form>
+            @else
+                <p class="text-center text-[13px] font-bold text-gray-500">Please contact {{ $organization->name }} to pay for your ticket.</p>
+            @endif
+        </div>
+
+        {{-- Paid the merchant by hand --}}
+        <div id="online-byhand-panel" class="hidden text-center py-4">
+            <span class="mx-auto mb-5 w-16 h-16 rounded-2xl bg-mint text-mint-ink flex items-center justify-center"><i class="fas fa-magnifying-glass-dollar text-2xl"></i></span>
+            <h3 class="text-[22px] font-black">We're checking your payment</h3>
+            <p class="text-[13px] text-gray-500">Your ticket is sent as soon as we've matched it, usually within a few hours. No need to pay again.</p>
+        </div>
+    </div>
+</section>
+@endif
+
+{{-- ── Paying the organizer directly ── --}}
+<section class="{{ $card }} overflow-hidden">
+    @if($onlineEnabled)
+        <button type="button" id="manual-toggle" class="w-full flex items-center justify-between gap-3 p-5 sm:p-6 text-left">
+            <span>
+                <span class="block text-[15px] font-black">Or pay directly to the organizer</span>
+                <span class="block text-[12px] text-gray-500 mt-0.5">Send it to their account, then tell us here. They confirm it, then your ticket activates.</span>
+            </span>
+            <i class="fas fa-chevron-down text-gray-400 transition-transform" id="manual-toggle-icon"></i>
+        </button>
+    @else
+        <div class="p-5 sm:p-6 pb-0">
+            <h2 class="text-[18px] font-black">Pay directly to the organizer</h2>
+            <p class="text-[12px] text-gray-500 mt-0.5">Send it to their account, then tell us here. They confirm it, then your ticket activates.</p>
+        </div>
+    @endif
+
+    <div id="manual-panel" class="accordion-panel {{ !$onlineEnabled || $errors->hasAny(['payment_method_id', 'payment_reference', 'proof', 'deposit_amount']) ? 'open' : '' }}">
+        <form method="POST" action="{{ route('ticket.pay.manual', $ticket->qr_code) }}" enctype="multipart/form-data" class="p-5 sm:p-6 pt-4 space-y-5">
+            @csrf
+
+            @if($paymentMethods->isNotEmpty())
+                @if($event->allow_installments && (float) $ticket->amount_paid <= 0)
+                    @php
+                        $minDeposit = $ticket->amount * ($event->minimum_deposit_percentage / 100);
+                        $halfAmount = $ticket->amount / 2;
+                        $fullAmount = $ticket->amount;
+                    @endphp
+                    <div>
+                        <p class="{{ $label }}">How much now?</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="payment_type" value="full" class="peer sr-only" checked required>
+                                <span class="block h-full p-4 rounded-2xl border-2 border-gray-100 peer-checked:border-[#1D4069] peer-checked:bg-slate-50">
+                                    <span class="block text-[13px] font-black">The full amount</span>
+                                    <span class="block text-[18px] font-black text-[#F07F22]">M{{ number_format($owed, 2) }}</span>
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="payment_type" value="deposit" class="peer sr-only">
+                                <span class="block h-full p-4 rounded-2xl border-2 border-gray-100 peer-checked:border-mint-ink peer-checked:bg-mint/50">
+                                    <span class="block text-[13px] font-black">A deposit</span>
+                                    <span class="block text-[18px] font-black text-mint-ink">From M{{ number_format($minDeposit, 2) }}</span>
+                                    <span class="block text-[11px] text-gray-500">At least {{ number_format($event->minimum_deposit_percentage, 0) }}%, the rest later</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="deposit-amount-section" class="hidden p-4 rounded-2xl bg-mint/50">
+                        <label for="deposit_amount" class="{{ $label }}">Deposit amount</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 font-black text-mint-ink">M</span>
+                            <input type="number" name="deposit_amount" id="deposit_amount" step="0.01"
+                                min="{{ $minDeposit }}" max="{{ $ticket->amount }}"
+                                value="{{ old('deposit_amount', $minDeposit) }}"
+                                class="{{ $input }} pl-9">
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button type="button" onclick="setDepositAmount({{ $minDeposit }})" class="px-3 py-1.5 rounded-full bg-white text-[11px] font-black text-mint-ink">Minimum</button>
+                            <button type="button" onclick="setDepositAmount({{ $halfAmount }})" class="px-3 py-1.5 rounded-full bg-white text-[11px] font-black text-mint-ink">Half</button>
+                            <button type="button" onclick="setDepositAmount({{ $fullAmount }})" class="px-3 py-1.5 rounded-full bg-white text-[11px] font-black text-mint-ink">Full</button>
+                        </div>
+                    </div>
+                @else
+                    <input type="hidden" name="payment_type" value="full">
+                @endif
+
+                <div>
+                    <p class="{{ $label }}">Which account did you pay?</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @foreach($paymentMethods as $method)
+                            @php
+                                $config = config('constants.payment_methods.' . $method->payment_method, []);
+                                $icon = $config['icon'] ?? 'fa-money-bill';
+                                $color = $config['color'] ?? 'text-gray-600';
+                            @endphp
+                            <label class="cursor-pointer">
+                                <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
+                                    data-instructions="{{ $method->instructions }}"
+                                    data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
+                                    {{ (int) old('payment_method_id', $paymentMethods->first()?->id) === $method->id ? 'checked' : '' }} required>
+                                <span class="flex h-full items-start gap-3 p-4 rounded-2xl border-2 border-gray-100 peer-checked:border-[#F07F22] peer-checked:bg-action-soft/40">
+                                    <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-50 flex items-center justify-center {{ $color }}"><i class="fas {{ $icon }}"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-[13px] font-black truncate">{{ $method->display_label }}</span>
+                                        @if($method->payment_method !== 'cash' && $method->account_number)
+                                            <span class="block text-[11px] text-gray-500">{{ $config['account_label'] ?? 'Send to' }}</span>
+                                            <span class="block font-mono text-[13px] font-black text-[#1D4069] break-all">{{ $method->account_number }}</span>
+                                        @else
+                                            <span class="block text-[11px] text-gray-500">Pay in person</span>
+                                        @endif
+                                    </span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div id="payment-instructions" class="hidden p-4 rounded-2xl bg-slate-50">
+                    <p class="text-[11px] font-black text-gray-500 mb-1"><i class="fas fa-circle-info mr-1"></i>From the organizer</p>
+                    <p class="text-[13px] font-bold text-gray-700 leading-relaxed" id="instruction-text"></p>
+                </div>
+
+                <div>
+                    <label for="payment_reference" class="{{ $label }}">Reference <span class="font-medium text-gray-400">(not needed for cash)</span></label>
+                    <input id="payment_reference" type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="From your payment message" class="{{ $input }}">
+                    @error('payment_reference')<p class="text-[12px] font-bold text-rose-600 mt-1.5">{{ $message }}</p>@enderror
+                </div>
+
+                <div>
+                    <label for="manual_proof" class="{{ $label }}">Screenshot of the payment <span class="font-medium text-gray-400">(optional, or instead of the reference)</span></label>
+                    <input type="file" id="manual_proof" name="proof" accept="image/*,application/pdf" class="w-full">
+                    @error('proof')<p class="text-[12px] font-bold text-rose-600 mt-1.5">{{ $message }}</p>@enderror
+                </div>
+
+                <button type="submit" class="{{ $dark }}">I've paid, send it to the organizer</button>
+            @else
+                <p class="p-4 rounded-2xl bg-action-soft text-action-ink text-[13px] font-bold">The organizer hasn't added an account to pay into yet. Please contact {{ $organization->name }}.</p>
+            @endif
+        </form>
+    </div>
+</section>
+
+@include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-4'])
+@endsection
+
+@push('scripts')
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -613,7 +528,7 @@
             const button = this;
             button.disabled = true;
             button.textContent = 'Sending…';
-            const reset = () => { button.disabled = false; button.textContent = 'Send Payment Request'; };
+            const reset = () => { button.disabled = false; button.textContent = 'Send payment request'; };
 
             fetch(@json(route('ticket.pay.online', $ticket->qr_code)), {
                 method: 'POST',
@@ -655,6 +570,5 @@
         @endif
     });
     </script>
-@include('partials.cookie-notice')
-</body>
-</html>
+
+@endpush

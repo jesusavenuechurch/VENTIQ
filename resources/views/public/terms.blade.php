@@ -1,11 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.attendee')
 
 @section('title', 'Ticket terms | VENTIQ')
 
 @section('content')
 {{-- Plain terms for people buying tickets. VENTIQ sells tickets on behalf
      of each event's organizer. --}}
-<div class="max-w-2xl mx-auto px-4 py-12 text-[#1D4069]">
+<div class="rounded-[1.5rem] bg-white border border-gray-100 shadow-sm p-6 sm:p-8">
     <h1 class="text-3xl font-black tracking-tight">Ticket terms</h1>
     <p class="mt-2 text-[13px] text-gray-500">These apply when you register for an event on VENTIQ.</p>
 
