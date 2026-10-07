@@ -220,8 +220,11 @@
 
     <div class="flex flex-col items-center gap-4">
 
+        {{-- First visit only: the Lumela greeting (partials/lumela). --}}
+        @include('partials.lumela')
+
         {{-- Pure CSS: no animation player to download first. --}}
-        <span class="relative flex h-16 w-16 items-center justify-center">
+        <span class="loader-dot relative flex h-16 w-16 items-center justify-center">
             <span class="absolute inset-0 rounded-full bg-[#F07F22]/30 animate-ping"></span>
             <span class="relative h-10 w-10 rounded-full bg-[#F07F22]"></span>
         </span>
@@ -240,6 +243,18 @@
         Simply Connected
     </p>
 </div>
+{{-- Decided before the loader paints: greet a browser's very first visit. --}}
+<script>
+    (function () {
+        try {
+            var warm = sessionStorage.getItem('ventiq_booted') === '1';
+            if (!warm && !localStorage.getItem('ventiq_greeted')) {
+                document.getElementById('page-loader').classList.add('greet');
+                localStorage.setItem('ventiq_greeted', '1');
+            }
+        } catch (e) {}
+    })();
+</script>
 @endpersist
 
     <nav class="flex-none border-b border-gray-100 bg-white/80 backdrop-blur-md z-50 sticky top-0">
@@ -652,7 +667,8 @@
         let dismissed = false;
 
         // Has this browser tab already seen VENTIQ boot up once this session?
-        const isWarmNavigation = sessionStorage.getItem('ventiq_booted') === '1';
+        let isWarmNavigation = false;
+        try { isWarmNavigation = sessionStorage.getItem('ventiq_booted') === '1'; } catch (e) {}
 
         function dismissLoader(fast = false) {
             if (dismissed) return;
@@ -662,14 +678,20 @@
             setTimeout(() => { document.body.style.overflow = ''; }, fast ? 150 : 300);
         }
 
-        if (isWarmNavigation) {
+        if (loader.classList.contains('greet')) {
+            // A browser's first visit: let the Lumela greeting play (about
+            // 1.8s), or skip it with a tap. Once only, ever.
+            try { sessionStorage.setItem('ventiq_booted', '1'); } catch (e) {}
+            loader.addEventListener('click', () => dismissLoader(true), { once: true });
+            setTimeout(() => dismissLoader(false), 1900);
+        } else if (isWarmNavigation) {
             // Internal navigation — user already knows the app is fast.
             // Skip the theatrics, dismiss almost immediately.
             dismissLoader(true);
         } else {
             // Cold entry: a short hello, then the page. Never wait for images
             // (window "load" waits for every poster on the page).
-            sessionStorage.setItem('ventiq_booted', '1');
+            try { sessionStorage.setItem('ventiq_booted', '1'); } catch (e) {}
             requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 250));
 
             // Safety net
