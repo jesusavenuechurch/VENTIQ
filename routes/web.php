@@ -169,6 +169,7 @@ Route::prefix('installment')->name('installment.')->group(function () {
 
 
 Route::view('/terms', 'public.terms')->name('terms');
+Route::view('/privacy', 'public.privacy')->name('privacy');
 
 Route::get('/pricing', function () {
     return view('public.pricing');

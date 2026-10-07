@@ -392,6 +392,7 @@
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© {{ date('Y') }} VENTI<span class="text-[#F07F22]">Q</span> LESOTHO</p>
             <div class="flex gap-4 text-[10px] font-bold uppercase tracking-tight text-gray-500">
                 <button @click="showTerms = true" class="hover:text-[#F07F22]">Terms</button>
+                <a href="{{ route('privacy') }}" class="hover:text-[#F07F22]">Privacy</a>
                 <button @click="showChat = true" class="hover:text-[#F07F22]">Support</button>
             </div>
         </div>

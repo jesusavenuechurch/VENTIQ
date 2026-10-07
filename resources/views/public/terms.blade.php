@@ -33,7 +33,7 @@
 
         <section>
             <h2 class="text-[15px] font-black text-[#1D4069]">Your details</h2>
-            <p class="mt-1">Your name, phone number and email are shared with the event's organizer and used to send your ticket and messages about your payment.</p>
+            <p class="mt-1">Your name, phone number and email are shared with the event's organizer and used to send your ticket and messages about your payment. Our <a href="{{ route('privacy') }}" class="underline text-[#1D4069] hover:text-[#F07F22]">privacy policy</a> explains what we collect and how to have it deleted.</p>
         </section>
     </div>
 </div>
