@@ -81,6 +81,26 @@ class EventTiers extends Page implements HasTable
                     ->url(fn () => EventTierResource::getUrl('create', ['event_id' => $this->record->id])),
             ])
             ->actions([
+                // Quick fix for a ticket type's number, right here in the list.
+                Tables\Actions\Action::make('change_number')
+                    ->label('Change number')
+                    ->icon('heroicon-o-hashtag')
+                    ->color('warning')
+                    ->modalHeading(fn (EventTier $record) => "Number of {$record->tier_name} tickets")
+                    ->modalDescription(fn (EventTier $record) => \App\Support\TierCapacity::taken($record) . ' already taken (paid or held). Raising it reopens sales.')
+                    ->fillForm(fn (EventTier $record) => ['quantity_available' => $record->quantity_available])
+                    ->form(fn (EventTier $record) => [
+                        \Filament\Forms\Components\TextInput::make('quantity_available')
+                            ->label('Number of tickets')
+                            ->numeric()
+                            ->required()
+                            ->minValue(max(1, \App\Support\TierCapacity::taken($record))),
+                    ])
+                    ->action(function (EventTier $record, array $data) {
+                        $record->update(['quantity_available' => (int) $data['quantity_available']]);
+                        \Filament\Notifications\Notification::make()->title("{$record->tier_name}: {$record->quantity_available} tickets")->success()->send();
+                    }),
+
                 Tables\Actions\Action::make('toggle_active')
                     ->label(fn ($record) => $record->is_active ? 'Deactivate' : 'Activate')
                     ->icon(fn ($record) => $record->is_active ? 'heroicon-o-x-circle' : 'heroicon-o-check-circle')
