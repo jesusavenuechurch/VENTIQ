@@ -92,7 +92,11 @@ Route::get('/events', [PublicEventController::class, 'browseAll'])
 Route::get('/ticket/{qr_code}', [TicketDownloadController::class, 'show'])->name('ticket.download');
 Route::post('/ticket/{qr_code}/update-preference', [TicketDownloadController::class, 'updatePreference'])->name('ticket.update-preference');
 Route::get('/ticket/{qr_code}/download', [TicketDownloadController::class, 'download'])->name('ticket.avatar.download');
-Route::get('/ticket/{qr_code}/qr.png', [TicketDownloadController::class, 'qr'])->name('ticket.qr');
+// No file extension: web servers often answer *.png themselves (as a missing
+// static file) without asking Laravel. The .png address stays for links
+// already sent.
+Route::get('/ticket/{qr_code}/qr', [TicketDownloadController::class, 'qr'])->name('ticket.qr');
+Route::get('/ticket/{qr_code}/qr.png', [TicketDownloadController::class, 'qr']);
 
 // Organization & Event Routes
 Route::prefix('org/{orgSlug}')->group(function () {
@@ -277,7 +281,8 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::post('/{session}/report/generate', [SessionController::class, 'generateReport'])->name('report.generate');
     Route::get('/{session}/checkin', [SessionParticipantController::class, 'index'])->name('checkin');
     Route::post('/{session}/checkin', [SessionParticipantController::class, 'store'])->name('checkin.store');
-    Route::get('/{session}/checkin-qr.png', [SessionController::class, 'checkinQr'])->name('checkin.qr');
+    Route::get('/{session}/checkin-qr', [SessionController::class, 'checkinQr'])->name('checkin.qr');
+    Route::get('/{session}/checkin-qr.png', [SessionController::class, 'checkinQr']);
     Route::get('/{session}/checkin-pass', [SessionController::class, 'checkinPass'])->name('checkin.pass');
     Route::get('/{session}/checkin-pass.pdf', [SessionController::class, 'checkinPassPdf'])->name('checkin.pass.pdf');
     Route::get('/{session}/participants/count', [SessionController::class, 'participantsCount'])->name('participants.count');
@@ -367,7 +372,8 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::get('/events/{event}/edit', [App\Http\Controllers\Organizer\EventsController::class, 'edit'])->middleware('can:edit_event')->name('events.edit');
     Route::put('/events/{event}', [App\Http\Controllers\Organizer\EventsController::class, 'update'])->middleware('can:edit_event')->name('events.update');
     Route::delete('/events/{event}', [App\Http\Controllers\Organizer\EventsController::class, 'destroy'])->middleware('can:delete_event')->name('events.destroy');
-    Route::get('/events/{event}/qr.svg', [App\Http\Controllers\Organizer\EventsController::class, 'qr'])->name('events.qr');
+    Route::post('/events/{event}/publish', [App\Http\Controllers\Organizer\EventsController::class, 'publish'])->middleware('can:edit_event')->name('events.publish');
+    Route::get('/events/{event}/qr', [App\Http\Controllers\Organizer\EventsController::class, 'qr'])->name('events.qr');
     Route::get('/events/{event}/attendees', [App\Http\Controllers\Organizer\AttendeesController::class, 'index'])->name('events.attendees');
     Route::post('/events/{event}/fee-sponsorship', [App\Http\Controllers\Organizer\AttendeesController::class, 'toggleFeeSponsorship'])->name('events.fee-sponsorship');
 
@@ -386,6 +392,7 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::get('/events/{event}/day', [App\Http\Controllers\Organizer\EventDayController::class, 'show'])->name('events.day');
     Route::get('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'createComp'])->middleware('can:approve_payment')->name('events.comp.create');
     Route::post('/events/{event}/comp', [App\Http\Controllers\Organizer\TicketsController::class, 'storeComp'])->middleware('can:approve_payment')->name('events.comp.store');
+    Route::post('/tickets/{ticket}/paid', [App\Http\Controllers\Organizer\TicketsController::class, 'markPaid'])->middleware('can:approve_payment')->name('tickets.paid');
     Route::post('/tickets/{ticket}/resend', [App\Http\Controllers\Organizer\TicketsController::class, 'resend'])->middleware('throttle:20,1')->name('tickets.resend');
     Route::post('/tickets/{ticket}/reinstate', [App\Http\Controllers\Organizer\AttendeesController::class, 'reinstate'])->name('tickets.reinstate');
     Route::post('/tickets/{ticket}/cancel', [App\Http\Controllers\Organizer\AttendeesController::class, 'cancel'])->name('tickets.cancel');

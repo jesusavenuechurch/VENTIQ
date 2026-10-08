@@ -77,6 +77,16 @@
         <p class="text-[13px] font-medium text-gray-500 {{ isset($subnav) ? '' : 'mt-1' }}">{{ $subtitle }}</p>
     @endisset
 
+    {{-- On a draft event's pages: it isn't live yet, and Publish is right here. --}}
+    @if(isset($event) && $event instanceof \App\Models\Event && $event->exists && $event->status === 'draft')
+        <div class="mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-[12px] font-bold text-amber-800"><i class="fas fa-eye-slash mr-1"></i>Draft: attendees can't see this event or register yet.</p>
+            @can('edit_event')
+                @include('organizer.partials.publish-button', ['event' => $event])
+            @endcan
+        </div>
+    @endif
+
     @if(session('status'))
         <div class="mt-6 p-4 rounded-2xl bg-mint border border-mint text-[12px] font-bold text-mint-ink">
             {{ session('status') }}

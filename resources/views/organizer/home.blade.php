@@ -59,6 +59,11 @@
                     </div>
                 </div>
                 <div class="relative z-10 flex flex-wrap gap-2">
+                    @if($event->status === 'draft')
+                        @can('edit_event')
+                            @include('organizer.partials.publish-button', ['event' => $event])
+                        @endcan
+                    @endif
                     @if($event->event_date && $event->event_date->isToday())
                         <a href="{{ route('organizer.events.day', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-action text-white text-[10px] font-black uppercase tracking-widest hover:bg-action-ink"><i class="fas fa-door-open mr-1"></i>Event day</a>
                     @endif

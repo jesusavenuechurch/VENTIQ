@@ -2,12 +2,11 @@
 
 namespace App\Services\Tickets;
 
-use App\Models\{Client, Event, EventTier, Ticket, TicketPayment, User};
-use App\Services\Payments\TicketActivationService;
-use App\Support\{Phone, TierCapacity};
+use App\Models\{Event, EventTier, User};
+use App\Support\Phone;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\{DB, Log};
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Facades\Excel;
@@ -33,7 +32,7 @@ class GuestListImport
 
     public function __construct(
         private ComplimentaryTicketService $comps,
-        private TicketActivationService $activation,
+        private DirectSaleService $sales,
     ) {}
 
     /**
@@ -114,35 +113,6 @@ class GuestListImport
 
     private function paid(Event $event, EventTier $tier, array $row, User $by, bool $sendWhatsApp, string $method): void
     {
-        $ticket = DB::transaction(function () use ($event, $tier, $row, $by, $sendWhatsApp) {
-            $tier = EventTier::whereKey($tier->id)->lockForUpdate()->first();
-            if (!TierCapacity::hasRoom($tier)) {
-                throw new InvalidArgumentException("{$tier->tier_name} is full.");
-            }
-
-            $client = Client::firstOrCreate(
-                ['phone' => $row['phone'], 'organization_id' => $event->organization_id],
-                ['full_name' => $row['full_name'], 'email' => $row['email'], 'created_by' => $by->id],
-            );
-
-            $ticket = Ticket::create([
-                'event_id'           => $event->id,
-                'client_id'          => $client->id,
-                'event_tier_id'      => $tier->id,
-                'created_by'         => $by->id,
-                'status'             => 'pending',
-                'payment_status'     => 'pending',
-                'amount'             => $tier->price,
-                'admissions'         => max(1, (int) ($tier->quantity_per_purchase ?? 1)),
-                'has_whatsapp'       => $sendWhatsApp,
-                'preferred_delivery' => $sendWhatsApp ? 'both' : 'email',
-            ]);
-            TicketPayment::create(['ticket_id' => $ticket->id, 'amount' => $tier->price, 'status' => 'pending', 'payment_type' => 'full']);
-
-            return $ticket;
-        });
-
-        $this->activation->activate($ticket, TicketActivationService::SOURCE_ORGANIZER_DIRECT, $method, 'Guest list import', $by->id);
-        $ticket->generateQrCode();
+        $this->sales->sell($event, $tier, $row, $by, $method, 'Guest list import', $sendWhatsApp);
     }
 }

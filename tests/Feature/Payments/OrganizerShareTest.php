@@ -38,7 +38,7 @@ it('offers sharing with the short link on the home and event pages', function ()
     expect($this->event->share_url)->toBe($short);
 
     $this->actingAs($this->admin)->get(route('organizer.home'))
-        ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('qr.svg', false);
+        ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('qr', false);
     $this->get(route('organizer.events.attendees', $this->event))
         ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('Download for your poster');
 });

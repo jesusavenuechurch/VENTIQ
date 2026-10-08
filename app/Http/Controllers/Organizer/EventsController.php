@@ -169,6 +169,20 @@ class EventsController extends Controller
         return response((string) $svg, 200, $headers);
     }
 
+    /** Put a draft event live in one tap, from the events list or any of its pages. */
+    public function publish(Request $request, Event $event)
+    {
+        $this->authorizeEvent($request, $event);
+
+        if ($event->status !== 'draft') {
+            return back()->with('status', "{$event->name} is already live.");
+        }
+
+        $event->update(['status' => 'published']);
+
+        return back()->with('status', "{$event->name} is live. Share its link to start selling.");
+    }
+
     private function authorizeEvent(Request $request, Event $event): void
     {
         abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);

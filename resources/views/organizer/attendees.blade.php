@@ -15,6 +15,7 @@
         @endif
         <a href="{{ route('organizer.events.day', $event) }}" wire:navigate class="px-4 py-2 rounded-full {{ $event->event_date?->isToday() ? 'bg-action text-white hover:bg-action-ink' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }} text-[10px] font-black uppercase tracking-widest"><i class="fas fa-door-open mr-1"></i>Event day</a>
         @can('approve_payment')
+            <a href="{{ route('organizer.events.comp.create', [$event, 'kind' => 'sold']) }}" wire:navigate class="px-4 py-2 rounded-full bg-action text-white text-[10px] font-black uppercase tracking-widest hover:bg-action-ink"><i class="fas fa-money-bill-wave mr-1"></i>Sell a ticket</a>
             <a href="{{ route('organizer.events.comp.create', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-gift mr-1"></i>Complimentary ticket</a>
             <a href="{{ route('organizer.events.guests.create', $event) }}" wire:navigate class="px-4 py-2 rounded-full bg-white border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#1D4069]"><i class="fas fa-file-import mr-1"></i>Import guest list</a>
         @endcan
@@ -119,6 +120,26 @@
                                        class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold text-[#1D4069] focus:bg-white focus:outline-[#F07F22]">
                                 <p class="text-[11px] text-gray-400">Fix the number here if it was wrong; it's saved for this attendee.</p>
                                 <button class="w-full py-2 rounded-xl bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest">Send ticket on WhatsApp</button>
+                            </form>
+                        </details>
+                    @endif
+                    @if($canDecide && $ticket->status === 'pending')
+                        <details class="relative">
+                            <summary class="list-none cursor-pointer px-3 py-1 rounded-full bg-mint-ink text-white text-[10px] font-black uppercase tracking-widest"><i class="fas fa-check mr-1"></i>Mark paid</summary>
+                            <form method="POST" action="{{ route('organizer.tickets.paid', $ticket) }}"
+                                  class="absolute right-0 z-10 mt-2 w-72 p-4 rounded-2xl bg-white border border-gray-100 shadow-xl space-y-3">
+                                @csrf
+                                <p class="text-[12px] font-bold text-[#1D4069]">{{ $ticket->holder_name }} paid you M{{ number_format(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2) }}</p>
+                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid with</label>
+                                <select name="method" class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold text-[#1D4069]">
+                                    @foreach(\App\Services\Tickets\DirectSaleService::METHODS as $value => $name)
+                                        <option value="{{ $value }}">{{ $name }}</option>
+                                    @endforeach
+                                </select>
+                                <input name="reference" placeholder="Receipt or reference (optional)"
+                                       class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold text-[#1D4069] focus:bg-white focus:outline-[#F07F22]">
+                                <p class="text-[11px] text-gray-400">The ticket becomes active and is sent to them.</p>
+                                <button class="w-full py-2 rounded-xl bg-mint-ink text-white text-[10px] font-black uppercase tracking-widest">Mark as paid</button>
                             </form>
                         </details>
                     @endif

@@ -587,14 +587,22 @@ class Ticket extends Model
             // PNG needs the imagick extension; without it, an SVG (which the
             // ticket page and the PDF pass both show) so no pass goes out
             // without a code.
-            $format = extension_loaded('imagick') ? 'png' : 'svg';
-            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.' . $format;
-
-            $qrContent = QrCode::format($format)
+            $make = fn (string $format) => QrCode::format($format)
                 ->size(300)
                 ->margin(2)
                 ->color($color['r'], $color['g'], $color['b'])
                 ->generate($verificationUrl);
+
+            $format = extension_loaded('imagick') ? 'png' : 'svg';
+            try {
+                $qrContent = $make($format);
+            } catch (\Throwable $e) {
+                // imagick present but not able to draw a PNG: SVG needs nothing.
+                Log::warning("PNG QR failed for ticket {$this->id}, using SVG", ['error' => $e->getMessage()]);
+                $format = 'svg';
+                $qrContent = $make('svg');
+            }
+            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.' . $format;
 
             Storage::disk(self::FILES_DISK)->put($filename, $qrContent);
 
