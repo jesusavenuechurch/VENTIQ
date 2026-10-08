@@ -67,5 +67,57 @@
             Fees on online payments come off your payout; fees on tickets paid directly to you, free and complimentary tickets are invoiced.
             @if($finance['fees_sponsored'] > 0) {{ $m($finance['fees_sponsored']) }} of fees on this event are sponsored by VENTIQ and won't be charged. @endif
         </p>
+
+        {{-- Super admin: the event in Khoebo (VENTIQ's accounting). --}}
+        @if(auth()->user()->isSuperAdmin() && isset($event) && !$event->fees_sponsored)
+            @php($owed = app(\App\Services\Khoebo\KhoeboPayments::class)->outstanding($event))
+            <div class="mt-4 pt-4 border-t border-white/70 space-y-3">
+                <p class="text-[10px] font-black text-lilac-ink uppercase tracking-widest">In Khoebo</p>
+                <p class="text-[12px] font-medium text-gray-700">
+                    Order <strong>{{ $event->khoebo_order_reference ?? 'not made yet' }}</strong>
+                    @if($event->khoebo_invoice_reference)
+                        · {{ $event->khoebo_invoice_prepaid ? 'Prepaid invoice' : 'Invoice' }} <strong>{{ $event->khoebo_invoice_reference }}</strong>
+                        {{ $m($event->khoebo_invoice_total) }}, {{ $owed['invoice'] > 0 ? $m($owed['invoice']) . ' owed' : 'paid' }}
+                    @else
+                        · invoiced the day after the event
+                    @endif
+                    @if($event->khoebo_balance_invoice_reference)
+                        · Balance <strong>{{ $event->khoebo_balance_invoice_reference }}</strong>
+                        {{ $m($event->khoebo_balance_total) }}, {{ $owed['balance'] > 0 ? $m($owed['balance']) . ' owed' : 'paid' }}
+                    @endif
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    @if(!$event->khoebo_invoice_id)
+                        <form method="POST" action="{{ route('organizer.events.khoebo.invoice-now', $event) }}"
+                              onsubmit="return confirm('Invoice this event now, for its full order? Attendance beyond it is billed the day after.')">
+                            @csrf
+                            <button class="px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-[#1D4069]">Invoice now (paying ahead)</button>
+                        </form>
+                    @endif
+                    @foreach(['invoice' => false, 'balance' => true] as $which => $isBalance)
+                        @if($owed[$which] > 0)
+                            <details class="relative">
+                                <summary class="list-none cursor-pointer px-3 py-1.5 rounded-full bg-mint-ink text-white text-[10px] font-black uppercase tracking-widest">Record payment{{ $isBalance ? ' on balance' : '' }}</summary>
+                                <form method="POST" action="{{ route('organizer.events.khoebo.payment', $event) }}"
+                                      class="absolute z-10 mt-2 w-72 p-4 rounded-2xl bg-white border border-gray-100 shadow-xl space-y-2">
+                                    @csrf
+                                    <input type="hidden" name="balance" value="{{ $isBalance ? 1 : 0 }}">
+                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount (M)</label>
+                                    <input name="amount" type="number" step="0.01" min="0.01" max="{{ $owed[$which] }}" value="{{ number_format($owed[$which], 2, '.', '') }}" required class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold">
+                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid on</label>
+                                    <input name="date" type="date" value="{{ now()->toDateString() }}" max="{{ now()->toDateString() }}" required class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold">
+                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Paid with</label>
+                                    <select name="method" class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold">
+                                        @foreach(\App\Services\Khoebo\KhoeboPayments::METHODS as $value => $name)<option value="{{ $value }}">{{ $name }}</option>@endforeach
+                                    </select>
+                                    <input name="reference" placeholder="Bank or transaction reference" class="w-full bg-slate-50 rounded-xl px-3 py-2 text-[13px] font-semibold">
+                                    <button class="w-full py-2 rounded-xl bg-mint-ink text-white text-[10px] font-black uppercase tracking-widest">Record in Khoebo</button>
+                                </form>
+                            </details>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </div>

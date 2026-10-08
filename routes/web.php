@@ -375,6 +375,8 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::post('/events/{event}/publish', [App\Http\Controllers\Organizer\EventsController::class, 'publish'])->middleware('can:edit_event')->name('events.publish');
     Route::get('/events/{event}/qr', [App\Http\Controllers\Organizer\EventsController::class, 'qr'])->name('events.qr');
     Route::get('/events/{event}/attendees', [App\Http\Controllers\Organizer\AttendeesController::class, 'index'])->name('events.attendees');
+    Route::post('/events/{event}/khoebo/invoice-now', [App\Http\Controllers\Organizer\AttendeesController::class, 'khoeboInvoiceNow'])->name('events.khoebo.invoice-now');
+    Route::post('/events/{event}/khoebo/payment', [App\Http\Controllers\Organizer\AttendeesController::class, 'khoeboPayment'])->name('events.khoebo.payment');
     Route::post('/events/{event}/fee-sponsorship', [App\Http\Controllers\Organizer\AttendeesController::class, 'toggleFeeSponsorship'])->name('events.fee-sponsorship');
 
     Route::get('/payment-accounts', [App\Http\Controllers\Organizer\PaymentAccountsController::class, 'index'])->middleware('can:view_payment_method')->name('accounts.index');

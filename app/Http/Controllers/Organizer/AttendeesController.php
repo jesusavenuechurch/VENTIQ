@@ -124,6 +124,44 @@ class AttendeesController extends Controller
             : 'VENTIQ fees are charged on this event again.');
     }
 
+    /** Super admin: invoice the event now, for a customer paying ahead of it. */
+    public function khoeboInvoiceNow(Request $request, Event $event, \App\Services\Khoebo\KhoeboInvoices $invoices)
+    {
+        $this->authorizeEvent($request, $event);
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        try {
+            $made = $invoices->invoiceNow($event->load('organization'));
+        } catch (\App\Services\Khoebo\KhoeboException $e) {
+            return back()->with('status', $e->getMessage());
+        }
+
+        return back()->with('status', "Invoice {$made['reference']} for M" . number_format($made['total'], 2) . ' is in Khoebo. Anything beyond it is billed the day after the event.');
+    }
+
+    /** Super admin: a payment from the organizer against the event's Khoebo invoice. */
+    public function khoeboPayment(Request $request, Event $event, \App\Services\Khoebo\KhoeboPayments $payments)
+    {
+        $this->authorizeEvent($request, $event);
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        $data = $request->validate([
+            'amount'    => ['required', 'numeric', 'min:0.01'],
+            'date'      => ['required', 'date', 'before_or_equal:today'],
+            'method'    => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Khoebo\KhoeboPayments::METHODS))],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'balance'   => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $payments->record($event, (float) $data['amount'], $data['date'], $data['method'], $data['reference'] ?? null, $request->user(), $request->boolean('balance'));
+        } catch (\App\Services\Khoebo\KhoeboException $e) {
+            return back()->with('status', $e->getMessage());
+        }
+
+        return back()->with('status', 'M' . number_format((float) $data['amount'], 2) . ' recorded in Khoebo.');
+    }
+
     private function authorizeEvent(Request $request, Event $event): void
     {
         abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);

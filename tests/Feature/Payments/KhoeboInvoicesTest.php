@@ -30,10 +30,11 @@ beforeEach(function () {
             'source' => 'organizer_direct', 'ticket_amount' => 200, 'people' => $people, 'service_fee' => $service,
             'operational_fee' => $op, 'total_fee' => $op + $service, 'sponsored' => false, 'collection' => $collection]);
     };
-    Http::fake(['khoebo.test/*' => Http::response(['data' => ['id' => 21, 'reference' => 'INV-00021', 'status' => 'draft']], 201)]);
+    $this->fakeKhoebo = fn () => Http::fake(['khoebo.test/*' => Http::response(['data' => ['id' => 21, 'reference' => 'INV-00021', 'status' => 'draft']], 201)]);
 });
 
 it('invoices what the organizer actually owes, the day after the event', function () {
+    ($this->fakeKhoebo)();
     $direct = ($this->fee)(TicketFee::COLLECT_BY_INVOICE, 1, 9.80);
     ($this->fee)(TicketFee::COLLECT_BY_INVOICE, 4, 39.20);
     $online = ($this->fee)(TicketFee::COLLECT_FROM_PAYOUT, 1, 9.80);   // came off the payout
@@ -58,6 +59,7 @@ it('invoices what the organizer actually owes, the day after the event', functio
 });
 
 it('waits for the event to finish, and skips sponsored events', function () {
+    ($this->fakeKhoebo)();
     ($this->fee)(TicketFee::COLLECT_BY_INVOICE, 1, 9.80);
     $this->event->update(['event_date' => now()]);
     $this->artisan('khoebo:invoice')->assertSuccessful();
@@ -67,4 +69,62 @@ it('waits for the event to finish, and skips sponsored events', function () {
     $this->event->forceFill(['fees_sponsored' => true])->save();
     $this->artisan('khoebo:invoice', ['event' => $this->event->id])->assertFailed();
     Http::assertNothingSent();
+});
+
+describe('paying ahead', function () {
+    beforeEach(function () {
+        config(['services.khoebo.journals.default' => 2]);
+        $this->event->update(['event_date' => now()->addWeek()]);
+        $this->event->tiers()->first()->update(['quantity_available' => 50]);   // 50 × M7.50 + 4.9% × M10,000 = M865
+        $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+        $super = \App\Models\User::factory()->create(['organization_id' => null]);
+        $super->assignRole('super_admin');
+        $this->actingAs($super)->get(route('organizer.act-as.start', $this->org));
+        $this->invoiceIds = [31, 32];
+        Http::fake(function (Request $r) {
+            if (str_ends_with($r->url(), '/pay')) {
+                return Http::response(['data' => ['id' => 5, 'type' => 'customer_payment', 'status' => 'draft']], 201);
+            }
+            $id = array_shift($this->invoiceIds);
+            return Http::response(['data' => ['id' => $id, 'reference' => "INV-000{$id}", 'status' => 'draft']], 201);
+        });
+    });
+
+    it('invoices the order now, records the payment, and bills only attendance beyond it', function () {
+        $this->get(route('organizer.events.attendees', $this->event))->assertSee('Invoice now (paying ahead)');
+        $this->post(route('organizer.events.khoebo.invoice-now', $this->event))->assertSessionHas('status', fn ($s) => str_contains($s, 'INV-00031'));
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices') && $r['lines'][0]['quantity'] === 50
+            && $r['lines'][1]['unit_price'] === '490.00');
+        expect((float) $this->event->fresh()->khoebo_invoice_total)->toBe(865.0);
+
+        $this->post(route('organizer.events.khoebo.payment', $this->event), ['amount' => '865.00', 'date' => now()->toDateString(), 'method' => 'bank_transfer', 'reference' => 'BANK-77'])
+            ->assertSessionHas('status', 'M865.00 recorded in Khoebo.');
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices/31/pay') && $r['journal_id'] === 2
+            && $r['amount'] === '865.00' && $r['external_reference'] === 'BANK-77');
+
+        // 55 came: the 5 extra are billed after the event.
+        $this->event->update(['event_date' => now()->subDays(2)]);
+        $fee = ($this->fee)(TicketFee::COLLECT_BY_INVOICE, 55, 539.00);
+        $this->artisan('khoebo:invoice', ['event' => $this->event->id])->expectsOutputToContain('balance invoice INV-00032 for M86.50')->assertSuccessful();
+        expect($fee->fresh()->invoice_reference)->toBe('INV-00032');
+    });
+
+    it('needs nothing more when fewer came than were prepaid', function () {
+        $this->post(route('organizer.events.khoebo.invoice-now', $this->event));
+        $this->post(route('organizer.events.khoebo.payment', $this->event), ['amount' => '865.00', 'date' => now()->toDateString(), 'method' => 'cash']);
+
+        $this->event->update(['event_date' => now()->subDays(2)]);
+        $fee = ($this->fee)(TicketFee::COLLECT_BY_INVOICE, 40, 392.00);
+        $this->artisan('khoebo:invoice')->assertSuccessful();
+
+        expect($fee->fresh()->invoice_reference)->toBe('INV-00031')->and($fee->fresh()->invoice_paid_at)->not->toBeNull();
+        Http::assertSentCount(2);   // the prepaid invoice and its payment
+    });
+
+    it("won't take more than is owed", function () {
+        $this->post(route('organizer.events.khoebo.invoice-now', $this->event));
+        $this->post(route('organizer.events.khoebo.payment', $this->event), ['amount' => '900', 'date' => now()->toDateString(), 'method' => 'cash'])
+            ->assertSessionHas('status', fn ($s) => str_contains($s, 'up to the M865.00'));
+        expect((float) $this->event->fresh()->khoebo_paid_total)->toBe(0.0);
+    });
 });

@@ -75,6 +75,9 @@ expecting?".
 - `POST /invoices`: customer_id, invoice_date, external_reference, lines
   [{product_id | description, quantity, unit_price, tax_ids}]. Returns
   `data.reference` (INV-00001), status `draft`.
+- `POST /invoices/{id}/pay`: journal_id, amount, payment_date,
+  external_reference. `KHOEBO_JOURNAL_ID` (and optional per method:
+  `KHOEBO_JOURNAL_BANK`, `_ECOCASH`, `_MPESA`, `_CASH`) say which journal.
 - An Idempotency-Key never edits a record: the same key returns the first one.
 
 ## Built so far
@@ -100,11 +103,17 @@ expecting?".
   sales fee, each line naming the order. Those fees are marked with the
   invoice's reference, as on the Money page. One event by hand:
   `php artisan khoebo:invoice {event id}`.
+- **Paying ahead** (super admin, the event's Attendees page, *In Khoebo*):
+  *Invoice now* bills the event's order before the event, for a customer
+  paying up front; *Record payment* records a payment in Khoebo against it.
+  The day after, attendance beyond the prepaid invoice is billed as a
+  balance invoice; fewer than prepaid is not refunded. A fully paid
+  invoice marks its fees paid, as on the Money page.
 
 ## Still to find out, then build
 
 1. **Sending** the invoice to the organizer (Khoebo's send endpoint).
-2. **Payments:** record a received payment against an invoice; payment
+2. **Payments (rest):** record a received payment against an invoice; payment
    methods (M-Pesa, EcoCash, bank, deducted from payout).
 4. **GET** customers / invoices, and invoice status (paid, part-paid).
 

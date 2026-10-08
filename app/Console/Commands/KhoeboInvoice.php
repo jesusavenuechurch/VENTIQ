@@ -43,15 +43,17 @@ class KhoeboInvoice extends Command
     private function invoice(KhoeboInvoices $invoices, Event $event): bool
     {
         try {
-            $actual = $invoices->actual($event);
-            $invoice = $invoices->make($event);
+            $made = $invoices->make($event);
         } catch (KhoeboException $e) {
             $this->warn($e->getMessage());
             return false;
         }
 
-        $this->info("{$event->name}: invoice {$invoice['reference']} for M" . number_format($actual['total'], 2)
-            . " ({$actual['people']} people, M" . number_format($actual['service'], 2) . ' sales fee).');
+        $this->info(match ($made['kind']) {
+            'covered' => "{$event->name}: covered by prepaid invoice {$made['reference']}.",
+            'balance' => "{$event->name}: balance invoice {$made['reference']} for M" . number_format($made['total'], 2) . '.',
+            default   => "{$event->name}: invoice {$made['reference']} for M" . number_format($made['total'], 2) . '.',
+        });
 
         return true;
     }

@@ -67,6 +67,15 @@ return [
         // Events published get their order automatically; the hourly
         // catch-up (khoebo:orders) only looks at events created from here.
         'orders_from' => env('KHOEBO_ORDERS_FROM', '2026-10-08'),
+        // Where payments are recorded in Khoebo (its journal ids), by how
+        // the organizer paid VENTIQ; any not set use the default.
+        'journals' => [
+            'default'       => env('KHOEBO_JOURNAL_ID'),
+            'bank_transfer' => env('KHOEBO_JOURNAL_BANK'),
+            'ecocash'       => env('KHOEBO_JOURNAL_ECOCASH'),
+            'mpesa'         => env('KHOEBO_JOURNAL_MPESA'),
+            'cash'          => env('KHOEBO_JOURNAL_CASH'),
+        ],
         // Payment terms on orders (Khoebo's id; left off when not set).
         'payment_term_id' => env('KHOEBO_PAYMENT_TERM_ID'),
         'tax_ids' => array_map('intval', array_filter(explode(',', env('KHOEBO_TAX_IDS', '4')))),
