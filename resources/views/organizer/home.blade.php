@@ -85,6 +85,28 @@
             </div>
         @endforelse
     </div>
+
+    {{-- The door app, for whoever scans tickets at the event. --}}
+    @php($scannerApp = \App\Models\AppRelease::current())
+    @if($scannerApp && ($scannerApp->hasApk() || $scannerApp->play_store_url))
+        <div class="mt-8 bg-white rounded-[1.5rem] border border-gray-100 shadow-sm p-6 flex flex-wrap items-center gap-5">
+            <img src="{{ asset('images/favicon_io/android-chrome-192x192.png') }}" alt="" class="w-14 h-14 rounded-2xl border border-gray-100 p-1.5 shrink-0">
+            <div class="min-w-0 flex-1">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">For the door</p>
+                <p class="text-[15px] font-black text-[#1D4069] mt-0.5">VENTIQ Scanner</p>
+                <p class="text-[12px] font-medium text-gray-500 mt-0.5">Scan tickets at the entrance, even without internet. Android phones; your team signs in with their VENTIQ account.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @if($scannerApp->play_store_url)
+                    <a href="{{ $scannerApp->play_store_url }}" target="_blank" rel="noopener" class="px-4 py-2.5 rounded-full bg-[#1D4069] text-white text-[10px] font-black uppercase tracking-widest hover:bg-action"><i class="fab fa-google-play mr-1"></i>Get it on Google Play</a>
+                @endif
+                @if($scannerApp->hasApk())
+                    <a href="{{ route('scanner-app.download') }}" class="px-4 py-2.5 rounded-full {{ $scannerApp->play_store_url ? 'bg-white border border-gray-200 text-gray-600 hover:text-[#1D4069]' : 'bg-action text-white hover:bg-action-ink' }} text-[10px] font-black uppercase tracking-widest"
+                       title="For phones without Google Play"><i class="fas fa-download mr-1"></i>Download APK · v{{ $scannerApp->version }}@if($scannerApp->sizeLabel()) · {{ $scannerApp->sizeLabel() }}@endif</a>
+                @endif
+            </div>
+        </div>
+    @endif
 </div>
     @include('organizer.partials.share-event')
 @endsection

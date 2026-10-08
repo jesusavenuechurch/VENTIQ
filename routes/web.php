@@ -400,6 +400,13 @@ Route::middleware(['auth', 'verified', 'organizer', 'organizer.setup'])->prefix(
     Route::post('/tickets/{ticket}/cancel', [App\Http\Controllers\Organizer\AttendeesController::class, 'cancel'])->name('tickets.cancel');
 });
 
+// The scanner app's APK. No .apk in the address: web servers answer file
+// extensions themselves without asking Laravel.
+Route::middleware(['auth'])->group(function () {
+    Route::get('/scanner-app/download', [App\Http\Controllers\ScannerAppController::class, 'download'])->name('scanner-app.download');
+    Route::get('/scanner-app/download/{release}', [App\Http\Controllers\ScannerAppController::class, 'download'])->name('scanner-app.download.release');
+});
+
 Route::middleware(['auth'])->prefix('organizer/act-as')->name('organizer.act-as.')->group(function () {
     Route::get('/{organization}', [App\Http\Controllers\Organizer\ActAsController::class, 'start'])->name('start');
     Route::post('/exit', [App\Http\Controllers\Organizer\ActAsController::class, 'stop'])->name('stop');
