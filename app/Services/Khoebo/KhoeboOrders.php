@@ -37,21 +37,40 @@ class KhoeboOrders
         ];
     }
 
+    /** Why the event gets no order (yet), or null when it should have one. */
+    public function reasonNotToOrder(Event $event): ?string
+    {
+        return match (true) {
+            (bool) $event->khoebo_order_id => "{$event->name} already has Khoebo order {$event->khoebo_order_reference}.",
+            (bool) $event->fees_sponsored  => "{$event->name}'s fees are sponsored: there's nothing to order.",
+            $this->possible($event)['people'] < 1 => "{$event->name} has no ticket numbers yet.",
+            default => null,
+        };
+    }
+
+    /**
+     * Published events since orders went automatic that have no order yet,
+     * e.g. because Khoebo was down when they were published.
+     */
+    public function missing()
+    {
+        return Event::query()
+            ->whereIn('status', Event::OPEN_STATUSES)
+            ->whereNull('khoebo_order_id')
+            ->where('fees_sponsored', false)
+            ->where('created_at', '>=', config('services.khoebo.orders_from'))
+            ->where('event_date', '>=', now()->startOfDay())
+            ->with('organization');
+    }
+
     /** Make the event's draft order in Khoebo, once. */
     public function make(Event $event): array
     {
-        if ($event->khoebo_order_id) {
-            throw new KhoeboException("{$event->name} already has Khoebo order {$event->khoebo_order_reference}.");
-        }
-        if ($event->fees_sponsored) {
-            throw new KhoeboException("{$event->name}'s fees are sponsored: there's nothing to order.");
+        if ($reason = $this->reasonNotToOrder($event)) {
+            throw new KhoeboException($reason);
         }
 
         $possible = $this->possible($event);
-        if ($possible['people'] < 1) {
-            throw new KhoeboException("{$event->name} has no ticket numbers yet.");
-        }
-
         $order = $this->khoebo->create('orders', $this->body($event, $possible), "ventiq-order-event-{$event->id}");
 
         $event->forceFill(['khoebo_order_id' => $order['id'], 'khoebo_order_reference' => $order['reference'] ?? null])->saveQuietly();

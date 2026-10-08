@@ -82,6 +82,11 @@ expecting?".
 - `php artisan khoebo:order {event id}` makes the event's draft order from
   its ticket numbers (sponsored events: none; free events: the per-person
   line only). The order's id and reference are kept on the event.
+- **Automatic:** when an event is published (organizer area or Filament),
+  its order goes to Khoebo after the save, in the background. If Khoebo
+  is down, `khoebo:orders` (hourly) makes the missing ones: published,
+  upcoming events created since `KHOEBO_ORDERS_FROM` (2026-10-08). Older
+  upcoming events: `khoebo:order {id}` by hand.
 
 ## Still to find out, then build
 
@@ -93,8 +98,9 @@ expecting?".
    methods (M-Pesa, EcoCash, bank, deducted from payout).
 4. **GET** customers / invoices, and invoice status (paid, part-paid).
 
-To revisit: whether the order is made at publish (and updated when numbers
-go up) or only at invoicing time.
+Decided: the order is made at publish. To revisit: updating it when the
+organizer raises their numbers (no update endpoint yet; the invoice bills
+actuals anyway).
 
 ## Before go-live
 

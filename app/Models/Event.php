@@ -72,6 +72,18 @@ class Event extends Model
         // Never take tickets, payments and fees down with an event.
         static::deleting(fn (Event $event) => \App\Support\MoneyRecords::blockingDelete($event) === null);
 
+        // Published: its order goes to Khoebo, after the save commits (so
+        // the ticket types are there) and after the response, so Khoebo is
+        // never what the organizer waits on.
+        static::saved(function (Event $event) {
+            if (in_array($event->status, self::OPEN_STATUSES, true)
+                && ($event->wasRecentlyCreated || $event->wasChanged('status'))
+                && ! $event->khoebo_order_id
+                && app(\App\Services\Khoebo\KhoeboClient::class)->configured()) {
+                \Illuminate\Support\Facades\DB::afterCommit(fn () => \App\Jobs\MakeKhoeboOrder::dispatchAfterResponse($event->id));
+            }
+        });
+
         static::creating(function ($event) {
             if (empty($event->slug)) {
                 $event->slug = static::generateUniqueSlug(

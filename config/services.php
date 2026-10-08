@@ -64,6 +64,9 @@ return [
         // (their Khoebo ids are kept in khoebo_products). To sell something
         // new, add it here and run the command again; a key never changes.
         // VENTIQ isn't VAT registered: tax 4 is Exempt on Khoebo dev.
+        // Events published get their order automatically; the hourly
+        // catch-up (khoebo:orders) only looks at events created from here.
+        'orders_from' => env('KHOEBO_ORDERS_FROM', '2026-10-08'),
         // Payment terms on orders (Khoebo's id; left off when not set).
         'payment_term_id' => env('KHOEBO_PAYMENT_TERM_ID'),
         'tax_ids' => array_map('intval', array_filter(explode(',', env('KHOEBO_TAX_IDS', '4')))),

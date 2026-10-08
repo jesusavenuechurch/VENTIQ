@@ -17,3 +17,6 @@ Artisan::command('inspire', function () {
 // Accounts that never created anything and haven't been used for two months:
 // warned a week ahead, then removed.
 \Illuminate\Support\Facades\Schedule::command('accounts:remove-unused')->dailyAt('06:10')->withoutOverlapping();
+
+// Published events whose Khoebo order didn't go through (Khoebo down, say).
+\Illuminate\Support\Facades\Schedule::command('khoebo:orders')->hourly()->withoutOverlapping();
