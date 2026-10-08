@@ -16,6 +16,7 @@ class Organization extends Model
     use HasFactory, HasPackageEntitlements;
     protected $fillable = [
         'keep_account',
+        'khoebo_customer_id',
         'name',
         'email',
         'phone',

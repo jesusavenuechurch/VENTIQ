@@ -55,6 +55,18 @@ return [
         // Template names live in config/constants.php (whatsapp_templates).
     ],
 
+    // Khoebo, VENTIQ's accounting system: organizers are its customers and
+    // VENTIQ's fees its products. The two products are made once in Khoebo
+    // and their ids set here. See docs/khoebo-plan.md.
+    'khoebo' => [
+        'url'   => env('KHOEBO_URL', 'https://dev.khoebo.co.ls/api/v1'),
+        'token' => env('KHOEBO_TOKEN'),
+        'products' => [
+            'person' => env('KHOEBO_PRODUCT_PERSON'), // M7.50 per person
+            'sales'  => env('KHOEBO_PRODUCT_SALES'),  // 4.9% of ticket sales
+        ],
+    ],
+
     'mopay' => [
         'api_key' => env('MOPAY_API_KEY'),
     ],
