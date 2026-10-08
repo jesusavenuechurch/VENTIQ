@@ -56,14 +56,28 @@ return [
     ],
 
     // Khoebo, VENTIQ's accounting system: organizers are its customers and
-    // VENTIQ's fees its products. The two products are made once in Khoebo
-    // and their ids set here. See docs/khoebo-plan.md.
+    // VENTIQ's fees its products. See docs/khoebo-plan.md.
     'khoebo' => [
         'url'   => env('KHOEBO_URL', 'https://dev.khoebo.co.ls/api/v1'),
         'token' => env('KHOEBO_TOKEN'),
+        // What VENTIQ sells, made in Khoebo by `php artisan khoebo:products`
+        // (their Khoebo ids are kept in khoebo_products). To sell something
+        // new, add it here and run the command again; a key never changes.
+        // VENTIQ isn't VAT registered: tax 4 is Exempt on Khoebo dev.
+        'tax_ids' => array_map('intval', array_filter(explode(',', env('KHOEBO_TAX_IDS', '4')))),
         'products' => [
-            'person' => env('KHOEBO_PRODUCT_PERSON'), // M7.50 per person
-            'sales'  => env('KHOEBO_PRODUCT_SALES'),  // 4.9% of ticket sales
+            'fee-person' => [
+                'name'       => 'VENTIQ per-person fee',
+                'sku'        => 'VQ-PERSON',
+                'type'       => 'service',
+                'sale_price' => env('VENTIQ_OPERATIONAL_FEE', 7.50),
+            ],
+            'fee-sales' => [
+                'name'       => 'VENTIQ ticket sales fee (4.9%)',
+                'sku'        => 'VQ-SALES',
+                'type'       => 'service',
+                'sale_price' => 0, // set on each order: 4.9% of that event's sales
+            ],
         ],
     ],
 

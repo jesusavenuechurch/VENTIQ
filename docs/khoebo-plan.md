@@ -15,16 +15,23 @@ VENTIQ do that itself.
 | Invoice | What the organizer actually owes after the event: active tickets (comps included) and real sales. |
 | Payment | The organizer paying the invoice, or the fee kept from an online payout ("deducted from payout"). |
 
-## Products (made once in Khoebo, ids in .env)
+## Products (listed in VENTIQ, made in Khoebo by a command)
 
-VENTIQ isn't VAT registered, so both use the Exempt tax (id 4 on dev).
+The list is `services.khoebo.products` in config/services.php.
+`php artisan khoebo:products` makes in Khoebo any that it doesn't have yet,
+and keeps their Khoebo ids in the `khoebo_products` table. Run it once on
+each Khoebo (dev, then live). To sell something new (e.g. Sessions), add it
+to the list and run the command again.
+
+VENTIQ isn't VAT registered, so products use the Exempt tax
+(`KHOEBO_TAX_IDS`, 4 on dev).
 
 | Product | SKU | Price | On an order line |
 |---|---|---|---|
 | VENTIQ per-person fee | VQ-PERSON | 7.50 | quantity = people |
 | VENTIQ ticket sales fee (4.9%) | VQ-SALES | set per event | quantity 1, price = 4.9% of ticket sales |
 
-Type `service`. `KHOEBO_PRODUCT_PERSON` / `KHOEBO_PRODUCT_SALES` hold their ids.
+Type `service`.
 
 ## Example
 
@@ -58,6 +65,7 @@ expecting?".
   makes an organization a customer once.
 - `php artisan khoebo:customer {organization id}` to try it, and to check
   this server can reach Khoebo.
+- `php artisan khoebo:products` makes VENTIQ's products in Khoebo.
 
 ## Still to find out, then build
 
