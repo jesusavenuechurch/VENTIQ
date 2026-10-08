@@ -132,7 +132,6 @@
                     <p class="text-[11px] text-gray-500"><strong class="text-[#1D4069]">{{ $name }}:</strong> {{ $description }}</p>
                 @endforeach
             </div>
-            <p class="text-[10px] text-gray-400 px-2">Avatars: <a href="https://www.figma.com/community/file/881358461963645496" target="_blank" rel="noopener" class="underline">Big Smile</a> by Ashley Seo, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline">CC BY 4.0</a>, via DiceBear.</p>
         </div>
     </div>
     </div>
