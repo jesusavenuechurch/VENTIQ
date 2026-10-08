@@ -21,7 +21,13 @@
         installments: @js((bool) old('allow_installments', $event->allow_installments)),
         accounts: @js($accounts->map(fn ($a) => ['id' => $a->id, 'label' => $a->display_label, 'number' => $a->account_number])->values()),
         driverLabels: @js($driverLabels),
-        addTier() { this.tiers.push({ tier_name: '', price: null, quantity_available: null, description: '', quantity_per_purchase: 1, color: null, is_active: true, taken: 0 }) },
+        {{-- QR colours: a new ticket type takes the next one not in use. --}}
+        colours: @js(config('constants.qr_colours')),
+        nextColour() {
+            const used = this.tiers.map(t => (t.color || '').toUpperCase());
+            return Object.keys(this.colours).find(c => !used.includes(c)) || Object.keys(this.colours)[0];
+        },
+        addTier() { this.tiers.push({ tier_name: '', price: null, quantity_available: null, description: '', quantity_per_purchase: 1, color: this.nextColour(), is_active: true, taken: 0 }) },
         removeTier(i) { this.tiers.splice(i, 1) },
         expected: @js($expected),
         fees: { pct: {{ (float) config('constants.fees.service_percent') }}, perPerson: {{ (float) config('constants.fees.operational_per_person') }}, sponsored: @js((bool) $event->fees_sponsored) },
@@ -233,10 +239,21 @@
                                         People per ticket
                                         <input :name="`tiers[${i}][quantity_per_purchase]`" x-model="tier.quantity_per_purchase" type="number" min="1" max="100" class="w-20 bg-white border border-slate-200 rounded-xl px-3 py-2">
                                     </label>
-                                    <label class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 w-full sm:w-auto" x-init="tier.color = (tier.color || Object.keys(colours)[0]).toUpperCase()">
                                         QR colour
-                                        <input type="color" :name="`tiers[${i}][color]`" :value="tier.color || '#3B82F6'" @input="tier.color = $event.target.value" class="w-10 h-8 rounded">
-                                    </label>
+                                        <input type="hidden" :name="`tiers[${i}][color]`" :value="tier.color">
+                                        <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="QR colour">
+                                            <template x-for="(label, hex) in colours" :key="hex">
+                                                <button type="button" @click="tier.color = hex" :title="label" :aria-label="label" role="radio" :aria-checked="tier.color === hex"
+                                                        class="w-7 h-7 rounded-full border-2 transition-all"
+                                                        :class="tier.color === hex ? 'border-[#F07F22] ring-2 ring-offset-1 ring-[#F07F22]' : 'border-white shadow'"
+                                                        :style="`background:${hex}`"></button>
+                                            </template>
+                                            {{-- A colour chosen before the palette existed stays until changed. --}}
+                                            <span x-show="tier.color && !colours[tier.color]" class="w-7 h-7 rounded-full border-2 border-[#F07F22]" :style="`background:${tier.color}`" title="Current colour"></span>
+                                        </div>
+                                        <span class="text-[11px] font-medium text-gray-400" x-text="colours[tier.color] || 'Current colour'"></span>
+                                    </div>
                                     <label class="flex items-center gap-2">
                                         <input type="hidden" :name="`tiers[${i}][is_active]`" :value="tier.is_active ? 1 : 0">
                                         <input type="checkbox" x-model="tier.is_active" class="w-4 h-4 accent-[#F07F22]"> On sale

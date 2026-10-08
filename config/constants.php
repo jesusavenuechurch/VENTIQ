@@ -23,6 +23,19 @@ return [
     // not sold unless this is switched back on.
     'packages_for_sale' => (bool) env('VENTIQ_PACKAGES_FOR_SALE', false),
 
+    // QR code colours offered for ticket types. All dark enough to scan from
+    // a phone screen in a dim venue; the first is the default.
+    'qr_colours' => [
+        '#1D4069' => 'VENTIQ blue',
+        '#A16207' => 'Gold',
+        '#111827' => 'Black',
+        '#9F1239' => 'Maroon',
+        '#166534' => 'Green',
+        '#6B21A8' => 'Purple',
+        '#0F766E' => 'Teal',
+        '#C2410C' => 'Orange',
+    ],
+
     'fees' => [
         'service_percent'        => (float) env('VENTIQ_SERVICE_FEE_PERCENT', 0.049),
         'operational_per_person' => (float) env('VENTIQ_OPERATIONAL_FEE', 7.50),

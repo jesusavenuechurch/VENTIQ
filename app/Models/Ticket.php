@@ -511,37 +511,8 @@ class Ticket extends Model
      */
     public function getTierColorAttribute(): array
     {
-        if (!$this->tier) {
-            return ['r' => 0, 'g' => 0, 'b' => 0]; // Black fallback
-        }
-
-        // Use tier's color if it exists, otherwise default colors
-        if ($this->tier->color) {
-            return $this->hexToRgb($this->tier->color);
-        }
-
-        // Default colors by tier name
-        return $this->getDefaultColorForTierName($this->tier->tier_name);
-    }
-
-    /**
-     * Get default colors based on common tier names
-     */
-    private function getDefaultColorForTierName(string $tierName): array
-    {
-        $normalized = strtolower(trim($tierName));
-
-        return match($normalized) {
-            'general', 'standard' => ['r' => 0, 'g' => 100, 'b' => 200],        // Blue
-            'silver' => ['r' => 192, 'g' => 192, 'b' => 192],                   // Silver
-            'gold' => ['r' => 255, 'g' => 215, 'b' => 0],                       // Gold
-            'vip' => ['r' => 139, 'g' => 69, 'b' => 19],                        // Brown/VIP
-            'diamond', 'premium' => ['r' => 128, 'g' => 0, 'b' => 128],         // Purple
-            'platinum' => ['r' => 230, 'g' => 230, 'b' => 250],                 // Lavender
-            'ruby' => ['r' => 155, 'g' => 17, 'b' => 30],                       // Ruby Red
-            'emerald' => ['r' => 80, 'g' => 200, 'b' => 120],                   // Emerald Green
-            default => ['r' => 0, 'g' => 0, 'b' => 0],                          // Black fallback
-        };
+        // The ticket type's colour, else VENTIQ blue (the first QR colour).
+        return $this->hexToRgb($this->tier?->color ?: array_key_first(config('constants.qr_colours')));
     }
 
     /**
