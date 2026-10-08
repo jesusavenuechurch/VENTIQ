@@ -19,13 +19,14 @@ use Illuminate\Support\Facades\{DB, Log};
  */
 class FeeInvoicing
 {
-    public function uninvoiced(?int $organizationId = null): Builder
+    public function uninvoiced(?int $organizationId = null, ?int $eventId = null): Builder
     {
         return TicketFee::query()
             ->where('collection', TicketFee::COLLECT_BY_INVOICE)
             ->where('sponsored', false)
             ->whereNull('invoiced_at')
             ->when($organizationId, fn ($q) => $q->where('organization_id', $organizationId))
+            ->when($eventId, fn ($q) => $q->where('event_id', $eventId))
             ->whereHas('ticket', fn ($q) => $q->whereIn('status', ['active', 'checked_in']))
             ->whereHas('event', fn ($q) => $q->where('event_date', '>=', config('constants.fees.invoice_from')));
     }

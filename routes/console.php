@@ -20,3 +20,6 @@ Artisan::command('inspire', function () {
 
 // Published events whose Khoebo order didn't go through (Khoebo down, say).
 \Illuminate\Support\Facades\Schedule::command('khoebo:orders')->hourly()->withoutOverlapping();
+
+// The day after an event: its Khoebo invoice for what the organizer owes.
+\Illuminate\Support\Facades\Schedule::command('khoebo:invoice')->dailyAt('07:20')->withoutOverlapping();

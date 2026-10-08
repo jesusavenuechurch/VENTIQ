@@ -70,6 +70,13 @@ expecting?".
   orders skip it. Until then orders stay drafts and are confirmed in
   Khoebo's screens.
 
+- `POST /orders/{id}/confirm` now works (approval lifted); `POST /orders/{id}/invoices`
+  invoices the order exactly as it stands (the maximum), so VENTIQ doesn't use it.
+- `POST /invoices`: customer_id, invoice_date, external_reference, lines
+  [{product_id | description, quantity, unit_price, tax_ids}]. Returns
+  `data.reference` (INV-00001), status `draft`.
+- An Idempotency-Key never edits a record: the same key returns the first one.
+
 ## Built so far
 
 - `KhoeboClient` (token, idempotency keys, retries on a lost connection,
@@ -87,14 +94,17 @@ expecting?".
   is down, `khoebo:orders` (hourly) makes the missing ones: published,
   upcoming events created since `KHOEBO_ORDERS_FROM` (2026-10-08). Older
   upcoming events: `khoebo:order {id}` by hand.
+- **Invoices:** the day after an event (daily 07:20), `khoebo:invoice` bills
+  what the organizer actually owes: fees on tickets paid to them, free and
+  complimentary (online fees came off the payout), people × M7.50 plus the
+  sales fee, each line naming the order. Those fees are marked with the
+  invoice's reference, as on the Money page. One event by hand:
+  `php artisan khoebo:invoice {event id}`.
 
 ## Still to find out, then build
 
-1. **Confirming orders** once Khoebo lifts the approval for API calls;
-   updating an order when the organizer raises their numbers.
-2. **Invoices:** invoice an order; whether the "delivered quantities" policy
-   lets the invoice bill actual numbers instead of the order's.
-3. **Payments:** record a received payment against an invoice; payment
+1. **Sending** the invoice to the organizer (Khoebo's send endpoint).
+2. **Payments:** record a received payment against an invoice; payment
    methods (M-Pesa, EcoCash, bank, deducted from payout).
 4. **GET** customers / invoices, and invoice status (paid, part-paid).
 

@@ -237,6 +237,12 @@ class Event extends Model
         return $this->hasMany(Ticket::class);
     }
 
+    /** VENTIQ's fees on this event's tickets. */
+    public function ticketFees(): HasMany
+    {
+        return $this->hasMany(TicketFee::class);
+    }
+
     public function checkins()
     {
         return $this->tickets()
