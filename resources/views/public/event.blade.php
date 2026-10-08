@@ -11,10 +11,8 @@
     <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:type" content="website">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
@@ -39,7 +37,8 @@
                 <div class="h-4 w-[1px] bg-gray-200"></div>
                 <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">{{ $organization->name }}</span>
             </div>
-            <a href="{{ route('public.events', $organization->slug) }}" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Directory</a>
+            {{-- The organization's own page is for super admins until it's sold. --}}
+            <a href="{{ auth()->user()?->isSuperAdmin() ? route('public.events', $organization->slug) : route('events.browse') }}" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">More events</a>
         </div>
     </header>
 
@@ -54,6 +53,13 @@
 
                 <div class="space-y-6">
                     <h1 class="text-5xl font-black tracking-tighter uppercase italic leading-[0.85]">{{ $event->name }}</h1>
+                    @if($event->status === 'draft')
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-lilac text-lilac-ink text-[12px] font-bold">Preview: only your team can see this draft. Publish it to open registration.</p>
+                    @elseif($closedReason ?? null)
+                        <p class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-action-soft text-action-ink text-[12px] font-bold not-italic normal-case tracking-normal">
+                            <i class="fas fa-circle-info"></i>{{ $closedReason }}
+                        </p>
+                    @endif
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm">
@@ -84,7 +90,7 @@
                     @if($event->banner_image)
                     <div class="lg:hidden pt-10 flex flex-col items-center gap-3">
                         <div class="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm">
-                            <img src="{{ Storage::url($event->banner_image) }}" class="h-40 w-auto rounded-xl object-contain">
+                            <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" class="h-40 w-auto rounded-xl object-contain">
                         </div>
                         <span class="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300 italic">Official Event Graphic</span>
                     </div>
@@ -103,6 +109,10 @@
                             @php
                                 $availability = $tierAvailability[$tier->id] ?? ['is_sold_out' => false];
                                 $isSoldOut = $availability['is_sold_out'];
+                    $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                    $group = (int) ($tier->quantity_per_purchase ?? 1);
+                                $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                                $group = (int) ($tier->quantity_per_purchase ?? 1);
                             @endphp
                             <button onclick="{{ $isSoldOut ? '' : 'selectTier(' . $tier->id . ')' }}" 
                                     {{ $isSoldOut ? 'disabled' : '' }}
@@ -110,23 +120,27 @@
                                 <div class="flex justify-between items-start mb-3">
                                     <div class="pr-4 flex-1">
                                         <span class="block text-[9px] font-black text-[#F07F22] uppercase tracking-[0.15em]">{{ $tier->tier_name }}</span>
+@if($group > 1)<span class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full bg-[#1D4069]/10 text-[#1D4069] text-[9px] font-black uppercase tracking-wider"><i class="fas fa-users mr-1"></i>Admits {{ $group }}</span>
+@endif
+@if($fewLeft)<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#F07F22]/10 text-[#F07F22] text-[9px] font-black uppercase tracking-wider">Only {{ $availability['available'] }} left</span>
+@endif
                                         <span class="block text-[10px] text-gray-400 italic mt-0.5 line-clamp-1">{{ $tier->description ?? 'Secure Entry' }}</span>
                                     </div>
-                                    <span class="text-lg font-black tracking-tighter whitespace-nowrap">M{{ number_format($tier->price) }}</span>
+                                    <span class="text-lg font-black tracking-tighter whitespace-nowrap">{{ \App\Support\Money::price($tier->price) }}</span>
                                 </div>
 
                                 @if($event->allow_installments && $tier->price > 0 && !$isSoldOut)
                                     <div class="mt-3 p-2.5 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
                                         <span class="text-[9px] font-black text-emerald-700 uppercase tracking-tight">Deposit Option</span>
                                         <span class="text-[9px] font-bold text-emerald-600 bg-white px-2 py-0.5 rounded shadow-sm">
-                                            From M{{ number_format($tier->price * ($event->minimum_deposit_percentage / 100)) }}
+                                            From {{ \App\Support\Money::price($tier->price * ($event->minimum_deposit_percentage / 100)) }}
                                         </span>
                                     </div>
                                 @endif
 
                                 @if($isSoldOut)
                                     <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase tracking-widest text-center rounded-lg italic">
-                                        Sold Out
+                                        {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
                                     </div>
                                 @endif
                             </button>
@@ -134,12 +148,12 @@
                         </div>
 
                         <div class="mt-8 pt-6 border-t border-gray-50 space-y-3">
-                            <a href="{{ route('installment.search') }}" class="block text-center px-5 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-xl transition-all group">
+                            <a href="{{ route('ticket.find') }}" class="block text-center px-5 py-3 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-xl transition-all group">
                                 <div class="flex items-center justify-center gap-2">
                                     <i class="fas fa-search-dollar text-[#F07F22] text-sm"></i>
                                     <span class="text-[10px] font-black uppercase tracking-widest text-gray-700">Find My Ticket</span>
                                 </div>
-                                <p class="text-[9px] text-amber-600 mt-1 font-medium">Complete installment payment</p>
+                                <p class="text-[9px] text-amber-600 mt-1 font-medium">Already registered? Pay or open your ticket</p>
                             </a>
                         </div>
                     </div>
@@ -147,7 +161,7 @@
                     @if($event->banner_image)
                     <div class="flex flex-col items-center gap-3 px-8">
                         <div class="p-1.5 bg-white rounded-2xl border border-gray-100 shadow-sm transition-transform hover:scale-105 duration-300">
-                            <img src="{{ Storage::url($event->banner_image) }}" alt="Event Badge" class="h-48 w-auto rounded-xl object-contain">
+                            <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" alt="Event Badge" class="h-48 w-auto rounded-xl object-contain">
                         </div>
                         <span class="text-[8px] font-black uppercase tracking-[0.4em] text-gray-300 italic text-center">Official Event Identity</span>
                     </div>
@@ -174,6 +188,8 @@
                 @php
                     $availability = $tierAvailability[$tier->id] ?? ['is_sold_out' => false];
                     $isSoldOut = $availability['is_sold_out'];
+                    $fewLeft = !$isSoldOut && ($availability['available'] ?? null) !== null && $availability['available'] <= 10;
+                    $group = (int) ($tier->quantity_per_purchase ?? 1);
                 @endphp
                 <button onclick="{{ $isSoldOut ? '' : 'selectTier(' . $tier->id . ')' }}" 
                         {{ $isSoldOut ? 'disabled' : '' }}
@@ -181,23 +197,27 @@
                     <div class="flex items-center justify-between {{ $isSoldOut ? '' : 'mb-3' }}">
                         <div class="text-left flex-1">
                             <span class="block text-[9px] font-black text-[#F07F22] uppercase tracking-[0.1em]">{{ $tier->tier_name }}</span>
+@if($group > 1)<span class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full bg-[#1D4069]/10 text-[#1D4069] text-[9px] font-black uppercase tracking-wider"><i class="fas fa-users mr-1"></i>Admits {{ $group }}</span>
+@endif
+@if($fewLeft)<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#F07F22]/10 text-[#F07F22] text-[9px] font-black uppercase tracking-wider">Only {{ $availability['available'] }} left</span>
+@endif
                             <span class="block text-[10px] text-gray-400 italic">{{ $tier->description ?? 'Secure Entry' }}</span>
                         </div>
-                        <span class="text-lg font-black tracking-tighter ml-4">M{{ number_format($tier->price) }}</span>
+                        <span class="text-lg font-black tracking-tighter ml-4">{{ \App\Support\Money::price($tier->price) }}</span>
                     </div>
 
                     @if($event->allow_installments && $tier->price > 0 && !$isSoldOut)
                         <div class="mt-3 p-2 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center justify-between">
                             <span class="text-[9px] font-black text-emerald-700 uppercase">Deposit</span>
                             <span class="text-[9px] font-bold text-emerald-600 bg-white px-2 py-0.5 rounded">
-                                From M{{ number_format($tier->price * ($event->minimum_deposit_percentage / 100)) }}
+                                From {{ \App\Support\Money::price($tier->price * ($event->minimum_deposit_percentage / 100)) }}
                             </span>
                         </div>
                     @endif
 
                     @if($isSoldOut)
                         <div class="mt-3 w-full py-2 bg-gray-100 text-gray-400 font-black text-[10px] uppercase text-center rounded-lg italic">
-                            Sold Out
+                            {{ ($canRegister ?? true) ? 'Sold Out' : 'Closed' }}
                         </div>
                     @endif
                 </button>
@@ -229,5 +249,6 @@
             window.location.href = `/register/{{ $organization->slug }}/{{ $event->slug }}?tier=${tierId}`;
         }
     </script>
+@include('partials.cookie-notice')
 </body>
 </html>

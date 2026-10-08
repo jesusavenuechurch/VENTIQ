@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Models\Event;
 use App\Models\OrganizationPackage;
+use App\Models\OrganizationPaymentMethod;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -39,10 +41,12 @@ class EventResource extends Resource
 
     public static function canCreate(): bool
     {
-        $user = auth()->user();
-        if (!$user?->hasPermissionTo('create_event')) return false;
-        if ($user->isSuperAdmin()) return true;
-        return $user->organization?->availablePackages()->isNotEmpty() ?? false;
+        // Ticketing packages are deprecated (service + operational fee model, see FeeService
+        // now) — availablePackages() always returns empty per
+        // HasPackageEntitlements, so gating on it here blocked every
+        // non-superadmin org from ever creating an event. Permission is
+        // the only real gate now.
+        return auth()->user()?->hasPermissionTo('create_event') ?? false;
     }
 
     public static function canEdit(Model $record): bool
@@ -430,6 +434,109 @@ class EventResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
+            // ── PAYMENT METHODS ───────────────────────────────────────
+            // Same fields the Create wizard offers, but this was missing
+            // entirely from the Edit form — meaning enabled_payment_method_ids
+            // was a permanent snapshot taken at creation time with no way to
+            // add newly-created org payment methods to an existing event
+            // afterward, even though they show as active at the org level.
+            Forms\Components\Section::make('Payment Methods')
+                ->description('Choose how attendees pay for this event.')
+                ->schema([
+                    Forms\Components\Checkbox::make('enable_online_payments')
+                        ->label('💳 Pay online through VENTIQ')
+                        ->helperText('VENTIQ collects the payment and the ticket activates automatically.')
+                        ->live()
+                        ->columnSpanFull(),
+
+                    Forms\Components\CheckboxList::make('enabled_payment_method_ids')
+                        ->label('Pay directly to you')
+                        ->options(fn ($record) => OrganizationPaymentMethod::where('organization_id', $record?->organization_id)
+                            ->where('is_active', true)
+                            ->where('payment_method', '!=', 'online')
+                            ->orderBy('display_order')
+                            ->get()
+                            ->mapWithKeys(fn ($m) => [$m->id => $m->display_label . ($m->account_number ? ' — ' . $m->account_number : '')])
+                            ->toArray())
+                        ->helperText('Attendees pay you and submit their reference. You confirm the payment, then the ticket activates. Payments already submitted keep the account they were made to.')
+                        ->live()
+                        ->columnSpanFull(),
+
+                    Forms\Components\Actions::make([
+                        FormAction::make('add_payment_method')
+                            ->label('+ Add Payment Method')
+                            ->icon('heroicon-o-plus-circle')
+                            ->color('gray')
+                            ->modalHeading('Add a Payment Method')
+                            ->modalWidth('lg')
+                            ->form([
+                                Forms\Components\Select::make('payment_method')
+                                    ->label('Method')
+                                    ->options(collect(config('constants.payment_methods'))
+                                        ->only(['cash', 'ecocash', 'mpesa', 'bank_transfer'])
+                                        ->mapWithKeys(fn ($m, $key) => [$key => $m['label'] ?? ucfirst($key)])
+                                        ->toArray())
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn ($set) => $set('account_number', null)),
+
+                                Forms\Components\TextInput::make('account_name')
+                                    ->label('Account Name / Label')
+                                    ->maxLength(255)
+                                    ->visible(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    ),
+
+                                Forms\Components\TextInput::make('account_number')
+                                    ->label(fn (Forms\Get $get) =>
+                                        config("constants.payment_methods.{$get('payment_method')}.account_label", 'Account Number')
+                                    )
+                                    ->required(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    )
+                                    ->visible(fn (Forms\Get $get) =>
+                                        (bool) config("constants.payment_methods.{$get('payment_method')}.requires_account", false)
+                                    ),
+
+                                Forms\Components\Textarea::make('instructions')
+                                    ->label('Payment Instructions (optional)')
+                                    ->rows(2),
+                            ])
+                            ->action(function (array $data, Forms\Set $set, Forms\Get $get, $record) {
+                                // Always a new account: an organization can
+                                // hold several per method, and updating an
+                                // existing one would silently change where
+                                // other events' attendees pay.
+                                $method = OrganizationPaymentMethod::create([
+                                    'organization_id' => $record->organization_id,
+                                    'payment_method'  => $data['payment_method'],
+                                    'account_name'    => $data['account_name'] ?? null,
+                                    'account_number'  => $data['account_number'] ?? null,
+                                    'instructions'    => $data['instructions'] ?? null,
+                                    'is_active'       => true,
+                                ]);
+
+                                $current = $get('enabled_payment_method_ids') ?? [];
+                                $set('enabled_payment_method_ids', array_values(array_unique([...$current, $method->id])));
+
+                                Notification::make()->title('Payment method added')->success()->send();
+                            }),
+                    ])
+                        ->visible(fn () => !$isSuperAdmin)
+                        ->columnSpanFull(),
+
+                    Forms\Components\Placeholder::make('payment_preview')
+                        ->label('')
+                        ->content(fn (Forms\Get $get, $record) => \App\Filament\Resources\EventResource\Pages\CreateEvent::paymentPreview(
+                            $record?->organization_id,
+                            (bool) $get('enable_online_payments'),
+                            (array) ($get('enabled_payment_method_ids') ?? []),
+                        ))
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->collapsible(),
+
             // ── PAYMENT OPTIONS ───────────────────────────────────────
             Forms\Components\Section::make('Payment Options')
                 ->description('Configure installment payment settings for this event.')
@@ -567,10 +674,31 @@ class EventResource extends Resource
                     ->visible(fn ($record) => $record->is_public && $record->slug && $record->organization?->slug)
                     ->modalHeading('Public Event URL')
                     ->modalContent(fn ($record) => view('filament.modals.event-url', [
-                        'event' => $record,
-                        'url'   => $record->public_url,
+                        'event'     => $record,
+                        'url'       => $record->public_url,
+                        'qrBase64'  => base64_encode(
+                            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(300)->margin(1)->generate($record->public_url)
+                        ),
                     ]))
                     ->modalSubmitAction(false),
+
+                // VENTIQ waives its fees on this event. The fees are still
+                // recorded (as sponsored) so the books show what was given.
+                Tables\Actions\Action::make('sponsor_fees')
+                    ->label(fn ($record) => $record->fees_sponsored ? 'Stop sponsoring fees' : 'Sponsor fees')
+                    ->icon('heroicon-o-gift')
+                    ->color(fn ($record) => $record->fees_sponsored ? 'gray' : 'success')
+                    ->visible(fn () => auth()->user()?->isSuperAdmin())
+                    ->requiresConfirmation()
+                    ->modalDescription(fn ($record) => $record->fees_sponsored
+                        ? 'VENTIQ will charge its fees again on this event, including fees not yet invoiced or paid out.'
+                        : 'VENTIQ will not charge its fees on this event. Fees already invoiced or paid out stay as they are.')
+                    ->action(function ($record) {
+                        app(\App\Services\Fees\FeeService::class)->setSponsored($record, !$record->fees_sponsored, auth()->user());
+                        \Filament\Notifications\Notification::make()
+                            ->title($record->fresh()->fees_sponsored ? 'Fees sponsored' : 'Fees charged again')
+                            ->success()->send();
+                    }),
 
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\EditAction::make(),
@@ -589,7 +717,8 @@ class EventResource extends Resource
                                 ->send();
                         }),
 
-                    Tables\Actions\DeleteAction::make(),
+                    Tables\Actions\DeleteAction::make()
+                        ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
                 ])
                 ->icon('heroicon-o-ellipsis-vertical'),
             ])
@@ -610,7 +739,8 @@ class EventResource extends Resource
                     ->falseLabel('Private'),
             ])
             ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\DeleteBulkAction::make()
+                        ->before(fn ($records, $action) => \App\Support\MoneyRecords::guardAction($action, ...$records->all())),
             ]);
     }
 

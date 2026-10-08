@@ -71,7 +71,7 @@
             {{-- ── QUICK ACTIONS ────────────────────────────────────── --}}
             <div class="v-grid" style="margin-top: 1.5rem;">
                 @foreach($quick_actions as $action)
-                    <a href="{{ route($action['route']) }}" class="v-card">
+                    <a href="{{ $action['url'] }}" class="v-card">
                         <div class="v-icon-frame" style="--icon-color: {{ $action['color'] }}">
                             <x-filament::icon :icon="$action['icon']" class="h-6 w-6" />
                         </div>

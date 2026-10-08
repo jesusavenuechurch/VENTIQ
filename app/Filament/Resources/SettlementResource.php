@@ -160,8 +160,7 @@ class SettlementResource extends Resource
                                 $orgId = $get('organization_id');
                                 if (!$orgId) return new HtmlString('<p class="text-xs text-gray-400">Select an organisation above.</p>');
 
-                                $items = SettlementItem::where('organization_id', $orgId)
-                                    ->whereNull('settlement_id')->get();
+                                $items = app(\App\Services\Payments\SettlementService::class)->payable((int) $orgId)->get();
 
                                 if ($items->isEmpty()) return new HtmlString('<p class="text-xs text-gray-400">No unsettled online payments found.</p>');
 
@@ -175,7 +174,7 @@ class SettlementResource extends Resource
                                     <div class='space-y-2 text-sm p-4 bg-gray-50 rounded-xl'>
                                         <div class='flex justify-between'><span class='text-gray-500'>Tickets</span><span class='font-bold'>{$items->count()}</span></div>
                                         <div class='flex justify-between'><span class='text-gray-500'>Gross Collected</span><span class='font-bold'>M" . number_format($grossPaid, 2) . "</span></div>
-                                        <div class='flex justify-between'><span class='text-gray-500'>Gateway Fees</span><span class='text-red-500 font-bold'>−M" . number_format($gatewayFees, 2) . "</span></div>
+                                        <div class='flex justify-between'><span class='text-gray-500'>VENTIQ fees</span><span class='text-red-500 font-bold'>−M" . number_format($gatewayFees, 2) . "</span></div>
                                         <div class='flex justify-between'><span class='text-gray-500'>Received by Ventiq</span><span class='font-bold'>M" . number_format($amtReceived, 2) . "</span></div>
                                         <div class='flex justify-between border-t pt-2 mt-2'><span class='font-bold'>Owed to Org</span><span class='font-black text-orange-500 text-lg'>M" . number_format($amtOwed, 2) . "</span></div>
                                         <div class='flex justify-between'><span class='text-gray-500'>Ventiq Revenue</span><span class='font-black text-green-600'>M" . number_format($ventiqRev, 2) . "</span></div>
@@ -190,24 +189,17 @@ class SettlementResource extends Resource
                             ->required(),
                     ])
                     ->action(function (array $data) {
-                        $items = SettlementItem::where('organization_id', $data['organization_id'])
-                            ->whereNull('settlement_id')->get();
+                        $settlement = app(\App\Services\Payments\SettlementService::class)
+                            ->createBatch((int) $data['organization_id'], $data['trigger_type'], auth()->user());
 
-                        if ($items->isEmpty()) {
-                            Notification::make()->title('No unsettled items found')->warning()->send();
+                        if (!$settlement) {
+                            Notification::make()->title('Nothing is owed to this organization')->warning()->send();
                             return;
                         }
 
-                        $sessions   = PaymentSession::whereIn('id', $items->pluck('payment_session_id'))->get();
-                        $settlement = Settlement::createFromSessions($data['organization_id'], $sessions, $data['trigger_type']);
-
-                        SettlementItem::where('organization_id', $data['organization_id'])
-                            ->whereNull('settlement_id')
-                            ->update(['settlement_id' => $settlement->id]);
-
                         Notification::make()
-                            ->title('Settlement batch created')
-                            ->body('M' . number_format($settlement->amount_owed_to_org, 2) . ' owed to ' . Organization::find($data['organization_id'])->name)
+                            ->title('Payout batch created')
+                            ->body('M' . number_format($settlement->amount_owed_to_org, 2) . ' to pay ' . Organization::find($data['organization_id'])->name)
                             ->success()->send();
                     }),
 
@@ -279,14 +271,13 @@ class SettlementResource extends Resource
                         Forms\Components\Textarea::make('notes')->rows(2),
                     ])
                     ->action(function (Settlement $record, array $data) {
-                        $record->update([
-                            'status'               => 'settled',
-                            'settlement_method'    => $data['settlement_method'],
-                            'settlement_reference' => $data['settlement_reference'],
-                            'notes'                => $data['notes'] ?? null,
-                            'settled_at'           => now(),
-                            'settled_by'           => auth()->id(),
-                        ]);
+                        try {
+                            app(\App\Services\Payments\SettlementService::class)->markPaid(
+                                $record, $data['settlement_method'], $data['settlement_reference'], $data['notes'] ?? null, auth()->user());
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->title($e->getMessage())->warning()->send();
+                            return;
+                        }
                         Notification::make()->title('Settlement marked as paid')->success()->send();
                     }),
 

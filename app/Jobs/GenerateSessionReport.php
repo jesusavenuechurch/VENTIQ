@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class GenerateSessionReport implements ShouldQueue
 {
@@ -28,88 +29,154 @@ class GenerateSessionReport implements ShouldQueue
     public function handle(AIService $ai): void
     {
         $session = Session::with('segments')->find($this->sessionId);
+        if (!$session) { $this->markFailed('Session no longer exists.'); return; }
 
-        if (!$session) {
-            $this->markFailed('Session no longer exists.');
-            return;
-        }
+        $sectionsConfig = SessionType::sections($session->type);
 
-        // Pass 1 — one summary per segment that actually has notes.
+        // ── PASS 1 — per-segment summaries ──────────────────────────────
+        $attempted = 0;
+        $succeeded = 0;
+        $lastError = null;
+
         foreach ($session->segments as $segment) {
+            if (!$segment->is_presenting) continue;
+
             $rawText = collect($segment->raw_log ?? [])->pluck('text')->implode("\n");
             if (trim($rawText) === '') continue;
 
+            $attempted++;
+
             $prompt = (new SegmentSummaryPrompt)->with([
                 'presenter' => $segment->presenter_name,
+                'role'      => $segment->role,
                 'topic'     => $segment->title,
                 'raw_notes' => $rawText,
+                'sections'  => $sectionsConfig,
             ]);
 
-            $result = $ai->generate($prompt);
-            if (!$result->success) continue;
+            try {
+                $result = $ai->generate($prompt);
+            } catch (\Throwable $e) {
+                $result = \App\Services\AI\Results\GeneratedContent::failure($e->getMessage(), 'unknown');
+            }
 
-            $sections = $ai->parseSections($result->content);
+            if (!$result->success) {
+                $lastError = $result->error;
+                Log::warning("Segment AI summary failed", [
+                    'session_id' => $session->id,
+                    'segment_id' => $segment->id,
+                    'error'      => $result->error,
+                ]);
+                $segment->update(['ai_summary' => ['_ai_failed' => true, '_error' => $result->error]]);
+                continue;
+            }
 
-            $segment->update(['ai_summary' => [
-                'summary'    => $sections['summary']    ?? 'None identified.',
-                'key_points' => $sections['key_points']  ?? 'None identified.',
-                'follow_ups' => $sections['follow_ups']  ?? 'None identified.',
-                'questions'  => $sections['questions']  ?? 'None identified.',
-            ]]);
+            $succeeded++;
+            $parsed = $ai->parseSections($result->content);
+
+            $summary = [];
+            foreach (array_keys($sectionsConfig) as $key) {
+                $summary[$key] = $parsed[$key] ?? 'None identified.';
+            }
+            $segment->update(['ai_summary' => $summary]);
         }
 
-        $session->refresh();
+        // Whole-session failure — same rule as before: don't fake success
+        // if there was real content and every attempt at summarizing it failed.
+        if ($attempted > 0 && $succeeded === 0) {
+            $this->markFailed($lastError ?? 'AI generation failed for every segment.');
+            return;
+        }
 
-        // Pass 2 — roll-up built from the segment summaries, not the raw text again.
-        $summaryLines = $session->segments
-            ->filter(fn ($s) => !empty($s->ai_summary['summary'] ?? null))
-            ->map(fn ($s) => "{$s->presenter_name}: " . $s->ai_summary['summary'])
+        // ── PASS 2 — overall rollup across every segment's summary ─────
+        // This genuinely never existed before — $overall was referenced
+        // in the report builder but nothing ever computed it. Built now,
+        // matching what SessionSummaryPrompt already expects: THEMES and
+        // RECOMMENDATIONS sections, fed by every segment's own summary.
+        $overall = ['themes' => null, 'recommendations' => null];
+
+        $segmentSummaryText = $session->segments
+            ->filter(fn ($s) => $s->is_presenting && !empty($s->ai_summary) && empty($s->ai_summary['_ai_failed']))
+            ->map(function ($s) use ($sectionsConfig) {
+                $lines = collect($sectionsConfig)
+                    ->map(fn ($def, $key) => $this->nullifyEmpty($s->ai_summary[$key] ?? null) !== ''
+                        ? "{$def['label']}: {$s->ai_summary[$key]}"
+                        : null)
+                    ->filter()
+                    ->implode("\n");
+                return "{$s->presenter_name}:\n{$lines}";
+            })
             ->implode("\n\n");
 
-        $overall = [];
-        if ($summaryLines !== '') {
-            $sessionPrompt = (new SessionSummaryPrompt)->with([
-                'title'             => $session->resolved_title,
-                'segment_summaries' => $summaryLines,
-            ]);
+        // Only worth asking for a rollup if there's actually more than
+        // one presenter's worth of summarized content to roll up.
+        if ($succeeded > 1 && trim($segmentSummaryText) !== '') {
+            try {
+                $rollupPrompt = (new SessionSummaryPrompt)->with([
+                    'title'             => $session->resolved_title,
+                    'segment_summaries' => $segmentSummaryText,
+                ]);
+                $rollupResult = $ai->generate($rollupPrompt);
 
-            $sessionResult = $ai->generate($sessionPrompt);
-            if ($sessionResult->success) {
-                $overall = $ai->parseSections($sessionResult->content);
+                if ($rollupResult->success) {
+                    $parsedRollup = $ai->parseSections($rollupResult->content);
+                    $overall['themes'] = $parsedRollup['themes'] ?? null;
+                    $overall['recommendations'] = $parsedRollup['recommendations'] ?? null;
+                } else {
+                    // A failed rollup does NOT invalidate the whole report —
+                    // the per-segment summaries are still real, valuable
+                    // content. Just log it and ship without the rollup
+                    // section, same as any other "None identified." case.
+                    Log::warning("Session rollup summary failed", [
+                        'session_id' => $session->id,
+                        'error'      => $rollupResult->error,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Session rollup summary threw", ['session_id' => $session->id, 'error' => $e->getMessage()]);
             }
         }
 
-        $totalSeconds = (int) $session->segments->sum(fn ($s) => $s->duration_seconds ?? 0);
-
+        // ── Metrics — also never actually computed before ──────────────
         $metrics = [
-            'presenterCount'     => $session->segments->count(),
-            'participantCount'   => $session->event_id ? Participant::where('event_id', $session->event_id)->count() : null,
-            'durationFormatted'  => sprintf('%02d:%02d:%02d', intdiv($totalSeconds, 3600), intdiv($totalSeconds % 3600, 60), $totalSeconds % 60),
+            'presenterCount'    => $session->segments->where('is_presenting', true)->count(),
+            'participantCount'  => $session->event_id
+                ? Participant::where('session_id', $session->id)->count()
+                : null,
+            'durationFormatted' => $this->formatDuration(
+                $session->segments->sum(fn ($s) => $s->duration_seconds ?? 0)
+            ),
         ];
 
         $session->update([
-            'session_report' => $this->buildPresentationReport($session, $overall, $metrics),
+            'session_report' => $this->buildReport($session, $overall, $metrics, $sectionsConfig),
             'status'         => 'reported',
         ]);
-
         AiGenerationResult::where('job_id', $this->jobId)->update(['status' => 'completed']);
     }
 
-    // Named for the session type on purpose — buildMeetingReport(),
-    // buildWorkshopReport() etc. will sit alongside this once more
-    // session types are actually built. Not solved generically today,
-    // deliberately, since Presentation is still the only real type.
-    private function buildPresentationReport(Session $session, array $overall, array $metrics): string
+    // The dispatcher that never existed. Generic on purpose — see the
+    // note above the class. If a type ever needs genuinely different
+    // structure (not just different wording), branch here.
+    private function buildReport(Session $session, array $overall, array $metrics, array $sectionsConfig): string
+    {
+        return $this->buildGenericReport($session, $overall, $metrics, $sectionsConfig);
+    }
+
+    private function buildGenericReport(Session $session, array $overall, array $metrics, array $sectionsConfig): string
     {
         $org   = $session->organization?->name ?? '';
         $title = $session->resolved_title;
         $date  = $session->date?->format('l, d F Y') ?? $session->created_at->format('l, d F Y');
         $owner = $session->creator?->name ?? '';
+        $typeLabel = $session->type === 'custom' && !empty($session->meta['custom_type_label'])
+            ? $session->meta['custom_type_label']
+            : SessionType::label($session->type);
 
         $overviewLines = [
             "Organization: {$org}",
             "Session: {$title}",
-            "Session Type: " . SessionType::label($session->type),
+            "Session Type: {$typeLabel}",
             "Date: {$date}",
             "Presenters: {$metrics['presenterCount']}",
         ];
@@ -118,24 +185,35 @@ class GenerateSessionReport implements ShouldQueue
         }
         $overviewLines[] = "Duration: {$metrics['durationFormatted']}";
 
-        $presenterBlocks = $session->segments->map(function ($s) {
+        $presenterBlocks = $session->segments->map(function ($s) use ($sectionsConfig, $session) {
+            $header = $s->presenter_name . ($s->role ? ' — ' . (SessionType::roles($session->type)[$s->role]['label'] ?? ucfirst($s->role)) : '');
+
+            if (!$s->is_presenting) {
+                return $header;
+            }
+
             $sum = $s->ai_summary ?? [];
 
-            $parts = array_filter([
-                $s->presenter_name,
-                $this->section('Summary', $sum['summary'] ?? null),
-                $this->section('Key Points', $sum['key_points'] ?? null),
-                $this->section('Follow-ups', $sum['follow_ups'] ?? null),
-                $this->section('Questions', $sum['questions'] ?? null),
-            ], fn ($v) => $v !== '');
+            if (!empty($sum['_ai_failed'])) {
+                return $header . "\n\n[AI summary unavailable for this segment — raw notes were captured but couldn't be summarized. Review the Source Notes panel directly.]";
+            }
+
+            $parts = array_filter(array_merge(
+                [$header],
+                collect($sectionsConfig)->map(fn ($def, $key) => $this->section($def['label'], $sum[$key] ?? null))->all()
+            ), fn ($v) => $v !== '');
 
             return implode("\n\n", $parts);
         })->implode("\n\n------------------\n\n");
 
+        // "PRESENTATION BREAKDOWN" was hardcoded before, wrong for every
+        // non-presentation type. Now it follows the actual session type.
+        $breakdownHeading = strtoupper($typeLabel) . ' BREAKDOWN';
+
         $body = array_filter([
-            "{$org}\nVentiq Presentation Report",
+            "{$org}\nVentiq {$typeLabel} Report",
             "SESSION OVERVIEW\n\n" . implode("\n", $overviewLines),
-            "PRESENTATION BREAKDOWN\n\n{$presenterBlocks}",
+            "{$breakdownHeading}\n\n{$presenterBlocks}",
             $this->section('Overall Themes', $overall['themes'] ?? null),
             $this->section('Overall Recommendations', $overall['recommendations'] ?? null),
             "---\nGenerated by Ventiq Assist\nOwner: {$owner}\nGenerated: {$date}",
@@ -144,10 +222,14 @@ class GenerateSessionReport implements ShouldQueue
         return implode("\n\n", $body);
     }
 
-    // Renders a heading + content, or nothing at all if the content is
-    // blank or is the model's own "None identified." placeholder — the
-    // reader should never see that string, even though the prompt still
-    // asks the model for it as a reliable, parseable signal of "empty."
+    private function formatDuration(int $totalSeconds): string
+    {
+        $h = intdiv($totalSeconds, 3600);
+        $m = intdiv($totalSeconds % 3600, 60);
+        if ($h > 0) return "{$h}h {$m}m";
+        return "{$m}m";
+    }
+
     private function section(string $heading, ?string $content): string
     {
         $content = $this->nullifyEmpty($content);

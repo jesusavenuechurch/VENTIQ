@@ -6,35 +6,32 @@ class SegmentSummaryPrompt extends PromptBuilder
 {
     public function build(): string
     {
-        $presenter = $this->variables['presenter'] ?? 'The presenter';
-        $topic     = $this->variables['topic']     ?? '';
-        $rawNotes  = $this->variables['raw_notes'] ?? '';
+        $presenter = $this->variables['presenter'] ?? 'This person';
+        $role      = $this->variables['role']      ?? null;
+        $topic     = $this->variables['topic']      ?? '';
+        $rawNotes  = $this->variables['raw_notes']  ?? '';
+        $sections  = $this->variables['sections']   ?? [];
 
+        $roleLine  = $role  ? "Role: {$role}\n"  : '';
         $topicLine = $topic ? "Topic: {$topic}\n" : '';
+
+        $sectionBlocks = collect($sections)
+            ->map(fn ($def, $key) => strtoupper($key) . ":\n[{$def['prompt']}]")
+            ->implode("\n\n");
 
         return <<<PROMPT
 {$this->systemContext()}
 
-You are summarizing one presenter's segment from a live-captured presentation session. The notes below were typed live while {$presenter} was presenting — they may be fragmented, shorthand, or incomplete.
+You are summarizing one person's segment from a live-captured session. The notes below were typed live while {$presenter} was speaking — they may be fragmented, shorthand, or incomplete.
 
 Presenter: {$presenter}
-{$topicLine}
+{$roleLine}{$topicLine}
 RAW NOTES:
 {$rawNotes}
 
-Extract and return EXACTLY these four sections. If a section has no content, write "None identified." — never leave a section empty.
+Extract and return EXACTLY these sections, in this order. If a section has no content, write "None identified." — never leave a section empty.
 
-SUMMARY:
-[A 2-3 sentence summary of what this presenter covered.]
-
-KEY POINTS:
-[What stood out as the substantive content of this presentation? One point per line starting with "•".]
-
-FOLLOW-UPS:
-[Gaps, unclear points, or things worth following up on. One point per line starting with "•".]
-
-QUESTIONS:
-[Questions raised during or about this presentation. One per line starting with "•".]
+{$sectionBlocks}
 PROMPT;
     }
 }

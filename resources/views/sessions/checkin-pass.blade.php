@@ -108,9 +108,8 @@
 
                     <div class="mt-6 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-2xl text-center w-full">
                         <p class="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em] mb-1">Can't scan?</p>
-                        <p class="text-[10px] font-bold text-slate-900 break-all leading-snug">
-                            {{ route('public.session-checkin.form', $session->public_token) }}
-                        </p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Go to ventiq.co.ls/join</p>
+                        <p class="text-lg font-black text-slate-900 tracking-[0.25em]">{{ $session->session_code }}</p>
                     </div>
 
                     <div class="absolute bottom-6 flex items-center space-x-1.5 opacity-20">

@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Protocol Status | {{ $event->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
         .rounded-ventiq { border-radius: 2.5rem; }
         @keyframes protocol-pulse {
@@ -97,9 +95,15 @@
                         <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-6 sm:p-8 transition-all hover:border-[#F07F22] hover:shadow-lg">
                             <div class="flex items-center justify-between mb-6">
                                 <div>
-                                    <p class="text-[8px] font-black text-[#F07F22] uppercase mb-1">Attendee 0{{ $index + 1 }}</p>
+                                    <p class="text-[8px] font-black text-[#F07F22] uppercase mb-1">
+                                        @if(($singleTicket->admissions ?? 1) > 1)
+                                            Group ticket &middot; {{ $singleTicket->admissions }} people
+                                        @else
+                                            Attendee 0{{ $index + 1 }}
+                                        @endif
+                                    </p>
                                     <h4 class="text-2xl font-black uppercase italic tracking-tighter leading-none text-slate-900">
-                                        {{ $singleTicket->client->full_name }}
+                                        {{ $singleTicket->holder_name }}
                                     </h4>
                                 </div>
                                 @if($loop->first)
@@ -138,9 +142,16 @@
                 @if($ticket->payment_status !== 'completed')
                     <div class="pt-10 border-t border-dashed border-slate-200 space-y-6">
                         <div class="flex justify-between items-end">
-                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Investment Due</p>
-                            <span class="text-4xl font-black tracking-tighter italic leading-none text-slate-900">M{{ number_format($allTickets->sum('amount')) }}</span>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{{ $allTickets->sum('amount_paid') > 0 ? 'Balance left' : 'To pay' }}</p>
+                            <span class="text-4xl font-black tracking-tighter italic leading-none text-slate-900">M{{ number_format(max(0, $allTickets->sum('amount') - $allTickets->sum('amount_paid')), 2) }}</span>
                         </div>
+
+                        @if($byHand ?? false)
+                            <div class="p-6 bg-mint rounded-3xl text-mint-ink">
+                                <p class="text-[13px] font-black"><i class="fas fa-magnifying-glass-dollar mr-1"></i>We're checking your EcoCash payment</p>
+                                <p class="text-[12px] font-medium mt-1">VENTIQ is matching it with the merchant statement. Your place is held, and your ticket is sent as soon as it's confirmed, usually within a few hours. No need to pay again.</p>
+                            </div>
+                        @endif
 
                         @if($paymentMethodDetails)
                             <div class="p-6 bg-slate-900 rounded-3xl text-white">
@@ -149,13 +160,18 @@
                                         <i class="fas fa-info-circle text-white"></i>
                                     </div>
                                     <div>
-                                        <p class="text-[9px] font-black text-[#F07F22] uppercase tracking-[0.3em]">Protocol Steps</p>
-                                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{{ $paymentMethodDetails->payment_method }}</p>
+                                        <p class="text-[9px] font-black text-[#F07F22] uppercase tracking-[0.3em]">Paid to</p>
+                                        <p class="text-[12px] font-bold text-white">{{ $paymentMethodDetails->display_label }}</p>
+                                        @if($paymentMethodDetails->account_number)
+                                            <p class="text-[12px] font-mono text-slate-300">{{ $paymentMethodDetails->account_number }}</p>
+                                        @endif
                                     </div>
                                 </div>
-                                <p class="text-xs font-bold leading-relaxed text-slate-300 italic">
-                                    "{{ $paymentMethodDetails->instructions }}"
-                                </p>
+                                @if($paymentMethodDetails->instructions)
+                                    <p class="text-xs font-bold leading-relaxed text-slate-300 italic">
+                                        "{{ $paymentMethodDetails->instructions }}"
+                                    </p>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -193,8 +209,11 @@
             </div>
         </div>
 
+        @include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-6'])
+
         <p class="mt-8 text-center text-[9px] font-black text-slate-300 uppercase tracking-[1em] ml-[1em] opacity-50">Ventiq Protocol</p>
     </main>
 
+@include('partials.cookie-notice')
 </body>
 </html>

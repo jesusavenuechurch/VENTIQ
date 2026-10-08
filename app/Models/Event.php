@@ -32,16 +32,33 @@ class Event extends Model
         'installment_instructions',
         'banner_image',
         'organization_package_id',
+        'is_programme',
+        'certificates_enabled',
+        'signature_capture_enabled',
         'event_type',
         'payment_mode',
         'is_sponsored',
+        'enabled_payment_method_ids',
+        'online_methods',
+        'payment_window_hours',
+        'fees_sponsored',
+        'fees_sponsored_at',
+        'fees_sponsored_by',
     ];
 
     protected $casts = [
         'event_date' => 'datetime',
         'registration_deadline' => 'datetime',
+        'is_programme' => 'boolean',
+        'certificates_enabled' => 'boolean',
+        'signature_capture_enabled' => 'boolean',
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
+        'enabled_payment_method_ids' => 'array',
+        'online_methods' => 'array',
+        'payment_window_hours' => 'integer',
+        'fees_sponsored' => 'boolean',
+        'fees_sponsored_at' => 'datetime',
     ];
 
     /* ------------------------------------------------------------
@@ -51,6 +68,21 @@ class Event extends Model
     protected static function boot()
     {
         parent::boot();
+
+        // Never take tickets, payments and fees down with an event.
+        static::deleting(fn (Event $event) => \App\Support\MoneyRecords::blockingDelete($event) === null);
+
+        // Published: its order goes to Khoebo, after the save commits (so
+        // the ticket types are there) and after the response, so Khoebo is
+        // never what the organizer waits on.
+        static::saved(function (Event $event) {
+            if (in_array($event->status, self::OPEN_STATUSES, true)
+                && ($event->wasRecentlyCreated || $event->wasChanged('status'))
+                && ! $event->khoebo_order_id
+                && app(\App\Services\Khoebo\KhoeboClient::class)->configured()) {
+                \Illuminate\Support\Facades\DB::afterCommit(fn () => \App\Jobs\MakeKhoeboOrder::dispatchAfterResponse($event->id));
+            }
+        });
 
         static::creating(function ($event) {
             if (empty($event->slug)) {
@@ -73,14 +105,9 @@ class Event extends Model
             }
         });
 
-        static::updating(function ($event) {
-            if ($event->isDirty('name') && ! $event->isDirty('slug')) {
-                $event->slug = static::generateUniqueSlug(
-                    $event->name,
-                    $event->organization_id
-                );
-            }
-        });
+        // The slug is set once, at creation, and kept when the event is
+        // renamed: it's in every registration link already shared, on
+        // posters and in messages, and changing it broke all of them.
     }
 
     protected static function generateUniqueSlug($name, $organizationId)
@@ -115,6 +142,53 @@ class Event extends Model
         }
 
         return null;
+    }
+
+    /**
+     * The short link (/e/org/event) for sharing and QR codes: quicker to
+     * type off a poster, and a shorter link makes a simpler QR code.
+     */
+    public function getShareUrlAttribute(): ?string
+    {
+        if ($this->organization?->slug && $this->slug) {
+            return route('event.short', [$this->organization->slug, $this->slug]);
+        }
+
+        return null;
+    }
+
+    /** Statuses in which an event takes registrations and appears in listings. */
+    public const OPEN_STATUSES = ['published', 'ongoing'];
+
+    /** Public events people can find: published or under way. */
+    public function scopeListed($query)
+    {
+        return $query->where('is_public', true)->whereIn('status', self::OPEN_STATUSES);
+    }
+
+    /** Listed and not over yet (today's events still count). */
+    public function scopeUpcoming($query)
+    {
+        return $query->listed()->where(fn ($q) => $q->where('event_date', '>=', now()->startOfDay())->orWhereNull('event_date'));
+    }
+
+    /**
+     * Why registration is closed, in words for the attendee, or null when
+     * it's open. Drafts aren't open yet, cancelled and completed events are
+     * over, and the deadline (if any) still applies.
+     */
+    public function registrationClosedReason(): ?string
+    {
+        return match (true) {
+            $this->status === 'cancelled' => 'This event has been cancelled.',
+            $this->status === 'completed' => 'This event has ended.',
+            !in_array($this->status, self::OPEN_STATUSES, true) => 'Registration hasn\'t opened yet.',
+            // Walk-ins can still register on the day; after it, it's over.
+            $this->event_date && now()->gt($this->event_date->copy()->endOfDay()) => 'This event has ended.',
+            $this->registration_deadline && now()->gte($this->registration_deadline)
+                => 'Registration closed on ' . $this->registration_deadline->format('j F Y, H:i') . '.',
+            default => null,
+        };
     }
 
     public function requiresDeposit(): bool
@@ -163,6 +237,12 @@ class Event extends Model
         return $this->hasMany(Ticket::class);
     }
 
+    /** VENTIQ's fees on this event's tickets. */
+    public function ticketFees(): HasMany
+    {
+        return $this->hasMany(TicketFee::class);
+    }
+
     public function checkins()
     {
         return $this->tickets()
@@ -207,4 +287,10 @@ class Event extends Model
     {
         return $this->hasMany(Participant::class);
     }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(Session::class);
+    }
+    public function certificates(): HasMany { return $this->hasMany(Certificate::class); }
 }

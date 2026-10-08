@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registration Closed - {{ $event->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
@@ -36,19 +35,14 @@
             <h2 class="text-3xl font-bold text-gray-900 mb-4">Registration Closed</h2>
             
             <p class="text-lg text-gray-600 mb-8">
-                Sorry, registration for this event is no longer available.
+                {{ $closedReason ?? 'Sorry, registration for this event is no longer available.' }}
             </p>
 
             <!-- Event Info -->
             <div class="bg-gray-50 rounded-lg p-6 mb-8 text-left max-w-md mx-auto">
                 <h3 class="font-bold text-gray-900 mb-3">{{ $event->name }}</h3>
                 
-                @if($event->registration_deadline)
-                    <p class="text-sm text-gray-600 mb-2">
-                        <i class="fas fa-calendar-times text-red-600 mr-2"></i>
-                        Registration closed on {{ $event->registration_deadline->format('F j, Y \a\t g:i A') }}
-                    </p>
-                @endif
+
 
                 @if($event->event_date)
                     <p class="text-sm text-gray-600">
@@ -74,7 +68,7 @@
 
             <!-- Back Button -->
             <div class="mt-8">
-                <a href="{{ route('public.events', $organization->slug) }}" 
+                <a href="{{ route('events.browse') }}" 
                    class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
                     <i class="fas fa-arrow-left"></i>
                     View Other Events
@@ -91,5 +85,6 @@
             </div>
         </div>
     </footer>
+@include('partials.cookie-notice')
 </body>
 </html>

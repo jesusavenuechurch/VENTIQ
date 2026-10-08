@@ -163,14 +163,14 @@
                     <div class="watermark">VENTIQ</div>
                     
                     <div style="position: relative; z-index: 10;">
-                        <div class="tier-badge">{{ $ticket->tier->tier_name }}</div>
+                        <div class="tier-badge">{{ $ticket->tier->tier_name }}@if(($ticket->admissions ?? 1) > 1) &middot; ADMITS {{ $ticket->admissions }}@endif</div>
                         <h1 class="event-name">{{ $ticket->event->name }}</h1>
 
                         <table width="100%" border="0">
                             <tr>
                                 <td width="50%">
                                     <div class="label">Guest Name</div>
-                                    <div class="value">{{ $ticket->client->full_name }}</div>
+                                    <div class="value">{{ $ticket->holder_name }}</div>
                                 </td>
                                 <td width="50%">
                                     <div class="label">Event Date</div>
@@ -180,7 +180,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="label">Venue Location</div>
-                                    <div class="value" style="margin-bottom: 0;">{{ $ticket->event->location }}</div>
+                                    <div class="value" style="margin-bottom: 0;">{{ $ticket->event->venue ?: $ticket->event->location }}</div>
                                 </td>
                             </tr>
                         </table>
@@ -196,9 +196,9 @@
                     <div class="qr-box">
                         @if($ticket->qr_code_path)
                             @php
-                                $path = storage_path('app/public/' . $ticket->qr_code_path);
-                                $type = pathinfo($path, PATHINFO_EXTENSION);
-                                $data = file_get_contents($path);
+                                $path = \Illuminate\Support\Facades\Storage::disk(\App\Models\Ticket::FILES_DISK)->path($ticket->qr_code_path);
+                                $type = pathinfo($path, PATHINFO_EXTENSION) === 'svg' ? 'svg+xml' : pathinfo($path, PATHINFO_EXTENSION);
+                                $data = @file_get_contents($path) ?: '';
                                 $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
                             @endphp
                             <img src="{{ $base64 }}" class="qr-img">

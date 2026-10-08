@@ -139,7 +139,10 @@
             <h1 class="event-name">{{ $event->name }}</h1>
 
             <p style="font-size: 14px; color: #334155; margin: 0 0 24px 0;">
-                Hi {{ $client->full_name }}, we've received your registration. Complete payment below to confirm your spot.
+                Hi {{ $client->full_name }}, here is your ticket. It's <strong>inactive</strong> until your payment is confirmed &mdash; then the same ticket works at the entrance.
+                @if($ticket->payment_due_at)
+                    Please pay by <strong>{{ $ticket->payment_due_at->format('d M Y, H:i') }}</strong> to keep your place.
+                @endif
             </p>
 
             <table width="100%" border="0" cellpadding="0" cellspacing="0">
@@ -161,7 +164,7 @@
 
             @foreach($paymentMethods as $method)
                 <div class="method-card">
-                    <div class="method-label">{{ $method->label }}</div>
+                    <div class="method-label">{{ $method->display_label }}</div>
 
                     @if($method->payment_method !== 'cash')
                         <div class="method-row"><strong>{{ $method->getAccountFieldLabel() }}:</strong> {{ $method->account_number }}</div>
@@ -183,11 +186,18 @@
                 <div class="ref-value">{{ $ticket->ticket_number }}</div>
             </div>
 
+            <p style="margin: 24px 0; text-align: center;">
+                <a href="{{ $paymentUrl }}" style="display:inline-block;padding:14px 28px;background:#1D4069;color:#ffffff;border-radius:12px;font-weight:700;text-decoration:none;">Pay or submit your payment reference</a>
+            </p>
+            <p style="margin: 0 0 24px 0; text-align: center;">
+                <a href="{{ $ticketUrl }}" style="color:#F07F22;font-weight:700;">View your ticket</a>
+            </p>
+
             <ul class="steps">
-                <li>Make your payment using the details above</li>
-                <li>Our team verifies payment within 24 hours</li>
-                <li>You'll get a confirmation email with your ticket</li>
-                <li>Bring your ticket (digital or printed) to the entrance</li>
+                <li>Pay online, or pay the organizer using the details above</li>
+                <li>If you paid the organizer, submit your payment reference using the button above</li>
+                <li>The organizer confirms it and your ticket becomes active &mdash; we'll let you know</li>
+                <li>Bring the same ticket (digital or printed) to the entrance</li>
             </ul>
 
             <p class="note">

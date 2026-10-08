@@ -24,7 +24,7 @@ class AgentFactory extends Factory
             'referral_token' => 'AG-' . strtoupper(Str::random(6)),
             // Earnings start at zero
             'total_paid_organizations'  => 0,
-            'last_milestone_tier'       => null,
+            'last_milestone_tier'       => 0,
             'total_commissions_earned'  => 0,
             'total_bonuses_earned'      => 0,
             'total_earnings'            => 0,

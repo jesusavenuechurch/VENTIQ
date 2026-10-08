@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register for {{ $event->name }} - {{ $organization->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
         .rounded-ventiq { border-radius: 2.5rem; }
         .sticky-mobile-price { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
@@ -34,6 +32,12 @@
             Back to Event Details
         </a>
 
+        @if (session('error'))
+            <div role="alert" class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl text-sm font-bold text-rose-700">
+                <i class="fas fa-circle-exclamation mr-1"></i>{{ session('error') }}
+            </div>
+        @endif
+
         @if ($errors->any())
             <div class="mb-8 p-6 bg-rose-50 border-2 border-rose-100 rounded-3xl">
                 <h4 class="text-[10px] font-black text-rose-900 uppercase tracking-widest mb-2">Registration Errors</h4>
@@ -56,15 +60,6 @@
                 <form id="regForm" method="POST" action="{{ route('registration.submit', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]) }}" class="p-8 sm:p-10 space-y-8">
                     @csrf
                     <input type="hidden" name="tier_id" value="{{ $selectedTier->id ?? '' }}">
-
-                    {{--
-                        WhatsApp delivery is temporarily disabled while the Meta
-                        Cloud API integration is finished. Defaulting everyone
-                        to email delivery for now. Re-enable the toggle block
-                        below once WhatsApp pull-delivery is live.
-                    --}}
-                    <input type="hidden" name="has_whatsapp" value="0">
-                    <input type="hidden" name="preferred_delivery" value="email">
 
                     {{-- ── PERSONAL INFO ─────────────────────────────────── --}}
                     <div class="space-y-6">
@@ -96,9 +91,9 @@
                                 </label>
                                 <div class="flex">
                                     <span class="inline-flex items-center px-4 bg-slate-100 border-2 border-r-0 border-slate-100 rounded-l-2xl font-black text-gray-400 text-xs">+266</span>
-                                    <input type="tel" name="phone" id="phone_input" value="{{ old('phone') }}" required
+                                    <input type="tel" name="phone" id="phone_input" value="{{ preg_replace('/^266(?=\d{8}$)/', '', preg_replace('/\D/', '', (string) old('phone'))) }}" required
                                         class="flex-1 bg-slate-50 border-2 border-slate-50 rounded-r-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900"
-                                        placeholder="5949 4756" maxlength="10">
+                                        placeholder="5949 4756" inputmode="tel" autocomplete="tel-national">
                                 </div>
                             </div>
                         </div>
@@ -117,38 +112,34 @@
                             </div>
                         </div>
 
-                        {{--
-                            WhatsApp toggle — DISABLED, kept here for re-enabling later.
-                            Uncomment once Meta WhatsApp Cloud API pull-delivery is wired up.
-
-                            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
-                                <div class="flex items-center mb-6">
-                                    <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
-                                        <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
-                                        <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
-                                    </div>
+                        {{-- WhatsApp toggle — re-enabled now that the Meta Cloud API integration is live. --}}
+                        <div class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 sm:p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm mr-4">
+                                    <i class="fa-brands fa-whatsapp text-emerald-500 text-2xl"></i>
                                 </div>
-
-                                <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
-                                    <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
-                                        class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
-                                    <div class="ml-4">
-                                        <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
-                                        <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
-                                    </div>
-                                </label>
-
-                                <div id="whatsapp-confirmation" class="mt-4 hidden">
-                                    <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
-                                        <i class="fas fa-check-circle mr-3"></i>
-                                        <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
-                                    </div>
+                                <div>
+                                    <h4 class="font-black text-emerald-900 text-lg">WhatsApp Delivery</h4>
+                                    <p class="text-xs text-emerald-700 font-medium">Instant ticket access on your phone</p>
                                 </div>
                             </div>
-                        --}}
+
+                            <label class="flex items-start p-5 bg-white/60 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl cursor-pointer hover:bg-white hover:border-emerald-400 transition-all group">
+                                <input type="checkbox" name="has_whatsapp" id="has_whatsapp_checkbox" value="1" {{ old('has_whatsapp') ? 'checked' : '' }}
+                                    class="mt-1 w-5 h-5 text-emerald-600 rounded-lg border-emerald-300 focus:ring-emerald-500" onchange="toggleWhatsAppConfirmation()">
+                                <div class="ml-4">
+                                    <span class="font-black text-emerald-900 text-sm uppercase">Send via WhatsApp</span>
+                                    <p class="text-[11px] text-emerald-600 mt-1 font-bold uppercase tracking-tight">✅ Instant delivery & easy access</p>
+                                </div>
+                            </label>
+
+                            <div id="whatsapp-confirmation" class="mt-4 hidden">
+                                <div class="bg-emerald-600 text-white rounded-xl p-3 px-5 flex items-center shadow-lg shadow-emerald-200">
+                                    <i class="fas fa-check-circle mr-3"></i>
+                                    <p class="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 <span id="phone-display-confirm"></span></p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- ── WORKSHOP FIELDS ───────────────────────────────── --}}
@@ -192,232 +183,19 @@
                     </div>
                     @endif
 
-                    {{-- ── ADDITIONAL ATTENDEES ──────────────────────────── --}}
+                    {{-- ── GROUP TICKET ─────────────────────────────────── --}}
+                    {{-- One purchase is one ticket: the same QR admits every
+                         person in the group, so no companion details are
+                         collected. --}}
                     @if($selectedTier && $selectedTier->quantity_per_purchase > 1)
-                    <div class="pt-6 border-t border-gray-50 space-y-6">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-8 h-8 bg-[#1D4069]/10 rounded-lg flex items-center justify-center text-[#1D4069]">
-                                <i class="fas fa-users text-sm"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Additional Attendees</h3>
-                                <p class="text-[10px] font-bold text-[#F07F22] uppercase mt-1">This ticket covers {{ $selectedTier->quantity_per_purchase }} guests</p>
-                            </div>
-                        </div>
-
-                        @for($i = 2; $i <= $selectedTier->quantity_per_purchase; $i++)
-                        <div class="bg-slate-50 border-2 border-slate-50 rounded-[2rem] p-6 sm:p-8 relative hover:border-[#1D4069]/20 hover:bg-white transition-all">
-                            <div class="absolute -top-3 left-8 px-4 py-1 bg-[#1D4069] text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-lg">
-                                Guest #{{ $i }}
-                            </div>
-                            <div class="space-y-4 mt-2">
-                                <div>
-                                    <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Full Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="companion_{{ $i }}_name" value="{{ old('companion_' . $i . '_name') }}" required
-                                        class="w-full bg-white border border-gray-100 rounded-xl px-5 py-3 font-bold text-gray-900 focus:border-[#F07F22] outline-none transition-all"
-                                        placeholder="e.g., Jane Smith">
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Phone <span class="lowercase text-gray-300">(optional)</span></label>
-                                        <div class="flex">
-                                            <span class="inline-flex items-center px-4 bg-gray-50 border border-r-0 border-gray-100 rounded-l-xl font-bold text-gray-400 text-xs">+266</span>
-                                            <input type="tel" name="companion_{{ $i }}_phone" value="{{ old('companion_' . $i . '_phone') }}"
-                                                class="flex-1 bg-white border border-gray-100 rounded-r-xl px-4 py-3 text-sm font-bold focus:border-[#F07F22] outline-none companion-phone"
-                                                placeholder="5949 4756" maxlength="9">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email <span class="lowercase text-gray-300">(optional)</span></label>
-                                        <input type="email" name="companion_{{ $i }}_email" value="{{ old('companion_' . $i . '_email') }}"
-                                            class="w-full bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold focus:border-[#F07F22] outline-none"
-                                            placeholder="jane@example.com">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        @endfor
-
+                    <div class="pt-6 border-t border-gray-50">
                         <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3">
-                            <i class="fas fa-info-circle text-amber-500 mt-0.5"></i>
+                            <i class="fas fa-users text-amber-500 mt-0.5"></i>
                             <p class="text-[11px] font-black text-amber-800 uppercase tracking-tight leading-relaxed">
-                                Each person will receive their own ticket with a unique QR code for event entry.
+                                Group ticket for {{ $selectedTier->quantity_per_purchase }} people. You'll get one QR code &mdash; each person in your group is scanned with the same code.
                             </p>
                         </div>
                     </div>
-                    @endif
-
-                    {{-- ── PAYMENT SECTION ───────────────────────────────── --}}
-                    @if($selectedTier && $selectedTier->price > 0)
-                    <div class="pt-6 border-t border-gray-50 space-y-6">
-                        <h3 class="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Payment Setup</h3>
-
-                        @if($paymentMethods->isNotEmpty())
-
-                            {{-- Payment Plan (Full vs Installments) --}}
-                            @if($event->allow_installments)
-                            <div class="space-y-4">
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Plan</label>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <label class="relative cursor-pointer group">
-                                        <input type="radio" name="payment_type" value="full" class="peer sr-only" {{ old('payment_type', 'full') == 'full' ? 'checked' : '' }} required>
-                                        <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-[#1D4069] peer-checked:bg-white peer-checked:shadow-xl">
-                                            <div class="flex items-center justify-between mb-4">
-                                                <div class="w-12 h-12 bg-[#1D4069]/10 rounded-2xl flex items-center justify-center text-[#1D4069]">
-                                                    <i class="fas fa-money-bill-wave text-xl"></i>
-                                                </div>
-                                            </div>
-                                            <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Full Amount</h4>
-                                            <p class="text-2xl font-black text-[#F07F22] mt-1">M{{ number_format($selectedTier->price) }}</p>
-                                            <div class="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-check text-emerald-500 mr-2"></i>Instant Activation</p>
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-check text-emerald-500 mr-2"></i>Full Access</p>
-                                            </div>
-                                        </div>
-                                    </label>
-
-                                    <label class="relative cursor-pointer group">
-                                        <input type="radio" name="payment_type" value="deposit" class="peer sr-only" {{ old('payment_type') == 'deposit' ? 'checked' : '' }}>
-                                        <div class="h-full p-6 bg-slate-50 border-2 border-slate-50 rounded-[2rem] transition-all peer-checked:border-emerald-600 peer-checked:bg-white peer-checked:shadow-xl">
-                                            <div class="flex items-center justify-between mb-4">
-                                                <div class="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                                                    <i class="fas fa-calendar-check text-xl"></i>
-                                                </div>
-                                            </div>
-                                            <h4 class="text-lg font-black text-gray-900 uppercase tracking-tight">Installments</h4>
-                                            <p class="text-2xl font-black text-emerald-600 mt-1">M{{ number_format($selectedTier->price * ($event->minimum_deposit_percentage / 100)) }}+</p>
-                                            <div class="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-percent text-emerald-500 mr-2"></i>{{ number_format($event->minimum_deposit_percentage, 0) }}% Min Deposit</p>
-                                                <p class="text-[10px] font-bold text-gray-500 uppercase"><i class="fas fa-calendar-alt text-emerald-500 mr-2"></i>Flexible Schedule</p>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {{-- Deposit Amount Input --}}
-                            <div id="deposit-amount-section" class="hidden">
-                                <div class="bg-emerald-50 border border-emerald-100 rounded-[2rem] p-8">
-                                    <label class="block text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em] mb-4 text-center">Initial Payment Amount</label>
-
-                                    <div class="relative max-w-xs mx-auto">
-                                        <span class="absolute left-6 top-1/2 -translate-y-1/2 text-emerald-400 font-black">M</span>
-                                        <input type="number" name="deposit_amount" id="deposit_amount" step="0.01"
-                                            min="{{ $selectedTier->price * ($event->minimum_deposit_percentage / 100) }}"
-                                            max="{{ $selectedTier->price }}"
-                                            value="{{ old('deposit_amount', $selectedTier->price * ($event->minimum_deposit_percentage / 100)) }}"
-                                            class="w-full pl-12 pr-6 py-5 bg-white border-2 border-emerald-200 rounded-2xl focus:border-emerald-500 outline-none text-2xl font-black text-emerald-900 shadow-inner">
-                                    </div>
-
-                                    @php
-                                        $minDeposit = $selectedTier->price * ($event->minimum_deposit_percentage / 100);
-                                        $halfAmount = $selectedTier->price / 2;
-                                        $fullAmount = $selectedTier->price;
-                                    @endphp
-                                    <div class="flex flex-wrap justify-center gap-2 mt-6">
-                                        <button type="button" onclick="setDepositAmount({{ $minDeposit }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Min</button>
-                                        <button type="button" onclick="setDepositAmount({{ $halfAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Half</button>
-                                        <button type="button" onclick="setDepositAmount({{ $fullAmount }})" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-white text-emerald-700 border border-emerald-200 rounded-full hover:bg-emerald-600 hover:text-white transition-all">Full</button>
-                                    </div>
-                                </div>
-                            </div>
-                            @else
-                                <input type="hidden" name="payment_type" value="full">
-                            @endif
-
-                            {{-- Payment Methods --}}
-                            <div class="space-y-4">
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Payment Provider</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                @foreach($paymentMethods as $method)
-                                    @php
-                                        $config = config('constants.payment_methods.' . $method->payment_method, []);
-                                        $icon = $config['icon'] ?? 'fa-money-bill';
-                                        $color = $config['color'] ?? 'text-gray-600';
-                                        $label = $config['label'] ?? ucfirst($method->payment_method);
-                                    @endphp
-
-                                    @if($method->payment_method === 'online')
-                                        <label class="relative cursor-pointer group">
-                                            <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
-                                                data-instructions="You'll be redirected to our secure payment page. A small processing fee applies to online payments."
-                                                data-is-cash="false"
-                                                {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
-
-                                            <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
-                                                <div class="flex items-center mb-3">
-                                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm text-[#F07F22]">
-                                                        <i class="fas fa-bolt text-lg"></i>
-                                                    </div>
-                                                    <span class="text-xs font-black text-gray-900 uppercase tracking-tight">Pay Online</span>
-                                                </div>
-                                                <div class="mt-auto space-y-1">
-                                                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">M-Pesa · EcoCash · Card</p>
-                                                    <p class="text-[9px] font-bold text-emerald-600 uppercase">✓ Instant ticket activation</p>
-                                                    <p class="text-[9px] font-bold text-amber-500 uppercase">⚡ Processing fee applies</p>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    @else
-                                        <label class="relative cursor-pointer group">
-                                            <input type="radio" name="payment_method_id" value="{{ $method->id }}" class="peer sr-only"
-                                                data-instructions="{{ $method->instructions }}"
-                                                data-is-cash="{{ $method->payment_method === 'cash' ? 'true' : 'false' }}"
-                                                {{ old('payment_method_id') == $method->id ? 'checked' : '' }} required>
-
-                                            <div class="p-4 border-2 border-slate-50 bg-slate-50 rounded-2xl transition-all peer-checked:border-[#F07F22] peer-checked:bg-white peer-checked:shadow-lg h-full flex flex-col">
-                                                <div class="flex items-center mb-3">
-                                                    <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm {{ $color }}">
-                                                        <i class="fas {{ $icon }} text-lg"></i>
-                                                    </div>
-                                                    <span class="text-xs font-black text-gray-900 uppercase tracking-tight truncate">{{ $label }}</span>
-                                                </div>
-
-                                                @if($method->payment_method !== 'cash' && $method->account_number)
-                                                    <div class="mt-auto bg-gray-50 rounded-lg p-2 border border-gray-100">
-                                                        <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter mb-1">{{ $config['account_label'] ?? 'Send to' }}</p>
-                                                        <p class="text-[11px] font-mono font-bold text-gray-900 break-all leading-none">{{ $method->account_number }}</p>
-                                                    </div>
-                                                @else
-                                                    <div class="mt-auto py-2">
-                                                        <p class="text-[10px] font-bold text-gray-400 uppercase text-center italic tracking-wider">Pay in person</p>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </label>
-                                    @endif
-                                @endforeach
-                                </div>
-                            </div>
-
-                            {{-- Payment Instructions --}}
-                            <div id="payment-instructions" class="hidden bg-[#1D4069] border border-[#1D4069] rounded-2xl p-5">
-                                <div class="flex items-start">
-                                    <i class="fas fa-info-circle text-white text-lg mr-4 mt-0.5"></i>
-                                    <div class="flex-1">
-                                        <p class="text-[10px] font-black text-blue-200 uppercase tracking-[0.2em] mb-1">Payment Instructions</p>
-                                        <p class="text-sm font-bold text-white leading-relaxed" id="instruction-text"></p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Payment Reference --}}
-                            <div>
-                                <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference <span class="lowercase text-gray-300">(optional)</span></label>
-                                <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Enter transaction reference"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] transition-all outline-none font-bold text-gray-900">
-                            </div>
-
-                        @else
-                            <div class="bg-amber-50 border-2 border-amber-100 rounded-3xl p-6 text-center">
-                                <i class="fas fa-exclamation-triangle text-amber-500 mb-2"></i>
-                                <h4 class="text-[10px] font-black text-amber-900 uppercase tracking-widest leading-none">Payments Not Configured</h4>
-                            </div>
-                        @endif
-                    </div>
-                    @else
-                        <input type="hidden" name="payment_method_id" value="">
-                        <input type="hidden" name="payment_type" value="full">
                     @endif
 
                     {{-- ── FREE TICKET BANNER ────────────────────────────── --}}
@@ -435,11 +213,11 @@
                     <div class="pt-10 border-t border-gray-50 space-y-6">
                         <label class="flex items-start cursor-pointer group">
                             <input type="checkbox" name="terms" class="mt-1 w-5 h-5 text-[#F07F22] border-gray-300 rounded" required>
-                            <span class="ml-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">I agree to the terms and payment protocols.</span>
+                            <span class="ml-4 text-[11px] font-bold text-gray-500 uppercase tracking-wide">I agree to the <a href="{{ route('terms') }}" target="_blank" rel="noopener" class="underline text-[#1D4069] hover:text-[#F07F22]">ticket terms</a>.</span>
                         </label>
 
                         <button type="submit" class="hidden lg:block w-full py-6 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] shadow-xl active:scale-[0.98] transition-all">
-                            Complete Registration
+                            {{ $selectedTier && $selectedTier->price > 0 ? 'Continue to Payment' : 'Complete Registration' }}
                         </button>
                     </div>
                 </form>
@@ -481,8 +259,8 @@
                     {{ isset($selectedTier) && $selectedTier->price > 0 ? 'M' . number_format($selectedTier->price) : 'Free' }}
                 </span>
             </div>
-            <button onclick="document.getElementById('regForm').submit()" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
-                Register
+            <button type="submit" form="regForm" class="flex-1 py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] active:scale-95 shadow-lg transition-all">
+                {{ isset($selectedTier) && $selectedTier->price > 0 ? 'Continue to Payment' : 'Register' }}
             </button>
         </div>
     </div>
@@ -494,20 +272,31 @@
         // Auto-format main phone
         phoneInput?.addEventListener('input', function(e) {
             let value = e.target.value.replace(/\D/g, '');
+            // "+266 5949 4756" pasted whole: drop the country code, not the end.
+            if (value.length > 8 && value.startsWith('266')) value = value.substring(3);
             if (value.length > 8) value = value.substring(0, 8);
             if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
             e.target.value = value;
+            updateWhatsAppConfirmation();
         });
 
-        // Auto-format companion phones
-        document.querySelectorAll('.companion-phone').forEach(input => {
-            input.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length > 8) value = value.substring(0, 8);
-                if (value.length > 4) value = value.substring(0, 4) + ' ' + value.substring(4);
-                e.target.value = value;
-            });
-        });
+        // WhatsApp confirmation banner — shows/hides with the checkbox,
+        // and keeps the displayed number in sync as the phone field changes.
+        const whatsappCheckbox = document.getElementById('has_whatsapp_checkbox');
+        const whatsappConfirmation = document.getElementById('whatsapp-confirmation');
+        const phoneDisplayConfirm = document.getElementById('phone-display-confirm');
+
+        function updateWhatsAppConfirmation() {
+            if (!whatsappCheckbox || !whatsappConfirmation) return;
+            if (whatsappCheckbox.checked) {
+                whatsappConfirmation.classList.remove('hidden');
+                if (phoneDisplayConfirm) phoneDisplayConfirm.textContent = phoneInput?.value || '';
+            } else {
+                whatsappConfirmation.classList.add('hidden');
+            }
+        }
+
+        window.toggleWhatsAppConfirmation = updateWhatsAppConfirmation;
 
         // Form submit logic
         document.querySelector('form')?.addEventListener('submit', function(e) {
@@ -516,73 +305,18 @@
                 emailInput.removeAttribute('name');
             }
 
+            // The server adds +266; only the 8 local digits are sent, so a
+            // number re-shown after an error can't get the prefix twice.
             if (phoneInput) {
                 let cleanPhone = phoneInput.value.replace(/\D/g, '');
-                phoneInput.value = '+266' + cleanPhone;
+                if (cleanPhone.length > 8 && cleanPhone.startsWith('266')) cleanPhone = cleanPhone.slice(3);
+                phoneInput.value = cleanPhone;
             }
 
-            document.querySelectorAll('.companion-phone').forEach(input => {
-                if (input.value.trim()) {
-                    let cleanPhone = input.value.replace(/\D/g, '');
-                    input.value = '+266' + cleanPhone;
-                }
-            });
         });
 
-        // Payment type toggle (full vs deposit)
-        const paymentTypeRadios = document.querySelectorAll('input[name="payment_type"]');
-        const depositSection = document.getElementById('deposit-amount-section');
-        const depositInput = document.getElementById('deposit_amount');
-
-        function updateDepositSection() {
-            const selectedType = document.querySelector('input[name="payment_type"]:checked')?.value;
-            if (selectedType === 'deposit') {
-                depositSection?.classList.remove('hidden');
-                if (depositInput) depositInput.required = true;
-            } else {
-                depositSection?.classList.add('hidden');
-                if (depositInput) depositInput.required = false;
-            }
-        }
-
-        paymentTypeRadios.forEach(radio => {
-            radio.addEventListener('change', updateDepositSection);
-        });
-        updateDepositSection();
-
-        // Payment method instructions
-        const methodRadios = document.querySelectorAll('input[name="payment_method_id"]');
-        const instructionsBox = document.getElementById('payment-instructions');
-        const instructionText = document.getElementById('instruction-text');
-
-        methodRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                const instructions = this.dataset.instructions;
-                const isCash = this.dataset.isCash === 'true';
-
-                if (instructions && instructions !== 'null') {
-                    instructionText.textContent = instructions;
-                    instructionsBox.classList.remove('hidden');
-                } else if (isCash) {
-                    instructionText.textContent = 'Pay in person at the venue or designated location. Your ticket will be activated upon payment confirmation.';
-                    instructionsBox.classList.remove('hidden');
-                } else {
-                    instructionsBox.classList.add('hidden');
-                }
-            });
-        });
-
-        const checkedMethod = document.querySelector('input[name="payment_method_id"]:checked');
-        if (checkedMethod) {
-            checkedMethod.dispatchEvent(new Event('change'));
-        }
-
-        // Deposit amount helper
-        window.setDepositAmount = function(amount) {
-            const input = document.getElementById('deposit_amount');
-            if (input) input.value = amount.toFixed(2);
-        };
     });
     </script>
+@include('partials.cookie-notice')
 </body>
 </html>

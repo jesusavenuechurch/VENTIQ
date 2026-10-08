@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SessionThankYouMail;
+use App\Models\Participant;
 use App\Models\Session;
 use App\Models\SessionSegment;
 use App\Services\AI\AIService;
 use App\Services\AI\Prompts\SegmentInsightPrompt;
+use App\Services\AttendanceCardImageService;
+use App\Services\SessionQuotaService;
+use App\Services\WhatsAppCloudService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SessionSegmentController extends Controller
 {
+    public function __construct(private SessionQuotaService $quota) {}
+
     public function log(Request $request, Session $session, SessionSegment $segment)
     {
         $this->authorizeSegment($session, $segment);
@@ -20,6 +29,21 @@ class SessionSegmentController extends Controller
         $segment->appendLogLine($validated['text']);
 
         return response()->json(['status' => 'ok']);
+    }
+
+    // "Undo" for an accidental Enter — pulls the last committed line back
+    // off the record so it can be retyped.
+    public function undoLog(Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        $popped = $segment->popLastLogLine();
+
+        if (!$popped) {
+            return response()->json(['status' => 'empty'], 404);
+        }
+
+        return response()->json(['status' => 'ok', 'text' => $popped['text']]);
     }
 
     public function finish(Session $session, SessionSegment $segment)
@@ -41,12 +65,63 @@ class SessionSegmentController extends Controller
             // something that's just there next time someone opens Ventiq,
             // not something they had to remember to ask for.
             $session->queueReportGeneration();
+            $this->notifyParticipantsSessionEnded($session);
         }
 
         return response()->json([
             'status'          => 'ok',
             'next_segment_id' => $next?->id,
         ]);
+    }
+
+    // Fires the moment the session ends, not when the report is reviewed —
+    // attendees shouldn't wait hours/days for a "thanks for coming." The
+    // AI report notification is a separate, later touch (see
+    // SessionController::markReviewed()).
+    private function notifyParticipantsSessionEnded(Session $session): void
+    {
+        $organization = $session->organization;
+        $cardService = app(AttendanceCardImageService::class);
+
+        $participants = Participant::where('session_id', $session->id)
+            ->whereNull('notified_at')
+            ->with('client')
+            ->get();
+
+        foreach ($participants as $participant) {
+            // Generated once, reused for both channels — previously this
+            // only ran inside the email branch, so a phone-only participant
+            // (no email) never got a card generated for them at all.
+            $cardPath = ($participant->client?->email || $participant->client?->phone)
+                ? $cardService->generate($participant)
+                : null;
+
+            // Email is a base feature on every tier, never quota-gated.
+            if ($participant->client?->email && $cardPath) {
+                Mail::to($participant->client->email)
+                    ->send(new SessionThankYouMail($participant, $cardPath));
+            }
+
+            // Real Meta Cloud API send now — "session_thank_you" template.
+            // Safe to leave wired even before the template's approved: a
+            // rejected/unknown template name just fails and logs, same as
+            // any other delivery failure, non-blocking either way.
+            if ($participant->client?->phone && $cardPath) {
+                if ($this->quota->hasWhatsappQuota($organization)) {
+                    $sent = app(WhatsAppCloudService::class)->sendSessionThankYou($participant, $cardPath);
+
+                    if ($sent) {
+                        $this->quota->consumeWhatsapp($organization);
+                    } else {
+                        Log::warning("WhatsApp session thank-you failed for participant {$participant->id}");
+                    }
+                } else {
+                    Log::info("[WHATSAPP SKIPPED — quota exhausted] Would have notified {$participant->client->phone}");
+                }
+            }
+
+            $participant->update(['notified_at' => now()]);
+        }
     }
 
     // Synchronous, no queue — this is the live "AI is following along"
@@ -138,30 +213,60 @@ class SessionSegmentController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
-        $validated = $request->validate(['name' => 'required|string|max:255']);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'role' => 'nullable|string|max:255',
+            'presenting' => 'nullable|boolean',
+        ]);
 
         $nextOrder = ($session->segments()->max('order') ?? -1) + 1;
         $hasActive = $session->segments()->where('status', 'active')->exists();
+        $isPresenting = array_key_exists('presenting', $validated)
+            ? filter_var($validated['presenting'], FILTER_VALIDATE_BOOLEAN)
+            : \App\Support\SessionType::roleIsPresenting($session->type, $validated['role'] ?? null);
 
         $segment = $session->segments()->create([
             'presenter_name' => $validated['name'],
+            'role'           => $validated['role'] ?? null,
+            'is_presenting'  => $isPresenting,
             'order'          => $nextOrder,
             'status'         => 'upcoming',
         ]);
 
-        // If the session is already live and nobody's currently on stage,
-        // this new presenter is the one now speaking — no separate "start" click needed.
-        if ($session->status === 'active' && !$hasActive) {
+        // Only presenting roles auto-take-the-stage when added mid-session —
+        // a Secretary added mid-meeting shouldn't suddenly become "live."
+        if ($isPresenting && $session->status === 'active' && !$hasActive) {
             $segment->start();
         }
 
         return response()->json([
             'status'  => 'ok',
             'segment' => [
-                'id'     => $segment->id,
-                'name'   => $segment->presenter_name,
-                'status' => $segment->fresh()->status,
+                'id'            => $segment->id,
+                'name'          => $segment->presenter_name,
+                'role'          => $segment->role,
+                'is_presenting' => $segment->is_presenting,
+                'status'        => $segment->fresh()->status,
             ],
         ]);
+    }
+
+    // A lineup changes — someone drops out before their turn, or turns out
+    // never to have actually presented. Only removable while there's
+    // nothing captured under their name yet: once real notes exist against
+    // a segment it's a source for the report, not a placeholder, and
+    // deleting it would silently drop that content. Not removable while
+    // actively live either — finish or skip them first, same as any other
+    // segment transition.
+    public function destroy(Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        abort_if($segment->status === 'active', 409, 'Finish or skip this presenter before removing them.');
+        abort_unless(empty($segment->raw_log), 409, 'This presenter already has notes captured — they can\'t be removed.');
+
+        $segment->delete();
+
+        return response()->json(['status' => 'ok']);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\EventResource\Pages;
 
 use App\Filament\Resources\EventResource;
+use App\Models\OrganizationPaymentMethod;
 use App\Services\Reports\AttendanceReportService;
 use App\Services\Reports\RegistrationSummaryService;
 use App\Services\Reports\RevenueReportService;
@@ -70,7 +71,8 @@ class EditEvent extends EditRecord
                 ->url(fn () => route('reports.revenue', $record), shouldOpenInNewTab: true),
 
             // ── Delete ────────────────────────────────────────────────────────
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
         ];
     }
 
@@ -94,6 +96,18 @@ class EditEvent extends EditRecord
             } catch (\Exception $e) {}
         }
 
+        // enabled_payment_method_ids stores online + manual method IDs
+        // together (see mutateFormDataBeforeSave below) — split the online
+        // one back out into its own checkbox for the form, and leave only
+        // the manual ones in the checkbox list.
+        $enabledIds = $data['enabled_payment_method_ids'] ?? [];
+        $onlineMethodId = OrganizationPaymentMethod::where('organization_id', $data['organization_id'] ?? null)
+            ->where('payment_method', 'online')
+            ->value('id');
+
+        $data['enable_online_payments'] = $onlineMethodId && in_array($onlineMethodId, $enabledIds ?? []);
+        $data['enabled_payment_method_ids'] = array_values(array_diff($enabledIds ?? [], [$onlineMethodId]));
+
         return $data;
     }
 
@@ -111,14 +125,47 @@ class EditEvent extends EditRecord
             $data['registration_deadline'] = null;
         }
 
+        // Merge the online method's ID back into enabled_payment_method_ids
+        // (mirrors CreateEvent's mutateFormDataBeforeCreate) so
+        // RegistrationController::payment() keeps working off one combined
+        // allowlist.
+        $enabledIds = $data['enabled_payment_method_ids'] ?? [];
+        if (!empty($data['enable_online_payments'])) {
+            $onlineMethod = OrganizationPaymentMethod::firstOrCreate(
+                ['organization_id' => $data['organization_id'], 'payment_method' => 'online'],
+                ['is_active' => true, 'display_order' => 0]
+            );
+            $enabledIds = array_merge([$onlineMethod->id], (array) $enabledIds);
+        }
+        $data['enabled_payment_method_ids'] = !empty($enabledIds) ? array_values(array_unique($enabledIds)) : null;
+
         unset(
             $data['event_date_only'],
             $data['event_time_only'],
             $data['registration_deadline_date'],
             $data['registration_deadline_time'],
+            $data['enable_online_payments'],
         );
 
         return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        if (!$this->record->wasChanged('enabled_payment_method_ids')) {
+            return;
+        }
+
+        $unpaid = app(\App\Services\Payments\PaymentAccountService::class)->unpaidTicketCount($this->record);
+
+        if ($unpaid > 0) {
+            Notification::make()
+                ->title('Payment options changed')
+                ->body("{$unpaid} attendee(s) haven't paid yet. Their payment page now shows the new options. Payments already submitted keep the account they were made to.")
+                ->warning()
+                ->persistent()
+                ->send();
+        }
     }
 
     protected function getSavedNotification(): ?Notification

@@ -33,7 +33,7 @@
 
                 <div class="v-grid">
                     @foreach($steps as $step)
-                        <a href="{{ route($step['route'], $step['params']) }}" class="v-card">
+                        <a href="{{ $step['url'] }}" class="v-card">
                             <div class="v-icon-frame" style="--icon-color: {{ $step['color'] }}">
                                 <x-filament::icon :icon="$step['icon']" class="h-6 w-6" />
                             </div>

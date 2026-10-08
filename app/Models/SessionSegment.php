@@ -26,6 +26,8 @@ class SessionSegment extends Model
         'extraction_job_id',
         'paused_at',
         'paused_seconds',
+        'role',
+        'is_presenting',
     ];
 
     protected $casts = [
@@ -62,9 +64,37 @@ class SessionSegment extends Model
 
     public function appendLogLine(string $text): void
     {
-        $log = $this->raw_log ?? [];
-        $log[] = ['time' => now()->format('H:i:s'), 'text' => $text];
-        $this->update(['raw_log' => $log]);
+        \DB::transaction(function () use ($text) {
+            $fresh = static::where('id', $this->id)->lockForUpdate()->first();
+
+            $log = $fresh->raw_log ?? [];
+            $log[] = ['time' => now()->format('H:i:s'), 'text' => $text];
+            $fresh->update(['raw_log' => $log]);
+        });
+
+        $this->refresh();
+    }
+
+    // Pulls the most recently committed line back off the log — the "undo
+    // an accidental Enter" path. Only the last line, on purpose: anything
+    // earlier is treated as settled, so this can't rewrite history further
+    // back than the one line someone might have just mistyped.
+    public function popLastLogLine(): ?array
+    {
+        return \DB::transaction(function () {
+            $fresh = static::where('id', $this->id)->lockForUpdate()->first();
+
+            $log = $fresh->raw_log ?? [];
+            if (empty($log)) {
+                return null;
+            }
+
+            $popped = array_pop($log);
+            $fresh->update(['raw_log' => $log]);
+            $this->refresh();
+
+            return $popped;
+        });
     }
 
     public function getDurationSecondsAttribute(): ?int

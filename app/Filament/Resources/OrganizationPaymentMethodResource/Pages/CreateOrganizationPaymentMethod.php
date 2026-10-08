@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OrganizationPaymentMethodResource\Pages;
 
+use App\Filament\Resources\EventResource;
 use App\Filament\Resources\OrganizationPaymentMethodResource;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
@@ -23,7 +24,7 @@ class CreateOrganizationPaymentMethod extends CreateRecord
                 \Filament\Notifications\Actions\Action::make('create_event')
                     ->label('Create Event Now')
                     ->button()
-                    ->url(route('filament.admin.resources.events.create'))
+                    ->url(EventResource::getUrl('create'))
                     ->color('primary'),
             ]);
     }

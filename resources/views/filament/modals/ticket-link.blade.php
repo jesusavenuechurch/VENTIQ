@@ -30,7 +30,7 @@
                 </div>
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white leading-tight">
-                        {{ $ticket->client->full_name }}
+                        {{ $ticket->holder_name }}
                     </h3>
                     <p class="text-xs font-medium text-[#F07F22] uppercase tracking-wider">
                         {{ $ticket->event->name }}
@@ -88,7 +88,7 @@
 
             @if($ticket->client->phone)
             @php
-                $waMessage = urlencode("Hi {$ticket->client->full_name}, here's your ticket for {$ticket->event->name}: {$link}");
+                $waMessage = urlencode("Hi {$ticket->holder_name}, here's your ticket for {$ticket->event->name}: {$link}");
                 $waPhone = preg_replace('/\D/', '', $ticket->client->phone);
             @endphp
             <x-filament::button

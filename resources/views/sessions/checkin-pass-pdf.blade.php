@@ -101,8 +101,8 @@
                     <img src="data:image/png;base64,{{ $qrBase64 }}" width="160" height="160">
                     <div class="label" style="margin-top: 16px;">Scan to Register</div>
                     <div class="link-box">
-                        <div class="label" style="margin-bottom: 4px;">Can't scan?</div>
-                        <div class="link-text">{{ $checkinUrl }}</div>
+                        <div class="label" style="margin-bottom: 4px;">Can't scan? Go to ventiq.co.ls/join</div>
+                        <div class="link-text" style="font-size: 16px; letter-spacing: 3px; text-align: center;">{{ $session->session_code }}</div>
                     </div>
                 </td>
             </tr>

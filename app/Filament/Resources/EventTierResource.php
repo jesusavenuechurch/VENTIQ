@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\TierTemplateResource;
 use App\Models\EventTier;
 use App\Models\Event;
 use Filament\Forms;
@@ -323,7 +324,8 @@ class EventTierResource extends Resource
                             ->send();
                     }),
 
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                        ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -401,7 +403,8 @@ class EventTierResource extends Resource
                                 ->send();
                         }),
 
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(fn ($records, $action) => \App\Support\MoneyRecords::guardAction($action, ...$records->all())),
                 ]),
             ])
             ->headerActions([
@@ -409,7 +412,7 @@ class EventTierResource extends Resource
                     ->label('📋 Manage Templates')
                     ->icon('heroicon-o-document-duplicate')
                     ->color('info')
-                    ->url(route('filament.admin.resources.tier-templates.index'))
+                    ->url(TierTemplateResource::getUrl('index'))
                     ->openUrlInNewTab(),
 
                 Tables\Actions\Action::make('tier_statistics')

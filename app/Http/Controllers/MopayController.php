@@ -26,6 +26,8 @@ class MopayController extends Controller
 
     public function initiatePackagePayment(Request $request)
     {
+        abort_unless(config('constants.packages_for_sale'), 404);
+
         $request->validate([
             'package_id' => 'required|exists:organization_packages,id',
         ]);
@@ -104,6 +106,12 @@ class MopayController extends Controller
             Log::error('MoPay: package session not found', ['sessionId' => $sessionId]);
             return redirect($packageIndexUrl)
                 ->with('error', 'Payment session not found.');
+        }
+
+        // Reloading the return page used to approve the package (and pay
+        // the agent's commission) again each time.
+        if ($paymentSession->status === 'completed') {
+            return redirect($packageIndexUrl)->with('success', 'This payment was already received.');
         }
 
         try {
@@ -226,6 +234,10 @@ class MopayController extends Controller
 
     public function initiateTicketPayment(Request $request)
     {
+        // Retired: it charged a 5% surcharge that was recorded nowhere, and
+        // no page links to it. Tickets are paid through PayLesotho.
+        abort(410, 'This payment link is no longer used.');
+
         $request->validate([
             'ticket_id' => 'required|exists:tickets,id',
         ]);
@@ -245,7 +257,7 @@ class MopayController extends Controller
                 'redirectUrl'   => route('online-payment.ticket.callback'),
                 'description'   => $ticket->event->name . ' — ' . $ticket->tier->tier_name,
                 'customerEmail' =>  $ticket->client->email ?? 'noreply@ventiq.com',
-                'customerName'  => $ticket->client->full_name,
+                'customerName'  => $ticket->holder_name,
             ]);
 
             PaymentSession::create([
@@ -271,11 +283,7 @@ class MopayController extends Controller
             DB::rollBack();
             Log::error('MoPay ticket initiation failed', ['ticket_id' => $ticket->id, 'error' => $e->getMessage()]);
 
-            return redirect()->route('registration.confirmation', [
-                'orgSlug'   => $ticket->event->organization->slug,
-                'eventSlug' => $ticket->event->slug,
-                'ticketId'  => $ticket->id,
-            ])->with('error', 'Could not initiate payment. Please try another method.');
+            return redirect()->route('ticket.registered', $ticket->qr_code)->with('error', 'Could not initiate payment. Please try another method.');
         }
     }
 
@@ -304,11 +312,7 @@ class MopayController extends Controller
             return redirect('/')->with('error', 'Ticket not found.');
         }
 
-        $confirmationRoute = route('registration.confirmation', [
-            'orgSlug'   => $ticket->event->organization->slug,
-            'eventSlug' => $ticket->event->slug,
-            'ticketId'  => $ticket->id,
-        ]);
+        $confirmationRoute = route('ticket.registered', $ticket->qr_code);
 
         try {
             $verified = $this->mopay->verifySession($sessionId);
@@ -349,63 +353,12 @@ class MopayController extends Controller
 
     private function approveTicket(Ticket $ticket, array $verified, PaymentSession $paymentSession): void
     {
-        DB::transaction(function () use ($ticket, $verified, $paymentSession) {
-
-            $pendingPayment = $ticket->payments()->where('status', 'pending')->latest()->first();
-            if ($pendingPayment) {
-                $pendingPayment->update([
-                    'status'            => 'approved',
-                    'payment_method'    => $verified['selectedPaymentMethod'] ?? 'mopay',
-                    'payment_reference' => $verified['transactionId'] ?? null,
-                    'approved_by'       => null,
-                    'approved_at'       => now(),
-                ]);
-            }
-
-            $ticket->update([
-                'payment_status'    => 'completed',
-                'status'            => 'active',
-                'payment_method'    => $verified['selectedPaymentMethod'] ?? 'mopay',
-                'payment_reference' => $verified['transactionId'] ?? null,
-                'payment_date'      => now(),
-                'amount_paid'       => $ticket->amount,
-            ]);
-
-            if ($ticket->payments()->where('status', 'approved')->count() === 1) {
-                $ticket->tier->increment('quantity_sold');
-            }
-
-            $surchargeRate = config('constants.payment.surcharge_rate');
-            $gatewayRate   = config('constants.payment.gateway_fee_rate');
-
-            $ticketAmount  = $ticket->amount;
-            $grossPaid     = round($ticketAmount * (1 + $surchargeRate), 2);
-            $gatewayFee    = round($grossPaid * $gatewayRate, 2);
-            $amtReceived   = round($grossPaid - $gatewayFee, 2);
-
-            \App\Models\SettlementItem::create([
-                'settlement_id'      => null,
-                'payment_session_id' => $paymentSession->id,
-                'ticket_id'          => $ticket->id,
-                'organization_id'    => $ticket->event->organization_id,
-                'ticket_amount'      => $ticketAmount,
-                'gross_paid'         => $grossPaid,
-                'gateway_fee'        => $gatewayFee,
-                'amount_received'    => $amtReceived,
-                'amount_owed_to_org' => $ticketAmount,
-            ]);
-
-            dispatch(function () use ($ticket) {
-                $ticket->load(['client', 'event', 'tier', 'event.organization']);
-                $ticket->generateQrCode();
-                $ticket->autoDeliverTicket();
-            })->afterResponse();
-
-            if ($ticket->client->email) {
-                dispatch(new \App\Jobs\SendTicketApprovedEmail($ticket->id))->afterResponse();
-            }
-
-            Log::info("MoPay: ticket {$ticket->id} approved, settlement_item created");
-        });
+        app(\App\Services\Payments\TicketActivationService::class)->activate(
+            ticket: $ticket,
+            source: \App\Services\Payments\TicketActivationService::SOURCE_VENTIQ_ONLINE,
+            paymentMethod: $verified['selectedPaymentMethod'] ?? 'mopay',
+            paymentReference: $verified['transactionId'] ?? null,
+            paymentSession: $paymentSession,
+        );
     }
 }

@@ -6,7 +6,7 @@
         </div>
         <div>
             <p class="text-sm text-gray-600 dark:text-gray-400">Client</p>
-            <p class="text-lg font-semibold">{{ $ticket->client->full_name }}</p>
+            <p class="text-lg font-semibold">{{ $ticket->holder_name }}</p>
         </div>
         <div>
             <p class="text-sm text-gray-600 dark:text-gray-400">Event</p>

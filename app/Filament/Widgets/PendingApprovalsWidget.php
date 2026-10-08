@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Ticket;
+use App\Services\Payments\TicketActivationService;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -11,7 +12,7 @@ use Filament\Notifications\Notification;
 
 class PendingApprovalsWidget extends BaseWidget
 {
-    protected static ?string $heading = 'Pending Payment Approvals';
+    protected static ?string $heading = 'Payments to Confirm';
     protected static ?int $sort = 1;
     protected int | string | array $columnSpan = 'full';
 
@@ -54,37 +55,38 @@ class PendingApprovalsWidget extends BaseWidget
             ])
             ->actions([
                 Tables\Actions\Action::make('approve')
-                    ->label('Approve')
+                    ->label('Activate Ticket')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
+                    ->modalHeading('Has this payment been received?')
                     ->form([
                         Forms\Components\TextInput::make('payment_reference')
                             ->label('Payment Reference')
+                            ->default(fn (Ticket $record) => $record->payment_reference)
                             ->required()
                             ->placeholder('e.g., ECOCASH-ABC123'),
-                        
+
                         Forms\Components\Select::make('payment_method')
                             ->label('Payment Method')
-                            ->options(config('constants.payment_methods')) // ✅ Use config directly
-                            ->required()
-                            ->default('ecocash'),
+                            ->options(collect(config('constants.payment_methods'))
+                                ->mapWithKeys(fn ($m, $key) => [$key => $m['label'] ?? ucfirst($key)])
+                                ->toArray())
+                            ->default(fn (Ticket $record) => $record->payment_method ?? 'ecocash')
+                            ->required(),
                     ])
                     ->action(function (Ticket $record, array $data) {
-                        $record->update([
-                            'payment_status' => 'completed',
-                            'payment_date' => now(),
-                            'payment_reference' => $data['payment_reference'],
-                            'payment_method' => $data['payment_method'],
-                            'status' => 'active',
-                        ]);
-
-                        // Increment tier sold count
-                        $record->tier->increment('quantity_sold');
+                        $activated = app(TicketActivationService::class)->activate(
+                            ticket: $record,
+                            source: TicketActivationService::SOURCE_ORGANIZER_DIRECT,
+                            paymentMethod: $data['payment_method'],
+                            paymentReference: $data['payment_reference'],
+                            confirmedBy: auth()->id(),
+                        );
 
                         Notification::make()
-                            ->title('Payment Approved')
-                            ->body("Ticket {$record->ticket_number} has been activated")
+                            ->title($activated ? 'Ticket activated' : 'Ticket was already active')
+                            ->body("Ticket {$record->ticket_number}")
                             ->success()
                             ->send();
                     }),

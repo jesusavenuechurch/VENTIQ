@@ -8,6 +8,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventTier extends Model
 {
+    protected static function booted(): void
+    {
+        static::deleting(fn (EventTier $tier) => \App\Support\MoneyRecords::blockingDelete($tier) === null);
+
+        // Raising the number reopens sales: tell them again if it sells out again.
+        static::updating(function (EventTier $tier) {
+            if ($tier->isDirty('quantity_available') && (int) $tier->quantity_available > (int) $tier->getOriginal('quantity_available')) {
+                $tier->sold_out_notified_at = null;
+            }
+        });
+    }
+
     protected $fillable = [
         'event_id',
         'tier_name',
@@ -18,10 +30,13 @@ class EventTier extends Model
         'quantity_sold',
         'is_active',
         'quantity_per_purchase',
+        'is_group_ticket',
+        'sold_out_notified_at',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'sold_out_notified_at' => 'datetime',
     ];
 
     // ===== RELATIONSHIPS =====

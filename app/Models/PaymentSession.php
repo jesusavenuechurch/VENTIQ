@@ -10,6 +10,9 @@ class PaymentSession extends Model
     protected $fillable = [
         'payable_type',
         'payable_id',
+        'gateway',
+        'client_reference',
+        'purchase_meta',
         'mopay_reference',
         'mopay_session_id',
         'mopay_payment_url',
@@ -25,6 +28,7 @@ class PaymentSession extends Model
     protected $casts = [
         'amount'           => 'decimal:2',
         'callback_payload' => 'array',
+        'purchase_meta'    => 'array',
     ];
 
     public function organization(): BelongsTo

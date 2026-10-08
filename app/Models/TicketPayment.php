@@ -18,12 +18,17 @@ class TicketPayment extends Model
         'approved_at',
         'notes',
         'payment_type',
+        'organization_payment_method_id',
+        'source',
+        'proof_path',
+        'submitted_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_date' => 'datetime',
         'approved_at' => 'datetime',
+        'submitted_at' => 'datetime',
     ];
 
     /**
@@ -32,6 +37,12 @@ class TicketPayment extends Model
     public function ticket(): BelongsTo
     {
         return $this->belongsTo(Ticket::class);
+    }
+
+    /** The organizer account the attendee paid into (organizer-direct only). */
+    public function paymentAccount(): BelongsTo
+    {
+        return $this->belongsTo(OrganizationPaymentMethod::class, 'organization_payment_method_id');
     }
 
     public function approver(): BelongsTo
@@ -55,6 +66,19 @@ class TicketPayment extends Model
     public function scopeRejected($query)
     {
         return $query->where('status', 'rejected');
+    }
+
+    /**
+     * Payments attendees have submitted on this organization's live tickets
+     * that the organizer hasn't decided yet.
+     */
+    public function scopeAwaitingDecisionFor($query, Organization $organization)
+    {
+        return $query->where('status', 'pending')
+            ->whereNotNull('submitted_at')
+            ->whereHas('ticket', fn ($q) => $q
+                ->whereIn('status', ['pending', 'active'])
+                ->whereHas('event', fn ($e) => $e->where('organization_id', $organization->id)));
     }
 
     /**

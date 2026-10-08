@@ -3,170 +3,54 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
-use App\Models\TicketPayment;
-use App\Models\OrganizationPaymentMethod;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * "Find my ticket": the phone it was registered with plus its ticket
+ * number or entry code (VQ-…) opens its private link, where the
+ * balance is paid like any other payment (online, or to the organizer,
+ * who confirms it). The old per-ticket installment page took payments the
+ * organizer never saw; it's gone.
+ */
 class InstallmentController extends Controller
 {
-    /**
-     * Show the search form for finding a ticket
-     */
     public function search()
     {
         return view('public.installment.search');
     }
 
-    /**
-     * Find a ticket by phone/name and ticket number
-     * 
-     */
     public function find(Request $request)
     {
-        $request->validate([
-            'ticket_number' => 'required|string',
-            'ticket_number_alt' => 'nullable|string',
-            'phone' => 'nullable|string',
-            'full_name' => 'nullable|string',
+        $data = $request->validate([
+            'ticket_number' => 'required|string|max:50',
+            'phone'         => 'required|string|max:20',
         ]);
 
-        // Get the actual ticket number (could be from either field)
-        $ticketNumber = $request->ticket_number ?: $request->ticket_number_alt;
-        
-        $ticket = null;
+        $digits = preg_replace('/\D/', '', $data['phone']);
+        $phone  = '+' . (str_starts_with($digits, '266') ? $digits : '266' . $digits);
 
-        // Search by phone if provided
-        if ($request->phone) {
-            // Clean phone number
-            $phone = preg_replace('/\D/', '', $request->phone);
-            if (!str_starts_with($phone, '266')) {
-                $phone = '266' . $phone;
-            }
-            $phone = '+' . $phone;
-
-            // Find ticket by phone
-            $ticket = Ticket::where('ticket_number', $ticketNumber)
-                ->whereHas('client', function ($query) use ($phone) {
-                    $query->where('phone', $phone);
-                })
-                ->with(['event', 'tier', 'client', 'payments' => function ($query) {
-                    $query->orderBy('created_at', 'desc');
-                }])
-                ->first();
-        }
-        
-        // Search by name if phone search failed or name provided
-        elseif ($request->full_name) {
-            // Find ticket by name (case-insensitive, partial match)
-            $ticket = Ticket::where('ticket_number', $ticketNumber)
-                ->whereHas('client', function ($query) use ($request) {
-                    $query->where('full_name', 'LIKE', '%' . $request->full_name . '%');
-                })
-                ->with(['event', 'tier', 'client', 'payments' => function ($query) {
-                    $query->orderBy('created_at', 'desc');
-                }])
-                ->first();
-        }
+        // Ticket number or entry code, typed any which way.
+        $code = preg_replace('/\s+/', '', $data['ticket_number']);
+        $ticket = Ticket::where(fn ($q) => $q->where('ticket_number', $code)->orWhere(fn ($v) => $v->byVoucherCode($code)))
+            ->whereHas('client', fn ($q) => $q->where('phone', $phone))
+            ->latest('id')->first();
 
         if (!$ticket) {
-            return back()->withErrors([
-                'ticket_number' => 'Ticket not found. Please check your details and try again.',
-            ])->withInput();
+            return back()->withErrors(['ticket_number' => 'No ticket matches that phone and code. Check both and try again, or ask the organizer to send your ticket.'])->withInput();
         }
 
-        // Check if tier allows installments
-        if (!$ticket->tier->allow_installments) {
-            return back()->withErrors([
-                'ticket_number' => 'This ticket does not support installment payments.',
-            ])->withInput();
-        }
-
-        // Redirect to ticket installment page
-        return redirect()->route('installment.show', $ticket->id);
+        return $ticket->payment_status === 'completed'
+            ? redirect()->route('ticket.download', $ticket->qr_code)
+            : redirect()->route('ticket.pay', $ticket->qr_code);
     }
 
-    /**
-     * Show ticket details and payment form
-     */
-    public function show(Ticket $ticket)
+    /** Old /installment/{id} links: the number isn't a credential. */
+    public function show(int $ticket)
     {
-        // Load relationships
-        $ticket->load(['event.organization', 'tier', 'client', 'payments' => function ($query) {
-            $query->orderBy('created_at', 'desc');
-        }]);
+        $found = Ticket::with(['client', 'event.organization'])->find($ticket);
 
-        // Check if event allows installments
-        if (!$ticket->event->allow_installments) {
-            abort(403, 'This event does not support installment payments.');
-        }
-
-        // Get organization's payment methods
-        $paymentMethods = OrganizationPaymentMethod::where('organization_id', $ticket->event->organization_id)
-            ->where('is_active', true)
-            ->orderBy('display_order')
-            ->get();
-
-        return view('public.installment.show', compact('ticket', 'paymentMethods'));
-    }
-
-    /**
-     * Process installment payment
-     */
-    public function pay(Request $request, Ticket $ticket)
-    {
-        // Validate
-        $request->validate([
-            'amount' => 'required|numeric|min:0.01',
-            'payment_method_id' => 'required|exists:organization_payment_methods,id',
-            'payment_reference' => 'nullable|string|max:255',
-        ]);
-
-        // Check if event allows installments
-        if (!$ticket->event->allow_installments) {
-            return back()->withErrors([
-                'amount' => 'This event does not support installment payments.',
-            ]);
-        }
-
-        // Check if amount exceeds remaining balance
-        if ($request->amount > $ticket->remaining_amount) {
-            return back()->withErrors([
-                'amount' => 'Payment amount (' . config('constants.currency.symbol') . ' ' . number_format($request->amount, 2) . 
-                           ') exceeds remaining balance (' . config('constants.currency.symbol') . ' ' . number_format($ticket->remaining_amount, 2) . ').',
-            ])->withInput();
-        }
-
-        // Get payment method
-        $paymentMethod = OrganizationPaymentMethod::findOrFail($request->payment_method_id);
-
-        DB::beginTransaction();
-        try {
-            // Create payment record
-            $payment = TicketPayment::create([
-                'ticket_id' => $ticket->id,
-                'amount' => $request->amount,
-                'payment_method' => $paymentMethod->payment_method,
-                'payment_reference' => $request->payment_reference,
-                'status' => 'pending',
-                'payment_date' => now(),
-                'payment_type' => 'installment',
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('installment.show', $ticket->id)
-                ->with('success', 'Payment submitted successfully! Your payment of ' . 
-                       config('constants.currency.symbol') . ' ' . number_format($request->amount, 2) . 
-                       ' is pending approval.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Installment payment failed: ' . $e->getMessage());
-            
-            return back()->withErrors([
-                'amount' => 'Payment submission failed. Please try again.',
-            ])->withInput();
-        }
+        return app(LegacyTicketLinkController::class)->show(
+            $found?->event?->organization?->slug ?? '', $found?->event?->slug ?? '', $ticket,
+        );
     }
 }

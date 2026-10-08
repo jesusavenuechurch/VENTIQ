@@ -20,28 +20,40 @@ class PublicEventController extends Controller
             }])
             ->firstOrFail();
 
-        $canRegister = $event->registration_deadline === null || now()->lt($event->registration_deadline);
+        // A draft is only visible to its own organization (to preview it).
+        if ($event->status === 'draft' && auth()->user()?->organization_id !== $organization->id && !auth()->user()?->isSuperAdmin()) {
+            abort(404);
+        }
+
+        $closedReason = $event->registrationClosedReason();
+        $canRegister = $closedReason === null;
 
         $tierAvailability = [];
         foreach ($event->tiers as $tier) {
-            $sold = $tier->tickets()->whereIn('status', ['active', 'checked_in'])->count();
-            $available = $tier->capacity ? ($tier->capacity - $sold) : null;
+            $taken = \App\Support\TierCapacity::taken($tier);
+            $available = $tier->quantity_available ? max(0, $tier->quantity_available - $taken) : null;
             $tierAvailability[$tier->id] = [
-                'sold' => $sold,
+                'sold' => $taken,
                 'available' => $available,
-                'is_sold_out' => $tier->capacity && $available <= 0,
+                'is_sold_out' => !$canRegister || ($tier->quantity_available && $available <= 0),
             ];
         }
 
-        return view('public.event', compact('organization', 'event', 'canRegister', 'tierAvailability'));
+        return view('public.event', compact('organization', 'event', 'canRegister', 'closedReason', 'tierAvailability'));
     }
 
+    /**
+     * An organization's own events page. It's to become a paid feature, so
+     * until that's decided only super admins can open it.
+     */
     public function listEvents($orgSlug)
     {
+        abort_unless(auth()->user()?->isSuperAdmin(), 404);
+
         $organization = Organization::where('slug', $orgSlug)->firstOrFail();
 
-        $events = Event::where('organization_id', $organization->id)
-            ->where('is_public', true)
+        $events = Event::listed()
+            ->where('organization_id', $organization->id)
             ->where(function ($query) {
                 $query->where('event_date', '>=', now())->orWhereNull('event_date');
             })
@@ -72,7 +84,7 @@ class PublicEventController extends Controller
         $closingSoon = $request->boolean('closing_soon');
         $free = $request->boolean('free');
     
-        $events = Event::where('is_public', true)
+        $events = Event::listed()
             ->where(function ($query) {
                 $query->where('event_date', '>=', now())->orWhereNull('event_date');
             })
@@ -148,7 +160,7 @@ class PublicEventController extends Controller
             key: 'weekend',
             label: "This\nWeekend",
             color: '#F07F22',
-            query: fn () => Event::where('is_public', true)->tap(fn ($q) => $this->scopeWeekend($q)),
+            query: fn () => Event::listed()->tap(fn ($q) => $this->scopeWeekend($q)),
             href: ['when' => 'weekend'],
         );
     
@@ -156,7 +168,7 @@ class PublicEventController extends Controller
             key: 'tonight',
             label: 'Tonight',
             color: '#1D4069',
-            query: fn () => Event::where('is_public', true)->tap(fn ($q) => $this->scopeTonight($q)),
+            query: fn () => Event::listed()->tap(fn ($q) => $this->scopeTonight($q)),
             href: ['when' => 'tonight'],
         );
     
@@ -165,7 +177,7 @@ class PublicEventController extends Controller
                 key: 'near_you',
                 label: "Near\nYou",
                 color: '#639922',
-                query: fn () => Event::where('is_public', true)
+                query: fn () => Event::listed()
                     ->where('city', $district)
                     ->where('event_date', '>=', now()),
                 href: ['district' => $district],
@@ -186,7 +198,7 @@ class PublicEventController extends Controller
                 key: 'new_' . \Illuminate\Support\Str::slug($city),
                 label: "New in\n{$city}",
                 color: '#7F77DD',
-                query: fn () => Event::where('is_public', true)
+                query: fn () => Event::listed()
                     ->where('city', $city)
                     ->where('event_date', '>=', now())
                     ->where('created_at', '>=', now()->subDays(14)),
@@ -202,7 +214,7 @@ class PublicEventController extends Controller
             key: 'free',
             label: 'Free Events',
             color: '#0F6E56',
-            query: fn () => Event::where('is_public', true)
+            query: fn () => Event::listed()
                 ->where('payment_mode', 'free')
                 ->where('event_date', '>=', now()),
             href: ['free' => 1],
@@ -212,7 +224,7 @@ class PublicEventController extends Controller
             key: 'closing_soon',
             label: "Closing\nSoon",
             color: '#BA7517',
-            query: fn () => Event::where('is_public', true)
+            query: fn () => Event::listed()
                 ->where('event_date', '>=', now())
                 ->whereNotNull('registration_deadline')
                 ->whereBetween('registration_deadline', [now(), now()->addHours(48)]),
@@ -250,7 +262,7 @@ class PublicEventController extends Controller
             'count' => $count,
             'events' => $sampleNames,
             'remaining' => $remaining,
-            'image' => $coverEvent ? asset('storage/' . $coverEvent->banner_image) : null,
+            'image' => $coverEvent ? \App\Support\Thumb::url($coverEvent->banner_image, 960) : null,
             'href' => route('events.browse', $href),
         ];
     }
@@ -269,7 +281,7 @@ class PublicEventController extends Controller
         $district = $request->get('district');
         $validDistrict = $district && in_array($district, config('constants.districts'));
 
-        $query = Event::where('is_public', true)
+        $query = Event::upcoming()
             ->where(function ($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")
                     ->orWhere('venue', 'like', "%{$q}%")
@@ -289,7 +301,7 @@ class PublicEventController extends Controller
             'subtitle' => trim(($e->venue ?? '') . ($e->city ? ' · ' . $e->city : '')),
             'date' => $e->event_date?->format('M d, Y'),
             'url' => $e->public_url,
-            'image' => $e->banner_image ? asset('storage/' . $e->banner_image) : null,
+            'image' => $e->banner_image ? \App\Support\Thumb::url($e->banner_image, 480) : null,
             'is_local' => $validDistrict ? ($e->city === $district) : null,
         ]));
     }
@@ -305,7 +317,7 @@ class PublicEventController extends Controller
         $district = $request->get('district');
         $validDistrict = $district && in_array($district, config('constants.districts'));
 
-        $base = fn () => Event::where('is_public', true)
+        $base = fn () => Event::listed()
             ->where(function ($q) {
                 $q->where('event_date', '>=', now())->orWhereNull('event_date');
             })
@@ -329,7 +341,7 @@ class PublicEventController extends Controller
             'organizer' => $e->organization->name ?? null,
             'date' => $e->event_date?->format('M d'),
             'time' => $e->event_date?->format('g:i A'),
-            'image' => $e->banner_image ? asset('storage/' . $e->banner_image) : null,
+            'image' => $e->banner_image ? \App\Support\Thumb::url($e->banner_image, 480) : null,
             'url' => $e->public_url,
         ]));
     }
@@ -347,7 +359,7 @@ class PublicEventController extends Controller
      */
     public function index()
     {
-        $upcomingEvents = Event::where('is_public', true)
+        $upcomingEvents = Event::listed()
             ->where(function ($query) {
                 $query->where('event_date', '>=', now())->orWhereNull('event_date');
             })
@@ -362,9 +374,9 @@ class PublicEventController extends Controller
         $sponsoredEvents = collect();
 
         $metrics = [
-            'total_events' => Event::where('is_public', true)->count(),
-            'total_cities' => Event::where('is_public', true)->distinct('city')->count('city'),
-            'total_categories' => Event::where('is_public', true)->distinct('category')->count('category'),
+            'total_events' => Event::listed()->count(),
+            'total_cities' => Event::listed()->distinct('city')->count('city'),
+            'total_categories' => Event::listed()->distinct('category')->count('category'),
         ];
 
         return view('welcome', compact('upcomingEvents', 'sponsoredEvents', 'metrics'));

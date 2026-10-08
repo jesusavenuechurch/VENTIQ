@@ -23,8 +23,10 @@ public function getEvents(Request $request)
     try {
         $user = $request->user();
 
-        // ✅ BYPASS: Get ALL published events (no date filter)
-        $query = Event::where('status', 'published');
+        // Events that are on, about to be, or just finished (a few days back,
+        // for multi-day events), soonest first.
+        $query = Event::where('status', 'published')
+            ->where('event_date', '>=', now()->subDays(3)->startOfDay());
 
         // Filter by organization (unless super admin)
         if (!$user->hasRole('super_admin')) {
@@ -32,7 +34,7 @@ public function getEvents(Request $request)
         }
 
         $events = $query->with(['tiers'])
-            ->orderBy('event_date', 'desc')  // ← Changed from 'date' to 'event_date'
+            ->orderBy('event_date')
             ->get()
             ->map(function ($event) {
                 $totalTickets = $event->tickets()->count();
@@ -90,30 +92,7 @@ public function getEvents(Request $request)
                 ->where('status', '!=', 'void')
                 ->with(['client', 'tier'])
                 ->get()
-                ->map(function ($ticket) {
-                    return [
-                        'id' => $ticket->id,
-                        'ticket_number' => $ticket->ticket_number,
-                        'qr_code' => $ticket->qr_code,
-                        'status' => $ticket->status,
-                        'payment_status' => $ticket->payment_status,
-                        'amount' => (float) $ticket->amount,
-                        'amount_paid' => (float) $ticket->amount_paid,
-                        'checked_in_at' => $ticket->checked_in_at,
-                        'client' => [
-                            'id' => $ticket->client->id,
-                            'full_name' => $ticket->client->full_name,
-                            'phone' => $ticket->client->phone ?? '',
-                            'email' => $ticket->client->email ?? '',
-                        ],
-                        'tier' => [
-                            'id' => $ticket->tier->id,
-                            'name' => $ticket->tier->tier_name,
-                            'color' => $ticket->tier->color ?? '#3B82F6',
-                            'price' => (float) $ticket->tier->price,
-                        ],
-                    ];
-                });
+                ->map(fn ($ticket) => \App\Support\ScannerTicket::present($ticket, $eventId));
 
             return response()->json([
                 'success' => true,
@@ -122,7 +101,7 @@ public function getEvents(Request $request)
                 'event' => [
                     'id' => $event->id,
                     'name' => $event->name,
-                    'date' => $event->date,
+                    'date' => $event->event_date,
                 ],
             ], 200);
 
@@ -137,63 +116,23 @@ public function getEvents(Request $request)
     }
 
     /**
-     * Verify a single ticket by QR code (optional - for testing)
+     * One ticket by QR code, live: for a ticket the phone hasn't downloaded
+     * (registered after the download) or whose payment may have been
+     * confirmed since. ?event_id= is the event the door is scanning.
      */
     public function verifyTicket(Request $request, string $qrCode)
     {
-        try {
-            $ticket = Ticket::where('qr_code', $qrCode)
-                ->with(['client', 'tier', 'event'])
-                ->first();
+        $ticket = Ticket::where('qr_code', $qrCode)->with(['client', 'tier', 'event'])->first();
 
-            if (!$ticket) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Ticket not found',
-                ], 404);
-            }
-
-            // Check permissions
-            $user = $request->user();
-            if (!$user->hasRole('super_admin') && $ticket->event->organization_id !== $user->organization_id) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Unauthorized',
-                ], 403);
-            }
-
-            return response()->json([
-                'success' => true,
-                'ticket' => [
-                    'id' => $ticket->id,
-                    'ticket_number' => $ticket->ticket_number,
-                    'qr_code' => $ticket->qr_code,
-                    'status' => $ticket->status,
-                    'payment_status' => $ticket->payment_status,
-                    'checked_in_at' => $ticket->checked_in_at,
-                    'client' => [
-                        'full_name' => $ticket->client->full_name,
-                        'phone' => $ticket->client->phone ?? '',
-                    ],
-                    'tier' => [
-                        'name' => $ticket->tier->tier_name,
-                        'color' => $ticket->tier->color ?? '#3B82F6',
-                    ],
-                    'event' => [
-                        'name' => $ticket->event->name,
-                        'date' => $ticket->event->date,
-                    ],
-                ],
-            ], 200);
-
-        } catch (\Exception $e) {
-            \Log::error('Verify ticket error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'error' => 'Verification failed',
-            ], 500);
+        $user = $request->user();
+        if (!$ticket || (!$user->hasRole('super_admin') && $ticket->event?->organization_id !== $user->organization_id)) {
+            return response()->json(['success' => false, 'error' => 'Ticket not found'], 404);
         }
+
+        return response()->json([
+            'success' => true,
+            'ticket'  => \App\Support\ScannerTicket::present($ticket, $request->integer('event_id') ?: null),
+        ]);
     }
 
     /**
@@ -211,6 +150,7 @@ public function getEvents(Request $request)
             $user = $request->user();
             $synced = 0;
             $errors = [];
+            $results = [];
 
             foreach ($validated['checkins'] as $checkinData) {
                 try {
@@ -218,28 +158,37 @@ public function getEvents(Request $request)
 
                     if (!$ticket) {
                         $errors[] = "Ticket ID {$checkinData['ticket_id']} not found";
+                        $results[] = ['ticket_id' => $checkinData['ticket_id'], 'outcome' => Ticket::SCAN_INVALID, 'checked_in' => false];
                         continue;
                     }
 
                     // Check permissions
                     if (!$user->hasRole('super_admin') && $ticket->event->organization_id !== $user->organization_id) {
                         $errors[] = "Unauthorized for ticket {$ticket->ticket_number}";
+                        $results[] = ['ticket_id' => $ticket->id, 'outcome' => Ticket::SCAN_INVALID, 'checked_in' => false];
                         continue;
                     }
 
-                    // Skip if already checked in
-                    if ($ticket->checked_in_at) {
+                    // The server decides, not the app: an inactive,
+                    // expired or cancelled ticket is never recorded as
+                    // checked in, whatever the app sent. Each entry is one
+                    // admission; a group ticket accepts as many as it has.
+                    $outcome = $ticket->scanOutcome();
+
+                    if ($outcome === Ticket::SCAN_VALID && $ticket->admit($user->id, $checkinData['checked_in_at'])) {
+                        $synced++;
+                        $results[] = $this->checkinResult($ticket, Ticket::SCAN_VALID, true);
                         continue;
                     }
 
-                    // Update ticket
-                    $ticket->update([
-                        'status' => 'checked_in',
-                        'checked_in_at' => $checkinData['checked_in_at'],
-                        'checked_in_by' => $user->id,
-                    ]);
+                    $outcome = $ticket->fresh()->scanOutcome();
 
-                    $synced++;
+                    // Fully used (e.g. the same scan synced twice) is
+                    // reported but isn't an error, as before.
+                    if ($outcome !== Ticket::SCAN_ALREADY_USED) {
+                        $errors[] = "Ticket {$ticket->ticket_number} not checked in: {$outcome}";
+                    }
+                    $results[] = $this->checkinResult($ticket->fresh(), $outcome, false);
 
                 } catch (\Exception $e) {
                     $errors[] = "Error with ticket {$checkinData['ticket_id']}: " . $e->getMessage();
@@ -251,6 +200,7 @@ public function getEvents(Request $request)
                 'success' => true,
                 'synced' => $synced,
                 'errors' => $errors,
+                'results' => $results,
             ], 200);
 
         } catch (\Exception $e) {
@@ -261,6 +211,17 @@ public function getEvents(Request $request)
                 'error' => 'Bulk check-in failed',
             ], 500);
         }
+    }
+
+    private function checkinResult(Ticket $ticket, string $outcome, bool $checkedIn): array
+    {
+        return [
+            'ticket_id'      => $ticket->id,
+            'outcome'        => $outcome,
+            'checked_in'     => $checkedIn,
+            'admissions'     => $ticket->admissions,
+            'admitted_count' => $ticket->admitted_count,
+        ];
     }
 
     /**
@@ -304,7 +265,7 @@ public function getEvents(Request $request)
                 'event' => [
                     'id' => $event->id,
                     'name' => $event->name,
-                    'date' => $event->date,
+                    'date' => $event->event_date,
                 ],
             ], 200);
 
@@ -328,7 +289,7 @@ public function getEvents(Request $request)
 
             // Get events that have tickets needing sync
             $eventsQuery = Event::where('status', 'published')
-                ->where('date', '>=', now()->subDays(1));
+                ->where('event_date', '>=', now()->subDays(1));
 
             if (!$user->hasRole('super_admin')) {
                 $eventsQuery->where('organization_id', $user->organization_id);

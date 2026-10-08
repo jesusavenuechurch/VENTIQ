@@ -73,6 +73,16 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Every request VENTIQ sends PayLesotho and every answer it gets,
+        // word for word: storage/logs/paylesotho-YYYY-MM-DD.log.
+        'paylesotho' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/paylesotho.log'),
+            'level' => 'debug',
+            'days' => 90,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
