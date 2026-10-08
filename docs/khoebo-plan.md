@@ -57,6 +57,19 @@ expecting?".
   Products default to currency LSL and `invoicing_policy:
   ordered_quantities`.
 
+- `POST /orders`: customer_id, payment_term_id, external_reference, notes,
+  lines [{product_id, quantity, unit_price, discount_rate, description}].
+  **A line's unit_price overrides the product's price** (the 4.9% line
+  relies on it). Returns `data.id`, `data.reference` (QT-00001), status
+  `draft`, invoice_status `nothing_to_invoice`, totals.
+- `POST /orders/{id}/confirm` and `/send` are refused on dev:
+  `order_not_confirmable` / `order_not_sendable`, "This company confirms
+  sales orders through an approval workflow, which needs a signed-in user."
+  That's a setting on VENTIQ's company in Khoebo (approvals), not a broken
+  call. Ask Khoebo to switch the approval off for VENTIQ, or to let API
+  orders skip it. Until then orders stay drafts and are confirmed in
+  Khoebo's screens.
+
 ## Built so far
 
 - `KhoeboClient` (token, idempotency keys, retries on a lost connection,
@@ -66,11 +79,14 @@ expecting?".
 - `php artisan khoebo:customer {organization id}` to try it, and to check
   this server can reach Khoebo.
 - `php artisan khoebo:products` makes VENTIQ's products in Khoebo.
+- `php artisan khoebo:order {event id}` makes the event's draft order from
+  its ticket numbers (sponsored events: none; free events: the per-person
+  line only). The order's id and reference are kept on the event.
 
 ## Still to find out, then build
 
-1. **Orders:** endpoint, line fields, and whether a line can override the
-   product price (needed for the 4.9% line).
+1. **Confirming orders** once Khoebo lifts the approval for API calls;
+   updating an order when the organizer raises their numbers.
 2. **Invoices:** invoice an order; whether the "delivered quantities" policy
    lets the invoice bill actual numbers instead of the order's.
 3. **Payments:** record a received payment against an invoice; payment
