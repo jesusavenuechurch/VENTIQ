@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Events - {{ $organization->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite('resources/css/app.css')
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
@@ -41,7 +40,7 @@
                         <!-- Event Image -->
                         @if($event->banner_image)
                             <div class="h-48 overflow-hidden">
-                                <img src="{{ Storage::url($event->banner_image) }}" alt="{{ $event->name }}" class="w-full h-full object-cover">
+                                <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" alt="{{ $event->name }}" class="w-full h-full object-cover">
                             </div>
                         @else
                             <div class="h-48 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -139,5 +138,6 @@
             </div>
         </div>
     </footer>
+@include('partials.cookie-notice')
 </body>
 </html>

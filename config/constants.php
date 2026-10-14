@@ -10,6 +10,41 @@ return [
         'decimals' => 2,
     ],
 
+    // VENTIQ's fees, charged on every ticket once it's active, whoever
+    // collected the money (excl. VAT):
+    //  - service fee: a percentage of the ticket price (nothing on free
+    //    and complimentary tickets)
+    //  - operational fee: a flat amount per person (a table of 3 pays it
+    //    three times; free and complimentary tickets pay it too)
+    // Online money has them deducted before payout; everything else is
+    // invoiced to the organizer. A super admin can sponsor an event's fees.
+    // Packages were VENTIQ's old way of charging (prepaid ticket quotas).
+    // Fees per ticket replaced them and packages unlock nothing, so they're
+    // not sold unless this is switched back on.
+    'packages_for_sale' => (bool) env('VENTIQ_PACKAGES_FOR_SALE', false),
+
+    // QR code colours offered for ticket types. All dark enough to scan from
+    // a phone screen in a dim venue; the first is the default.
+    'qr_colours' => [
+        '#1D4069' => 'VENTIQ blue',
+        '#A16207' => 'Gold',
+        '#111827' => 'Black',
+        '#9F1239' => 'Maroon',
+        '#166534' => 'Green',
+        '#6B21A8' => 'Purple',
+        '#0F766E' => 'Teal',
+        '#C2410C' => 'Orange',
+    ],
+
+    'fees' => [
+        'service_percent'        => (float) env('VENTIQ_SERVICE_FEE_PERCENT', 0.049),
+        'operational_per_person' => (float) env('VENTIQ_OPERATIONAL_FEE', 7.50),
+        // Fees on events before this date are never invoiced (the fee
+        // model started on this branch; older events were sold under
+        // packages).
+        'invoice_from'           => env('VENTIQ_FEES_INVOICE_FROM', '2026-10-05'),
+    ],
+
     'payment_methods' => [
         'cash' => [
             'label' => 'Cash Payment',
@@ -205,8 +240,11 @@ return [
         ],
     ],
     'payment' => [
-        'surcharge_rate'    => 0.05,   // 5% added to ticket price, paid by attendee
-        'gateway_fee_rate'  => 0.025,  // 2.5% MoPay takes from gross_paid
+        'surcharge_rate'    => 0.05,   // legacy MoPay ticket checkout only (retired)
+        // What the payment gateway (PayLesotho) keeps from each online
+        // payment. VENTIQ absorbs it: attendees pay the ticket price and
+        // organizers aren't charged it. Used to report VENTIQ's net.
+        'gateway_fee_rate'  => (float) env('VENTIQ_GATEWAY_FEE_RATE', 0.01),
     ],
 
         'categories' => [
@@ -231,5 +269,38 @@ return [
         'Mokhotlong',
         'Thaba-Tseka',
         'Butha-Buthe',
+    ],
+
+    /*
+     | Where VENTIQ itself hears about payments only VENTIQ can confirm: an
+     | attendee says they paid VENTIQ's EcoCash merchant code by hand.
+     | Leave one empty to stop that channel.
+     */
+    'ventiq_alerts' => [
+        'email'    => env('VENTIQ_ALERT_EMAIL', 'support@ventiq.co.ls'),
+        'whatsapp' => env('VENTIQ_ALERT_WHATSAPP', '+26662552155'),
+    ],
+
+    /*
+     | Every WhatsApp template VENTIQ sends, in one place (docs/whatsapp-templates.md
+     | has the wording). Meta must approve a template before it can be sent:
+     | set 'approved' => true once it is, and that message starts going out.
+     | Until then people with an email address get the same message by email.
+     |   name   — the template's name in WhatsApp Manager
+     |   button — whether it has a "Visit website" button (https://<domain>/{{1}})
+     */
+    'whatsapp_templates' => [
+        // Attendees
+        'ticket_ready'      => ['name' => 'ticket_ready',      'approved' => true,  'button' => true],
+        'ticket_registered' => ['name' => 'ticket_registered', 'approved' => true,  'button' => false],
+        'payment_failed'    => ['name' => 'payment_failed',    'approved' => true,  'button' => true],
+        'payment_reminder'  => ['name' => 'payment_reminder',  'approved' => true,  'button' => true],
+        'payment_rejected'  => ['name' => 'payment_rejected',  'approved' => true,  'button' => true],
+        'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => false],
+        // Organizers
+        'payment_submitted' => ['name' => 'payment_submitted', 'approved' => true,  'button' => true],
+        'tickets_sold_out'  => ['name' => 'tickets_sold_out',  'approved' => false, 'button' => true],
+        // VENTIQ Sessions
+        'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
     ],
 ];

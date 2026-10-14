@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Notifications\Notifiable;
 use App\Notifications\TicketRegistrationNotification;
@@ -19,8 +20,16 @@ class Ticket extends Model
 {
     use Notifiable;
 
+    public const SCAN_VALID                 = 'valid';
+    public const SCAN_PAYMENT_NOT_CONFIRMED = 'payment_not_confirmed';
+    public const SCAN_EXPIRED               = 'expired';
+    public const SCAN_CANCELLED             = 'cancelled';
+    public const SCAN_ALREADY_USED          = 'already_used';
+    public const SCAN_WRONG_EVENT           = 'wrong_event';
+    public const SCAN_INVALID               = 'invalid';
+
     protected $fillable = [
-        'event_id', 'client_id', 'event_tier_id', 'ticket_number', 'qr_code',
+        'event_id', 'client_id', 'attendee_name', 'event_tier_id', 'ticket_number', 'qr_code',
         'qr_code_path', 'status', 'payment_method', 'amount', 'payment_status',
         'payment_date', 'payment_reference', 'delivery_method', 'delivered_at',
         'checked_in_at', 'checked_in_by', 'created_by', 'ticket_preference',
@@ -29,7 +38,7 @@ class Ticket extends Model
         'preferred_delivery', 'has_whatsapp', 'delivery_status',
         'whatsapp_delivered_at', 'email_delivered_at', 'delivery_log', 'amount_paid',
         'is_complimentary', 'complimentary_issued_by', 'complimentary_reason', 'organization_package_id',
-        'voucher_code',
+        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at', 'payment_reminder_sent_at',
     ];
 
     protected $casts = [
@@ -46,6 +55,10 @@ class Ticket extends Model
         'email_delivered_at' => 'datetime',
         'delivery_log' => 'array',
         'is_complimentary' => 'boolean',
+        'admissions' => 'integer',
+        'admitted_count' => 'integer',
+        'payment_due_at' => 'datetime',
+        'payment_reminder_sent_at' => 'datetime',
     ];
 
     public function isComplimentary(): bool
@@ -122,18 +135,11 @@ class Ticket extends Model
                 ->setPaper([0, 0, 595.28, 280.63], 'landscape') // DL size in points (210mm x 99mm)
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('isRemoteEnabled', true) // Allow loading images
-                ->setOption('chroot', [public_path('storage')]) // Allow access to storage
                 ->setOption('enable_php', false);
 
-            $filename = 'avatars/events/' . $this->event->organization_id . '/ticket_' . $this->id . '.pdf';
-            
-            // Ensure directory exists
-            $directory = dirname(storage_path('app/public/' . $filename));
-            if (!file_exists($directory)) {
-                mkdir($directory, 0755, true);
-            }
+            $filename = 'ticket-files/passes/' . $this->event->organization_id . '/ticket_' . $this->id . '.pdf';
 
-            Storage::disk('public')->put($filename, $pdf->output());
+            Storage::disk(self::FILES_DISK)->put($filename, $pdf->output());
 
             $this->update([
                 'avatar_path' => $filename,
@@ -152,9 +158,21 @@ class Ticket extends Model
         }
     }
 
+    /**
+     * Passes and QR images are private files: served only through the
+     * ticket's own link, never at an address built from its number.
+     */
+    public const FILES_DISK = 'local';
+
+    /** Whose ticket this is: its own name, else its contact's. */
+    public function getHolderNameAttribute(): ?string
+    {
+        return $this->attendee_name ?: $this->client?->full_name;
+    }
+
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar_path ? Storage::url($this->avatar_path) : null;
+        return $this->avatar_path ? route('ticket.avatar.download', $this->qr_code) : null;
     }
 
     public function event(): BelongsTo
@@ -365,6 +383,9 @@ class Ticket extends Model
 
     protected static function booted(): void
     {
+        // Payments, fees and payout lines go with a deleted ticket.
+        static::deleting(fn (Ticket $ticket) => \App\Support\MoneyRecords::blockingDelete($ticket) === null);
+
         static::creating(function ($ticket) {
             if (!$ticket->qr_code) {
                 $ticket->qr_code = 'QR-' . Str::uuid();
@@ -397,30 +418,53 @@ class Ticket extends Model
             }
         });
 
-        static::created(function ($ticket) {
-            // ✅ Don't notify admins for complimentary tickets (they just created it!)
-            if (!$ticket->is_complimentary && $ticket->payment_status === 'pending') {
-                Log::info("🔔 Payment is PENDING - calling notifyAdminsOfNewRegistration()");
-                $ticket->notifyAdminsOfNewRegistration();
-            } else {
-                Log::info("⏭️ Skipping notification (complimentary or not pending)");
+        // VENTIQ's fee is charged once, the moment a ticket becomes usable:
+        // free and complimentary tickets on creation, paid ones when
+        // activated (FeeService).
+        // A ticket that takes a place may be the one that sells the type out.
+        static::saved(function ($ticket) {
+            $takesPlace = in_array($ticket->status, \App\Support\TierCapacity::HOLDING_STATUSES, true)
+                && ($ticket->wasRecentlyCreated || $ticket->wasChanged('status') || $ticket->wasChanged('event_tier_id'));
+            if ($takesPlace && $ticket->event_tier_id) {
+                \Illuminate\Support\Facades\DB::afterCommit(function () use ($ticket) {
+                    try {
+                        if ($tier = \App\Models\EventTier::find($ticket->event_tier_id)) {
+                            \App\Support\TierCapacity::noticeIfSoldOut($tier);
+                        }
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                });
             }
-            
         });
 
-        static::updated(function ($ticket) {
-            // ✅ Auto-deliver complimentary tickets immediately
-            if ($ticket->isDirty('is_complimentary') && $ticket->is_complimentary) {
-                dispatch(function () use ($ticket) {
-                    $ticket->autoDeliverTicket();
-                })->afterResponse();
-            }
+        static::saved(function ($ticket) {
+            $becameActive = in_array($ticket->status, ['active', 'checked_in'], true)
+                && ($ticket->wasRecentlyCreated || $ticket->wasChanged('status') || $ticket->wasChanged('is_complimentary'));
 
-            // Normal payment approval flow
-            if ($ticket->isDirty('payment_status') && $ticket->payment_status === 'completed') {
+            if ($becameActive) {
+                app(\App\Services\Fees\FeeService::class)->charge($ticket);
+            }
+        });
+
+        // Organizers are no longer notified when a ticket is created: an
+        // unpaid registration gives them nothing to do. They're told when
+        // the attendee submits a payment (OrganizerNotifier).
+
+        static::updated(function ($ticket) {
+            $becameComp = $ticket->isDirty('is_complimentary') && $ticket->is_complimentary;
+            $becamePaid = $ticket->isDirty('payment_status') && $ticket->payment_status === 'completed';
+
+            // Comps are also marked paid, often in the same save; deliver
+            // once either way.
+            if ($becamePaid) {
                 dispatch(function () use ($ticket) {
                     $ticket->notifyClientOfApproval();
                     $ticket->checkLowInventory();
+                    $ticket->autoDeliverTicket();
+                })->afterResponse();
+            } elseif ($becameComp) {
+                dispatch(function () use ($ticket) {
                     $ticket->autoDeliverTicket();
                 })->afterResponse();
             }
@@ -467,37 +511,8 @@ class Ticket extends Model
      */
     public function getTierColorAttribute(): array
     {
-        if (!$this->tier) {
-            return ['r' => 0, 'g' => 0, 'b' => 0]; // Black fallback
-        }
-
-        // Use tier's color if it exists, otherwise default colors
-        if ($this->tier->color) {
-            return $this->hexToRgb($this->tier->color);
-        }
-
-        // Default colors by tier name
-        return $this->getDefaultColorForTierName($this->tier->tier_name);
-    }
-
-    /**
-     * Get default colors based on common tier names
-     */
-    private function getDefaultColorForTierName(string $tierName): array
-    {
-        $normalized = strtolower(trim($tierName));
-
-        return match($normalized) {
-            'general', 'standard' => ['r' => 0, 'g' => 100, 'b' => 200],        // Blue
-            'silver' => ['r' => 192, 'g' => 192, 'b' => 192],                   // Silver
-            'gold' => ['r' => 255, 'g' => 215, 'b' => 0],                       // Gold
-            'vip' => ['r' => 139, 'g' => 69, 'b' => 19],                        // Brown/VIP
-            'diamond', 'premium' => ['r' => 128, 'g' => 0, 'b' => 128],         // Purple
-            'platinum' => ['r' => 230, 'g' => 230, 'b' => 250],                 // Lavender
-            'ruby' => ['r' => 155, 'g' => 17, 'b' => 30],                       // Ruby Red
-            'emerald' => ['r' => 80, 'g' => 200, 'b' => 120],                   // Emerald Green
-            default => ['r' => 0, 'g' => 0, 'b' => 0],                          // Black fallback
-        };
+        // The ticket type's colour, else VENTIQ blue (the first QR colour).
+        return $this->hexToRgb($this->tier?->color ?: array_key_first(config('constants.qr_colours')));
     }
 
     /**
@@ -539,16 +554,28 @@ class Ticket extends Model
             }
 
             $color = $this->tier_color;
-            $filename = 'qr_codes/events/' . $this->event->organization_id . '/ticket_' . $this->id . '.png';
 
-            // Generate QR code with tier color
-            $qrContent = QrCode::format('png')
+            // PNG needs the imagick extension; without it, an SVG (which the
+            // ticket page and the PDF pass both show) so no pass goes out
+            // without a code.
+            $make = fn (string $format) => QrCode::format($format)
                 ->size(300)
                 ->margin(2)
                 ->color($color['r'], $color['g'], $color['b'])
                 ->generate($verificationUrl);
 
-            Storage::disk('public')->put($filename, $qrContent);
+            $format = extension_loaded('imagick') ? 'png' : 'svg';
+            try {
+                $qrContent = $make($format);
+            } catch (\Throwable $e) {
+                // imagick present but not able to draw a PNG: SVG needs nothing.
+                Log::warning("PNG QR failed for ticket {$this->id}, using SVG", ['error' => $e->getMessage()]);
+                $format = 'svg';
+                $qrContent = $make('svg');
+            }
+            $filename = 'ticket-files/qr/' . $this->event->organization_id . '/ticket_' . $this->id . '.' . $format;
+
+            Storage::disk(self::FILES_DISK)->put($filename, $qrContent);
 
             $this->update(['qr_code_path' => $filename]);
 
@@ -594,20 +621,20 @@ class Ticket extends Model
         $normalised = strtoupper(str_replace([' ', '-'], '', $code));
     
         // Try exact match first
-        return $query->where('voucher_code', $code)
+        // Grouped, so a scope added after this one (organization, event)
+        // applies to both matches.
+        return $query->where(fn ($q) => $q->where('voucher_code', $code)
                     ->orWhere(
                         \Illuminate\Support\Facades\DB::raw("REPLACE(UPPER(voucher_code), '-', '')"),
                         $normalised
-                    );
+                    ));
     }
     /**
      * Get the public URL for the QR code
      */
     public function getQrCodeUrlAttribute(): ?string
     {
-        return $this->qr_code_path 
-            ? Storage::url($this->qr_code_path) 
-            : null;
+        return $this->qr_code_path ? route('ticket.qr', $this->qr_code) : null;
     }
 
     // ===== TICKET OPERATIONS =====
@@ -617,47 +644,80 @@ class Ticket extends Model
      */
     public function validateQrCode(string $providedQrCode): bool
     {
-        // Check if QR matches
         if ($this->qr_code !== $providedQrCode) {
             Log::warning("Invalid QR code for ticket {$this->id}");
             return false;
         }
 
-        // Check if already used
-        if ($this->status === 'checked_in') {
-            Log::warning("Ticket {$this->id} already checked in");
-            return false;
-        }
-
-        // Check if ticket is active
-        if ($this->status !== 'active' && $this->status !== 'pending') {
-            Log::warning("Ticket {$this->id} status is {$this->status}");
-            return false;
-        }
-
-        // Check if payment is pending (can still check in but flag it)
-        if ($this->payment_status === 'pending') {
-            Log::info("Ticket {$this->id} has pending payment but is valid");
-        }
-
-        return true;
+        return $this->isValid();
     }
 
     /**
-     * Check in a ticket (mark as used)
+     * Gate decision for this ticket, as a code the scanner app shows a
+     * message for. Payment details deliberately play no part: once a
+     * ticket is active, how it was paid is not the gate's concern.
+     */
+    public function scanOutcome(?int $eventId = null): string
+    {
+        if ($eventId !== null && $this->event_id !== $eventId) {
+            return self::SCAN_WRONG_EVENT;
+        }
+
+        return match ($this->status) {
+            'active'             => $this->admissionsRemaining() > 0 ? self::SCAN_VALID : self::SCAN_ALREADY_USED,
+            'pending'            => self::SCAN_PAYMENT_NOT_CONFIRMED,
+            'checked_in'         => self::SCAN_ALREADY_USED,
+            'expired'            => self::SCAN_EXPIRED,
+            'cancelled', 'void', 'refunded' => self::SCAN_CANCELLED,
+            default              => self::SCAN_INVALID,
+        };
+    }
+
+    public function admissionsRemaining(): int
+    {
+        return max(0, (int) ($this->admissions ?? 1) - (int) $this->admitted_count);
+    }
+
+    /**
+     * Count one person through the gate. A group ticket stays 'active'
+     * until its last admission and only then becomes 'checked_in', so a
+     * single ticket behaves exactly as before: first scan uses it.
+     *
+     * @return bool false when the ticket can't admit anyone (not active,
+     *              or every admission already used).
+     */
+    public function admit(?int $userId = null, $at = null): bool
+    {
+        return DB::transaction(function () use ($userId, $at) {
+            $locked = static::whereKey($this->id)->lockForUpdate()->first();
+
+            if (!$locked || $locked->scanOutcome() !== self::SCAN_VALID) {
+                return false;
+            }
+
+            $admitted = $locked->admitted_count + 1;
+
+            $locked->update([
+                'admitted_count' => $admitted,
+                'status'         => $admitted >= $locked->admissions ? 'checked_in' : 'active',
+                'checked_in_at'  => $locked->checked_in_at ?? ($at ?? now()),
+                'checked_in_by'  => $locked->checked_in_by ?? $userId,
+            ]);
+
+            $this->setRawAttributes($locked->getAttributes(), true);
+
+            Log::info("Ticket {$this->ticket_number} admitted {$admitted}/{$locked->admissions} by user {$userId}");
+            return true;
+        });
+    }
+
+    /**
+     * Check in a ticket (one admission)
      */
     public function checkIn(?int $userId = null): bool
     {
         try {
-            $this->update([
-                'status' => 'checked_in',
-                'checked_in_at' => now(),
-                'checked_in_by' => $userId,
-            ]);
-
-            Log::info("Ticket {$this->ticket_number} checked in by user {$userId}");
-            return true;
-
+            return $this->admit($userId);
         } catch (\Exception $e) {
             Log::error("Failed to check in ticket {$this->id}: {$e->getMessage()}");
             return false;
@@ -689,7 +749,7 @@ class Ticket extends Model
      */
     public function isValid(): bool
     {
-        return $this->status === 'active' && $this->payment_status === 'completed';
+        return $this->scanOutcome() === self::SCAN_VALID;
     }
 
     /**

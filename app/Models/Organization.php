@@ -15,12 +15,20 @@ class Organization extends Model
 {
     use HasFactory, HasPackageEntitlements;
     protected $fillable = [
+        'keep_account',
+        'khoebo_customer_id',
         'name',
         'email',
         'phone',
         'description',
         'website',
         'logo_path',
+        'payout_method',
+        'payout_account_name',
+        'payout_account_number',
+        'payout_bank_name',
+        'payout_updated_at',
+        'payout_updated_by',
         'is_active',
         'slug',
         'tagline',
@@ -40,6 +48,8 @@ class Organization extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'keep_account' => 'boolean',
+        'removal_warned_at' => 'datetime',
         'registered_via_agent_at' => 'datetime',
         'agent_commission_events_count' => 'integer',
         'agent_commission_events_limit' => 'integer',
@@ -47,6 +57,7 @@ class Organization extends Model
         'first_payment_at' => 'datetime',
         'otp_expires_at' => 'datetime',
         'phone_verified_at' => 'datetime',
+        'payout_updated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -60,8 +71,11 @@ class Organization extends Model
         });
 
         static::updating(function ($organization) {
-            // Only update slug if name changed and we haven't manually set a slug
-            if ($organization->isDirty('name') && !$organization->isDirty('slug')) {
+            // The web address follows the name only until the organization
+            // has events: after that, posters, QR codes and shared links
+            // point at it, so a rename keeps the address.
+            if ($organization->isDirty('name') && !$organization->isDirty('slug')
+                && !\App\Models\Event::where('organization_id', $organization->id)->exists()) {
                 $organization->slug = static::generateUniqueSlug($organization->name);
             }
         });
@@ -259,5 +273,47 @@ class Organization extends Model
     public function settlementItems(): HasMany
     {
         return $this->hasMany(SettlementItem::class);
+    }
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function invites(): HasMany
+    {
+        return $this->hasMany(OrganizationInvite::class);
+    }
+
+    /** Public pages ask for "logo"; the file is stored in logo_path. */
+    public function getLogoAttribute(): ?string
+    {
+        return $this->logo_path;
+    }
+
+    public const PAYOUT_METHODS = ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank_transfer' => 'Bank transfer'];
+
+    public function hasPayoutDetails(): bool
+    {
+        return $this->payout_method && $this->payout_account_number;
+    }
+
+    /** "EcoCash · Lerato M · 5949 4756" or "Bank transfer · FNB · MYN Events · 6200…" */
+    public function payoutSummary(bool $masked = false): ?string
+    {
+        if (!$this->hasPayoutDetails()) {
+            return null;
+        }
+
+        $number = $masked ? str_repeat('•', max(0, strlen($this->payout_account_number) - 4)) . substr($this->payout_account_number, -4) : $this->payout_account_number;
+
+        return collect([self::PAYOUT_METHODS[$this->payout_method] ?? $this->payout_method, $this->payout_bank_name, $this->payout_account_name, $number])
+            ->filter()->implode(' · ');
+    }
+
+    /** Changed in the last 3 days: VENTIQ checks with the organizer before paying into it. */
+    public function payoutRecentlyChanged(): bool
+    {
+        return $this->payout_updated_at?->gt(now()->subDays(3)) ?? false;
     }
 }

@@ -7,6 +7,7 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
@@ -61,13 +62,6 @@ class RolesAndPermissionsSeeder extends Seeder
         // Check-in / Scanning
         Permission::firstOrCreate(['name' => 'scan_qr']);
         Permission::firstOrCreate(['name' => 'view_checkins']);
-
-        // Partner Management (Sponsors)
-        Permission::firstOrCreate(['name' => 'create_partner']);
-        Permission::firstOrCreate(['name' => 'edit_partner']);
-        Permission::firstOrCreate(['name' => 'view_partner']);
-        Permission::firstOrCreate(['name' => 'delete_partner']);
-        Permission::firstOrCreate(['name' => 'email_partners']);
 
         // Reporting
         Permission::firstOrCreate(['name' => 'view_reports']);
@@ -137,11 +131,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_payments',
             'scan_qr',
             'view_checkins',
-            'create_partner',
-            'edit_partner',
-            'view_partner',
-            'delete_partner',
-            'email_partners',
             'view_reports',
             'export_reports',
             'view_dashboard',
@@ -217,12 +206,23 @@ class RolesAndPermissionsSeeder extends Seeder
 
         if ($existingSuperAdmin) {
             echo "⚠️  Super Admin already exists: {$existingSuperAdmin->email}\n";
+
+            // Earlier versions of this seeder created admin@system.local
+            // with the password "password".
+            if (Hash::check('password', $existingSuperAdmin->password)) {
+                echo "🚨 Its password is still \"password\". Change it now: php artisan tinker, then\n";
+                echo "   User::where('email', '{$existingSuperAdmin->email}')->first()->update(['password' => Hash::make('...')]);\n";
+            }
         } else {
-            // Create super admin
+            // Credentials come from the environment. Without a password,
+            // a random one is made and shown once, never a known default.
+            $email = env('SUPER_ADMIN_EMAIL', 'admin@system.local');
+            $password = env('SUPER_ADMIN_PASSWORD') ?: Str::password(20, symbols: false);
+
             $adminUser = User::create([
                 'name' => 'System Administrator',
-                'email' => 'admin@system.local',
-                'password' => Hash::make('password'), // Change this in production!
+                'email' => $email,
+                'password' => Hash::make($password),
                 'organization_id' => null, // Super admin has no org
             ]);
 
@@ -230,9 +230,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
             echo "✅ Super Admin created successfully!\n";
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-            echo "📧 Email: admin@system.local\n";
-            echo "🔑 Password: password\n";
-            echo "⚠️  IMPORTANT: Change this password immediately!\n";
+            echo "📧 Email: {$email}\n";
+            echo env('SUPER_ADMIN_PASSWORD')
+                ? "🔑 Password: the SUPER_ADMIN_PASSWORD you set\n"
+                : "🔑 Password: {$password}  (shown once; save it now)\n";
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
         }
 

@@ -72,31 +72,24 @@ class TicketsImport implements ToCollection, WithHeadingRow
                     throw new \Exception("Missing full_name. Available columns: " . implode(', ', array_keys($rowData)));
                 }
 
-                // If no phone provided, generate a unique placeholder
-                if (empty($phone)) {
-                    // Generate unique phone based on name + timestamp
-                    $phone = '+266' . substr(str_pad(abs(crc32($fullName . now()->timestamp)), 8, '0'), 0, 8);
-                } else {
-                    // Clean phone number
-                    $phone = $this->cleanPhone($phone);
+                // A row without a usable number is reported, never guessed:
+                // this used to invent +266 numbers and send them tickets.
+                $phone = \App\Support\Phone::normalize($phone);
+                if (!$phone) {
+                    throw new \Exception('Missing or invalid phone number');
                 }
 
-                // Find or create client
+                // Clients belong to one organization; never reuse another's.
                 $client = Client::firstOrCreate(
-                    ['phone' => $phone],
+                    ['phone' => $phone, 'organization_id' => $this->organizationId],
                     [
                         'full_name' => $fullName,
                         'email' => $email,
-                        'organization_id' => $this->organizationId,
                     ]
                 );
 
-                // Update client if exists but data changed
-                if ($client->wasRecentlyCreated === false) {
-                    $client->update([
-                        'full_name' => $fullName,
-                        'email' => $email ?? $client->email,
-                    ]);
+                if (!$client->email && $email) {
+                    $client->update(['email' => $email]);
                 }
 
                 // Check if ticket already exists for this client & event
@@ -141,10 +134,8 @@ class TicketsImport implements ToCollection, WithHeadingRow
                 // Generate QR code
                 $ticket->generateQrCode();
 
-                // Auto-deliver if complimentary
-                if ($this->isComplimentary) {
-                    dispatch(fn() => $ticket->autoDeliverTicket())->afterResponse();
-                }
+                // Complimentary tickets are delivered by Ticket's `updated`
+                // hook when markAsComplimentary marks them paid.
 
                 DB::commit();
                 $this->successCount++;
@@ -170,21 +161,5 @@ class TicketsImport implements ToCollection, WithHeadingRow
                 ]);
             }
         }
-    }
-
-    /**
-     * Clean phone number (remove spaces, dashes, etc.)
-     */
-    protected function cleanPhone(string $phone): string
-    {
-        // Remove all non-numeric characters except +
-        $cleaned = preg_replace('/[^0-9+]/', '', $phone);
-        
-        // If doesn't start with +266, add it
-        if (!str_starts_with($cleaned, '+266')) {
-            $cleaned = '+266' . ltrim($cleaned, '0');
-        }
-        
-        return $cleaned;
     }
 }

@@ -31,7 +31,7 @@
                     
                     <div class="aspect-[16/9] w-full overflow-hidden bg-gray-100 relative">
                         @if($event->banner_image)
-                            <img src="{{ Storage::url($event->banner_image) }}" 
+                            <img src="{{ \App\Support\Thumb::url($event->banner_image, 480) }}" 
                                  alt="{{ $event->name }}" 
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700">
                         @else

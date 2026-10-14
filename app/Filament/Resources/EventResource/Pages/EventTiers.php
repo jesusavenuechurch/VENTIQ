@@ -92,7 +92,8 @@ class EventTiers extends Page implements HasTable
                     ->icon('heroicon-o-pencil')
                     ->url(fn ($record) => EventTierResource::getUrl('edit', ['record' => $record])),
 
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                        ->before(fn ($record, $action) => \App\Support\MoneyRecords::guardAction($action, $record)),
             ])
             ->emptyStateHeading('No ticket tiers yet')
             ->emptyStateDescription('Add a tier to start selling tickets for this event.')

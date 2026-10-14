@@ -13,7 +13,6 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
@@ -22,3 +21,7 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Database dumps never belong in the repo (one was served publicly from public/images).
+*.sql
+*.sql.gz

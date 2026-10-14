@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Agent;
 use App\Models\Organization;
 use App\Models\OrganizationPackage;
+use App\Models\SessionPackage;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -20,7 +21,7 @@ class AccountProvisioningService
     {
         return DB::transaction(function () use ($data, $agent) {
             $organization = Organization::create([
-                'name'          => $data['org_name'],
+                'name'          => $this->availableName($data['org_name']),
                 'phone'         => $data['org_phone'] ?? null,
                 'org_district'  => $data['org_district'] ?? null,
                 'tagline'       => $data['tagline'] ?? null,
@@ -49,8 +50,26 @@ class AccountProvisioningService
 
             $user->assignRole('org_admin');
             OrganizationPackage::createFreeTrialPackage($organization->id);
+            SessionPackage::createFreePackage($organization->id);
 
             return $user;
         });
+    }
+
+    /**
+     * Organization names are unique. Google sign-up names the organization
+     * after the person, so a second "Thabo Mokoena" would collide; give it
+     * a numbered name they can change on the setup page.
+     */
+    private function availableName(string $name): string
+    {
+        $candidate = $name;
+        $n = 1;
+
+        while (Organization::where('name', $candidate)->exists()) {
+            $candidate = $name . ' (' . ++$n . ')';
+        }
+
+        return $candidate;
     }
 }

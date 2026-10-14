@@ -77,7 +77,7 @@ class WhatsAppController extends Controller
             
             // Build message
             $message = "🎉 *Payment Approved!*\n\n"
-                     . "Hi {$ticket->client->full_name}! 👋\n\n"
+                     . "Hi {$ticket->holder_name}! 👋\n\n"
                      . "Your ticket for *{$ticket->event->name}* is ready!\n\n"
                      . "📄 *Ticket:* {$ticket->ticket_number}\n"
                      . "🎟️ *Tier:* {$ticket->tier->tier_name}\n"
@@ -95,13 +95,13 @@ class WhatsAppController extends Controller
             // Get QR code image path
             $qrCodePath = $ticket->qr_code_path;
             
-            if (!$qrCodePath || !Storage::disk('public')->exists($qrCodePath)) {
+            if (!$qrCodePath || !Storage::disk(Ticket::FILES_DISK)->exists($qrCodePath)) {
                 Log::warning("QR code not found for ticket {$ticket->ticket_number}, sending without image");
                 return $this->sendMessage($phone, $message);
             }
 
             // Get full URL to QR code
-            $qrCodeUrl = Storage::disk('public')->url($qrCodePath);
+            $qrCodeUrl = route('ticket.qr', $ticket->qr_code);
             
             // Send message with media
             $sent = $this->sendMessageWithMedia($phone, $message, $qrCodeUrl);
@@ -270,7 +270,7 @@ class WhatsAppController extends Controller
         // Check if payment is approved
         if ($ticket->payment_status !== 'completed') {
             $message = "⏳ *Payment Pending*\n\n"
-                      . "Hi {$ticket->client->full_name}!\n\n"
+                      . "Hi {$ticket->holder_name}!\n\n"
                       . "Your ticket *{$ticketNumber}* is awaiting payment approval.\n\n"
                       . "We'll send your ticket automatically as soon as payment is confirmed.\n\n"
                       . "Thank you for your patience! 🙏";

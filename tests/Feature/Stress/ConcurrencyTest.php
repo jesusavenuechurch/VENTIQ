@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\DB;
 
 describe('Concurrency & Stress Tests', function () {
 
+    beforeEach(fn () => $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class));
+
     it('double-click approve does not create duplicate commissions', function () {
         $admin = createSuperAdmin();
         [$agent] = createApprovedAgent();

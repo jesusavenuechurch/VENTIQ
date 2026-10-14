@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ventiq Pass - {{ $ticket->event->name }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite(['resources/css/app.css', 'resources/js/ticket.js'])
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
         :root {
             --tier-color: {{ str_contains(strtolower($ticket->tier->tier_name), 'vip') ? '#D4AF37' : '#10b981' }};
         }
 
         body { 
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background-color: #000;
         }
 
@@ -71,7 +69,10 @@
                         <div class="grid grid-cols-2 gap-y-10 gap-x-8">
                             <div>
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Guest Name</p>
-                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->client->full_name }}</p>
+                                <p class="text-md font-extrabold text-slate-900 uppercase leading-tight">{{ $ticket->holder_name }}</p>
+                                @if(($ticket->admissions ?? 1) > 1)
+                                    <p class="text-[11px] font-black text-slate-500 uppercase mt-1">Admits {{ $ticket->admissions }}</p>
+                                @endif
                             </div>
                             <div>
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date & Time</p>
@@ -80,8 +81,11 @@
                             <div class="col-span-2 safe-area-padding">
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Venue Location</p>
                                 <p class="text-md font-extrabold text-slate-900 uppercase leading-relaxed max-w-sm">
-                                    {{ $ticket->event->location }}
+                                    {{ $ticket->event->venue ?: $ticket->event->location }}
                                 </p>
+                                @if($ticket->event->venue && $ticket->event->location && $ticket->event->location !== $ticket->event->venue)
+                                    <p class="text-[11px] font-semibold text-slate-500 leading-relaxed max-w-sm">{{ $ticket->event->location }}</p>
+                                @endif
                             </div>
                         </div>
 
@@ -97,14 +101,10 @@
                     </div>
 
                     <div class="bg-white p-4 rounded-3xl shadow-md border border-slate-200 w-44 h-44 flex items-center justify-center">
-                        @if($ticket->qr_code_path)
-                            <img src="{{ Storage::url($ticket->qr_code_path) }}" 
-                                 crossorigin="anonymous" 
-                                 alt="QR Code" 
-                                 class="w-full h-full aspect-square object-contain">
-                        @else
-                            <i class="fas fa-qrcode text-slate-200 text-5xl"></i>
-                        @endif
+                        <img src="{{ route('ticket.qr', $ticket->qr_code) }}"
+                             crossorigin="anonymous"
+                             alt="QR Code"
+                             class="w-full h-full aspect-square object-contain">
                     </div>
 
                     <div class="mt-8 text-center">
@@ -136,7 +136,7 @@
         </div>
 
         <div class="mt-10 grid grid-cols-2 gap-4">
-            <button id="download-png" class="flex items-center justify-center space-x-3 bg-white text-black py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all">
+            <button id="download-png" data-filename="Ventiq-{{ $ticket->ticket_number }}.png" class="flex items-center justify-center space-x-3 bg-white text-black py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-100 transition-all">
                 <i class="fas fa-camera text-sm"></i>
                 <span>Save Image</span>
             </button>
@@ -147,32 +147,6 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-        document.getElementById('download-png').addEventListener('click', function() {
-            const ticketArea = document.getElementById('ticket-capture');
-            const btn = this;
-            const originalText = btn.innerHTML;
-            
-            btn.innerHTML = '<span>Processing...</span>';
-            
-            html2canvas(ticketArea, {
-                scale: 3, 
-                useCORS: true, 
-                backgroundColor: null,
-                logging: false,
-                onclone: (clonedDoc) => {
-                    // Ensures the capture has rounded corners without border artifacts
-                    clonedDoc.getElementById('ticket-capture').style.borderRadius = '2.5rem';
-                }
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'Ventiq-{{ $ticket->ticket_number }}.png';
-                link.href = canvas.toDataURL('image/png', 1.0);
-                link.click();
-                btn.innerHTML = originalText;
-            });
-        });
-    </script>
+
 </body>
 </html>

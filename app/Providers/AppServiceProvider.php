@@ -38,5 +38,17 @@ class AppServiceProvider extends ServiceProvider
         Event::observe(EventObserver::class);
         Ticket::observe(TicketObserver::class);
         OrganizationPackage::observe(OrganizationPackageObserver::class);
+
+        // Public registrations: generous per connection (a venue's wifi or
+        // a phone network can put many people behind one address), tight
+        // per phone number, so one person can't hold places in bulk.
+        \Illuminate\Support\Facades\RateLimiter::for('registrations', function (\Illuminate\Http\Request $request) {
+            $tooMany = fn () => back()->withInput()->with('error', 'Too many registrations from here in a short time. Please wait a few minutes and try again.');
+
+            return [
+                \Illuminate\Cache\RateLimiting\Limit::perHour(60)->by('ip:' . $request->ip())->response($tooMany),
+                \Illuminate\Cache\RateLimiting\Limit::perHour(6)->by('phone:' . preg_replace('/^266/', '', preg_replace('/\D/', '', (string) $request->input('phone'))))->response($tooMany),
+            ];
+        });
     }
 }

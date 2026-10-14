@@ -231,7 +231,7 @@ class EventDashboard extends Page implements HasForms
                 return [
                     'id' => $ticket->id,
                     'ticket_number' => $ticket->ticket_number,
-                    'client_name' => $ticket->client->full_name,
+                    'client_name' => $ticket->holder_name,
                     'action' => $this->getActivityAction($ticket),
                     'icon' => $this->getActivityIcon($ticket),
                     'color' => $this->getActivityColor($ticket),
@@ -260,7 +260,7 @@ class EventDashboard extends Page implements HasForms
                 return [
                     'id' => $ticket->id,
                     'ticket_number' => $ticket->ticket_number,
-                    'client_name' => $ticket->client->full_name,
+                    'client_name' => $ticket->holder_name,
                     'client_phone' => $ticket->client->phone,
                     'error' => $lastLog['error'] ?? 'Unknown error',
                     'time' => $ticket->updated_at->diffForHumans(),
@@ -388,7 +388,7 @@ class EventDashboard extends Page implements HasForms
             foreach ($tickets as $ticket) {
                 fputcsv($handle, [
                     $ticket->ticket_number,
-                    $ticket->client->full_name,
+                    $ticket->holder_name,
                     $ticket->client->email ?? '',
                     $ticket->client->phone,
                     $ticket->tier->tier_name,
