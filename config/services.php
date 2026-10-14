@@ -105,4 +105,17 @@ return [
         'redirect'      => env('GOOGLE_REDIRECT_URI'),
     ],
 
+
+    // The phone holding VENTIQ's merchant SIM forwards every SMS from the
+    // mobile money senders to /api/mobile-money/sms, sending this token
+    // (X-Ventiq-Token header, or ?token=). See docs/mobile-money-sms.md.
+    'mobile_money' => [
+        'token'   => env('MOBILE_MONEY_SMS_TOKEN'),
+        'senders' => [
+            'ecocash' => array_filter(explode(',', env('MOBILE_MONEY_ECOCASH_SENDERS', '199'))),
+        ],
+        // The tablet is expected to forward something at least this often
+        // while events are selling; the money page warns after that.
+        'quiet_hours' => (int) env('MOBILE_MONEY_QUIET_HOURS', 24),
+    ],
 ];

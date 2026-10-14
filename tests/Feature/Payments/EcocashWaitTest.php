@@ -147,10 +147,12 @@ it('opens the pay page on paying another way from the message link', function ()
         ->assertSee("Let's try another way", false)->assertSee('62243375')->assertSee('Or try the payment prompt again');
 });
 
-it('needs a reference or a screenshot to pay the merchant by hand', function () {
+it('takes just the paying number to pay the merchant by hand: the SMS does the rest', function () {
     $this->post(route('ticket.pay.merchant', $this->ticket->qr_code), [
         'merchant_phone' => '62552155',
-    ])->assertSessionHasErrors('merchant_reference');
+    ])->assertSessionHasNoErrors();
+
+    expect(PaymentSession::whereNotNull('purchase_meta')->sole()->callback_payload['by_hand']['paid_from'])->toBe('62552155');
 });
 
 it('lists money paid for a ticket that was already paid, to refund', function () {
@@ -177,6 +179,8 @@ it('lists money paid for a ticket that was already paid, to refund', function ()
 });
 
 it('accepts a screenshot instead of a reference when paying the organizer', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $account = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_number' => '62000000', 'is_active' => true]);
 
     $this->post(route('ticket.pay.manual', $this->ticket->qr_code), [

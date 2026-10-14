@@ -45,7 +45,9 @@
             return { people, sales, fees, keep: sales - fees };
         },
         money(v) { return 'M' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
-        get chosenAccounts() { return this.accounts.filter(a => this.selected.includes(a.id)) },
+        {{-- Paying the organizer directly is only for events VENTIQ sponsors. --}}
+        direct: @js((bool) $event->fees_sponsored),
+        get chosenAccounts() { return this.direct ? this.accounts.filter(a => this.selected.includes(a.id)) : [] },
      }"
      x-init="window.Livewire && Livewire.on('ventiq-assist-fill-form', ({ name: n, tagline: t, description: d }) => { if (n) name = n; if (t) tagline = t; if (d) description = d; })">
 
@@ -192,7 +194,7 @@
                     <p class="font-black"><i class="fas fa-gift mr-1"></i>VENTIQ is sponsoring this event's fees: nothing will be charged.</p>
                 @else
                     <p><strong>VENTIQ fees:</strong> a {{ $servicePct }}% service fee on each ticket price and a {{ $operational }} operational fee per person, on every ticket once it's active.</p>
-                    <p class="mt-1" x-show="mode === 'paid'">Fees on online payments come off your payout; fees on tickets paid directly to you are invoiced.</p>
+                    <p class="mt-1" x-show="mode === 'paid'">Fees come off your weekly payout; on tickets you sell for cash yourself, they're invoiced.</p>
                     <p class="mt-1" x-show="mode === 'free'">On a free event that's {{ $operational }} per person, invoiced to you.</p>
                 @endif
             </div>
@@ -299,6 +301,7 @@
                         </div>
                     </div>
 
+                    @if($event->fees_sponsored)
                     <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
                         <p class="text-[14px] font-black text-gray-900">Pay directly to you</p>
                         <p class="text-[12px] font-medium text-gray-500 mb-3">Attendees pay into your account and submit their reference; you confirm it, then the ticket activates.</p>
@@ -316,16 +319,26 @@
                             <i class="fas fa-wallet mr-1"></i>Manage payment accounts
                         </a>
                     </div>
+                    @else
+                    <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                        <p class="text-[14px] font-black text-gray-900">Payments come to VENTIQ</p>
+                        <p class="text-[12px] font-medium text-gray-500">Attendees pay online, or with EcoCash to VENTIQ's merchant code, and get their ticket automatically. VENTIQ pays you out every week, with its fees taken off, so you never have to confirm payments yourself. Paying into your own accounts is only for events VENTIQ sponsors.</p>
+                    </div>
+                    @endif
 
                     {{-- What attendees will see --}}
                     <div class="p-4 rounded-2xl border-2 border-dashed border-slate-200 text-[13px]">
                         <p class="font-black text-gray-800 mb-2">Your attendees will be offered:</p>
-                        <template x-if="!online && chosenAccounts.length === 0">
+                        <template x-if="direct && !online && chosenAccounts.length === 0">
                             <p class="font-bold text-rose-600">Nothing yet. Choose at least one way to pay.</p>
                         </template>
                         <div x-show="online" class="mb-2">
                             <p class="font-bold text-gray-700">Pay online</p>
                             <ul class="list-disc ml-5 text-gray-600"><template x-for="m in methods"><li x-text="`${catalog[m]} via VENTIQ`"></li></template></ul>
+                        </div>
+                        <div x-show="!direct" class="mb-2">
+                            <p class="font-bold text-gray-700">Pay with EcoCash</p>
+                            <ul class="list-disc ml-5 text-gray-600"><li>To VENTIQ's merchant code, from their EcoCash menu</li></ul>
                         </div>
                         <div x-show="chosenAccounts.length">
                             <p class="font-bold text-gray-700">Pay directly to you</p>

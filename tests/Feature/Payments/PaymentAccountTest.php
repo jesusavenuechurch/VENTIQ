@@ -103,6 +103,8 @@ it('offers only the accounts and online option the event chose', function () {
 });
 
 it('shows attendees only the event\'s accounts, labelled by account name', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $this->event->update(['enabled_payment_method_ids' => [$this->online->id, $this->eventsAccount->id, $this->fnb->id]]);
     $ticket = accountTicket($this);
 
@@ -116,6 +118,8 @@ it('shows attendees only the event\'s accounts, labelled by account name', funct
 });
 
 it('accepts a payment to an older active account but not to an archived one', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $this->event->update(['enabled_payment_method_ids' => [$this->fnb->id]]);
     $ticket = accountTicket($this);
 
@@ -129,6 +133,8 @@ it('accepts a payment to an older active account but not to an archived one', fu
 });
 
 it('shows the instructions of the account actually paid into', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $ticket = accountTicket($this);
 
     $this->post(manualPaymentUrl($this, $ticket), ['payment_method_id' => $this->mainAccount->id, 'payment_reference' => 'REF9']);

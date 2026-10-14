@@ -330,6 +330,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/online/{session}', [App\Http\Controllers\VentiqMoneyController::class, 'decideOnlinePayment'])->name('online.decide');
     Route::get('/online/{session}/proof', [App\Http\Controllers\VentiqMoneyController::class, 'onlineProof'])->name('online.proof');
     Route::post('/online/{session}/refunded', [App\Http\Controllers\VentiqMoneyController::class, 'markRefunded'])->name('online.refunded');
+    Route::post('/sms/{message}', [App\Http\Controllers\VentiqMoneyController::class, 'decideSms'])->name('sms.decide');
 });
 
 Route::middleware('auth')->group(function () {

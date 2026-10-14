@@ -52,14 +52,13 @@ function paidForm(object $t, array $overrides = []): array
 }
 
 describe('creating events', function () {
-    it('opens the form with the default accounts ticked', function () {
+    it('opens the form saying payments come to VENTIQ, not the organizer\'s accounts', function () {
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
             ->assertOk()
             ->assertSee('Create an event')
-            ->assertSee('EcoCash — Events Account')
+            ->assertSee('Payments come to VENTIQ')
             ->assertSee('Write it with Ventiq Assist')
-            ->assertSee('value="' . $this->events->id . '" x-model.number="selected" checked', false)
-            ->assertDontSee('value="' . $this->main->id . '" x-model.number="selected" checked', false);
+            ->assertDontSee('EcoCash — Events Account');
     });
 
     it('creates a free event with a Free ticket', function () {

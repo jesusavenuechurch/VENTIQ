@@ -16,11 +16,46 @@ use Illuminate\Support\Collection;
  *    keep their on/off choice.
  *  - Pay directly to organizer: the organization's own accounts
  *    (EcoCash numbers, bank accounts, cash), several per method allowed.
+ *    Offered only on events VENTIQ sponsors: everywhere else attendees pay
+ *    VENTIQ (online, or its merchant number by hand) and VENTIQ pays the
+ *    organizer out, so its fees never have to be chased.
  */
 class PaymentAccountService
 {
+    /** Whether attendees may pay into the organizer's own accounts. */
+    public function directPaymentAllowed(Event $event): bool
+    {
+        return (bool) $event->fees_sponsored;
+    }
+
+    /** The organizer's accounts attendees are offered (none unless VENTIQ sponsors the event). */
+    public function offeredDirectAccounts(Event $event): Collection
+    {
+        return $this->directPaymentAllowed($event) ? $this->directAccountsForEvent($event) : collect();
+    }
+
     /**
-     * The organizer's accounts this event offers. An event that never
+     * VENTIQ's EcoCash merchant number, for paying by hand: when the PIN
+     * prompt doesn't work, or when the event offers nothing else.
+     *
+     * @return array{code: string, name: string}|null
+     */
+    public function merchantForEvent(Event $event): ?array
+    {
+        $code = config('gateways.paylesotho.ecocash.merchant_code');
+        if (!$code) {
+            return null;
+        }
+
+        $offered = in_array('ecocash', $this->onlineMethodsForEvent($event), true)
+            || $this->offeredDirectAccounts($event)->isEmpty();
+
+        return $offered ? ['code' => (string) $code, 'name' => config('gateways.paylesotho.ecocash.merchant_name') ?: 'VENTIQ'] : null;
+    }
+
+    /**
+     * The organizer's accounts chosen for this event (whether or not
+     * they're offered: see offeredDirectAccounts). An event that never
      * chose (enabled_payment_method_ids = null) offers every active
      * account, which is how all existing events behave.
      */

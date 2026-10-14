@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Organization, PaymentSession, Settlement, SettlementItem, Ticket, TicketFee};
+use App\Models\{MobileMoneyMessage, Organization, PaymentSession, Settlement, SettlementItem, Ticket, TicketFee};
+use App\Services\MobileMoney\MobileMoneyInbox;
 use App\Services\Payments\TicketActivationService;
 use App\Services\Fees\FeeInvoicing;
 use App\Services\Payments\SettlementService;
@@ -61,6 +62,12 @@ class VentiqMoneyController extends Controller
                 ->where(fn ($q) => $q->where('created_at', '<', now()->subMinutes(3))->orWhereNotNull('purchase_meta'))
                 ->where('created_at', '>', now()->subDays(7))->latest()->limit(100)->get()
                 ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
+            // EcoCash SMS the merchant SIM forwarded that couldn't be matched
+            // (or weren't trusted) on their own, and when it last forwarded.
+            'smsToCheck' => MobileMoneyMessage::toCheck()->with(['ticket.client', 'ticket.event'])->latest('received_at')->limit(100)->get(),
+            'smsLastHeard' => MobileMoneyInbox::lastHeard(),
+            'smsQuietHours' => (int) config('services.mobile_money.quiet_hours', 24),
+            'smsSetUp' => filled(config('services.mobile_money.token')),
             // Money that came in for a ticket already paid: to send back.
             'paidTwice'  => PaymentSession::where('payable_type', 'ticket')->where('status', 'completed')
                 ->where('callback_payload->paid_twice', true)->latest()->limit(200)->get()
@@ -155,6 +162,30 @@ class VentiqMoneyController extends Controller
         $activation->activate($ticket, TicketActivationService::SOURCE_VENTIQ_ONLINE, $session->payment_method, $session->transaction_id, $request->user()->id, $session);
 
         return back()->with('status', "Received. {$ticket->holder_name}'s ticket is active and on its way to them.");
+    }
+
+    /** A forwarded EcoCash payment: matched to a ticket by entry code, accepted as real, or set aside. */
+    public function decideSms(Request $request, MobileMoneyMessage $message, MobileMoneyInbox $inbox)
+    {
+        $data = $request->validate([
+            'decision'   => ['required', 'in:match,accept,dismiss'],
+            'entry_code' => ['required_if:decision,match', 'nullable', 'string', 'max:20'],
+            'note'       => ['nullable', 'string', 'max:200'],
+        ]);
+
+        try {
+            return match ($data['decision']) {
+                'match' => back()->with('status', 'Matched. ' . $inbox->matchToTicket($message, $data['entry_code'], $request->user()->id)->holder_name . "'s ticket is active and on its way to them."),
+                'accept' => back()->with('status', match ($inbox->accept($message, $request->user()->id)->status) {
+                    MobileMoneyMessage::UNMATCHED => 'Accepted as real. No ticket matches it yet: match it by entry code.',
+                    MobileMoneyMessage::HELD      => 'Accepted as real, but it still needs matching by entry code.',
+                    default                       => 'Accepted and matched: the ticket is active.',
+                }),
+                'dismiss' => tap(back()->with('status', 'Set aside: not for a ticket.'), fn () => $inbox->dismiss($message, $request->user()->id, $data['note'] ?? null)),
+            };
+        } catch (InvalidArgumentException $e) {
+            return back()->with('status', $e->getMessage());
+        }
     }
 
     public function onlineProof(PaymentSession $session)

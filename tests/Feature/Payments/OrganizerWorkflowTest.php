@@ -237,6 +237,8 @@ describe('the review link', function () {
 
 describe('notifications', function () {
     it('tells the organizer when a payment is submitted, not when someone registers', function () {
+        // Paying the organizer directly is for events VENTIQ sponsors.
+        $this->event->update(['fees_sponsored' => true]);
         $this->post("/register/{$this->org->slug}/{$this->event->slug}", [
             'tier_id' => $this->tier->id, 'full_name' => 'Palesa', 'phone' => '+26650009999', 'terms' => '1',
         ]);

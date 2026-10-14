@@ -324,7 +324,8 @@ class RegistrationController extends Controller
         // payment; an event that never chose offers every active account
         // (see PaymentAccountService).
         $accounts       = app(\App\Services\Payments\PaymentAccountService::class);
-        $paymentMethods = $accounts->directAccountsForEvent($event);
+        // The organizer's own accounts only when VENTIQ sponsors the event.
+        $paymentMethods = $accounts->offeredDirectAccounts($event);
         $onlineMethods  = $accounts->onlineMethodsForEvent($event);
         $onlineEnabled  = !empty($onlineMethods);
 
@@ -336,13 +337,14 @@ class RegistrationController extends Controller
             ->where('created_at', '>', now()->subSeconds((int) config('gateways.paylesotho.page_wait_seconds', 90)))->latest('id')->first() : null;
         $byHand = \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
             ->where('status', 'pending')->whereNotNull('purchase_meta')->latest('id')->first();
-        $merchant = in_array('ecocash', $onlineMethods, true) && config('gateways.paylesotho.ecocash.merchant_code') ? [
-            'code' => config('gateways.paylesotho.ecocash.merchant_code'),
-            'name' => config('gateways.paylesotho.ecocash.merchant_name') ?: 'VENTIQ',
-        ] : null;
+        $merchant = $accounts->merchantForEvent($event);
         $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
+        // What the attendee types as the EcoCash reference: their entry
+        // code's four characters, which VENTIQ matches the payment's SMS on.
+        $merchantReference = \Illuminate\Support\Str::after((string) $ticket->voucher_code, 'VQ-');
+        $paidFrom = \App\Services\MobileMoney\MobileMoneyInbox::localPhone($ticket->client?->phone);
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'owed', 'anotherWay'));
+        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'merchantReference', 'paidFrom', 'owed', 'anotherWay'));
     }
 
     /** The pay page opened on paying directly (organizer's account or VENTIQ's merchant) and sending proof. */
@@ -352,11 +354,13 @@ class RegistrationController extends Controller
     }
 
     /**
-     * The pushes didn't work, so the attendee paid VENTIQ's EcoCash
-     * merchant themselves. Recorded as an online payment waiting for
-     * VENTIQ to find it on the merchant statement (money page, "Online
-     * payments to check"); confirming it activates the ticket like any
-     * online sale.
+     * The attendee paid VENTIQ's EcoCash merchant themselves (the PIN
+     * prompt didn't work, or the event offers nothing else). The payment's
+     * SMS usually matches it on its own; this records what they say they
+     * paid, so a payment the SMS couldn't place (paid from another phone,
+     * no reference) is still found, and holds their place meanwhile. If
+     * the SMS is already here, the ticket is activated at once; otherwise
+     * it waits on the money page, "Online payments to check".
      */
     public function submitMerchantPayment(Request $request, string $code)
     {
@@ -366,19 +370,15 @@ class RegistrationController extends Controller
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
         }
         abort_unless(in_array($ticket->status, ['pending', 'active'], true), 410);
-        abort_unless(in_array('ecocash', app(\App\Services\Payments\PaymentAccountService::class)->onlineMethodsForEvent($event), true)
-            && config('gateways.paylesotho.ecocash.merchant_code'), 404);
+        abort_unless(app(\App\Services\Payments\PaymentAccountService::class)->merchantForEvent($event), 404);
 
+        // The number they paid from is enough for the SMS to be matched;
+        // the approval code or a screenshot helps a person if it isn't.
         $validated = $request->validate([
             'merchant_reference' => ['nullable', 'string', 'max:100'],
             'merchant_phone'     => ['required', 'string', 'max:20'],
             'proof'              => \App\Support\PaymentProof::RULES,
         ]);
-        if (blank($validated['merchant_reference'] ?? null) && !$request->hasFile('proof')) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'merchant_reference' => 'Enter the reference from your EcoCash message, or add a screenshot of it.',
-            ]);
-        }
 
         $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
         abort_if($owed <= 0, 422);
@@ -408,6 +408,12 @@ class RegistrationController extends Controller
 
         // Waiting on VENTIQ now, not on the attendee: don't let it expire.
         $ticket->update(['payment_due_at' => null]);
+
+        // Its SMS may already be here.
+        if (app(\App\Services\MobileMoney\MobileMoneyInbox::class)->claimed($session)) {
+            return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code])
+                ->with('status', "Payment received. Your ticket is active and on its way to you.");
+        }
 
         $this->alertVentiq($session, $ticket);
 
@@ -471,6 +477,12 @@ class RegistrationController extends Controller
         if ($event->allow_installments) {
             $rules['payment_type']   = 'required|in:full,deposit';
             $rules['deposit_amount'] = 'nullable|numeric|min:0';
+        }
+
+        // Paying the organizer directly is for events VENTIQ sponsors only.
+        if (!app(\App\Services\Payments\PaymentAccountService::class)->directPaymentAllowed($event)) {
+            return redirect()->route('ticket.pay', $ticket->qr_code)
+                ->withErrors(['payment_method_id' => 'This event takes payment through VENTIQ. Please pay online or with EcoCash below.']);
         }
 
         $validated = $request->validate($rules);

@@ -11,6 +11,10 @@ use App\Http\Controllers\Api\WorkshopController;
 use App\Http\Controllers\Api\ProgrammeScannerController;
 
 
+// ===== VENTIQ'S MERCHANT SIM: forwarded SMS (its own token) =====
+Route::post('/mobile-money/sms', [\App\Http\Controllers\Api\MobileMoneySmsController::class, 'store'])
+    ->middleware('throttle:120,1')->name('mobile-money.sms');
+
 // ===== MOBILE APP AUTHENTICATION (NO AUTH REQUIRED) =====
 Route::post('/auth/login', [AuthController::class, 'login']);
 

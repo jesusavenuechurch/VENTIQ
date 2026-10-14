@@ -209,33 +209,7 @@
                             Pay the organizer directly
                         </button>
                     @elseif($merchant)
-                        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-5 mb-5 text-[13px] font-bold text-gray-700 space-y-2">
-                            <p>On your phone, pay with EcoCash:</p>
-                            <ol class="list-decimal list-inside space-y-1 text-gray-600">
-                                <li>Open the EcoCash menu and choose <strong>Pay merchant</strong></li>
-                                <li>Merchant code <span class="font-mono text-[#1D4069] text-[15px]">{{ $merchant['code'] }}</span> ({{ $merchant['name'] }})</li>
-                                <li>Amount <span class="font-mono text-[#1D4069]">M{{ number_format($owed, 2) }}</span></li>
-                            </ol>
-                            <p class="text-gray-500 font-medium">Then tell us below, so we can match it and send your ticket.</p>
-                        </div>
-                        <form method="POST" action="{{ route('ticket.pay.merchant', $ticket->qr_code) }}" enctype="multipart/form-data" class="space-y-4">
-                            @csrf
-                            <div>
-                                <label for="merchant_phone" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Number you paid from</label>
-                                <input id="merchant_phone" name="merchant_phone" type="tel" required value="{{ old('merchant_phone') }}" placeholder="5949 4756"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
-                            </div>
-                            <div>
-                                <label for="merchant_reference" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reference from the EcoCash message</label>
-                                <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference') }}" placeholder="e.g. MP240101.1234.A12345"
-                                    class="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 focus:bg-white focus:border-[#F07F22] outline-none font-bold text-gray-900">
-                            </div>
-                            <div>
-                                <label for="merchant_proof" class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Or a screenshot of it</label>
-                                <input id="merchant_proof" name="proof" type="file" accept="image/*,application/pdf" class="w-full text-[12px] text-gray-500">
-                            </div>
-                            <button class="w-full py-5 bg-[#F07F22] hover:bg-[#1D4069] text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all">I've paid</button>
-                        </form>
+                        @include('public.partials.merchant-pay', ['idPrefix' => 'fallback'])
                     @else
                         <p class="text-center text-[13px] font-bold text-gray-500">Please contact {{ $organization->name }} to pay for your ticket.</p>
                     @endif
@@ -253,7 +227,7 @@
                         <i class="fas fa-magnifying-glass-dollar text-mint-ink text-2xl"></i>
                     </div>
                     <h3 class="text-2xl font-black text-gray-900 uppercase tracking-tight mb-2">We're checking your payment</h3>
-                    <p class="text-sm font-bold text-gray-500">Your ticket is sent as soon as we've matched it, usually within a few hours. No need to pay again.</p>
+                    <p class="text-sm font-bold text-gray-500">Your ticket is sent as soon as your payment reaches us, usually within minutes. No need to pay again.</p>
                 </div>
 
             </div>
@@ -261,6 +235,29 @@
         @endif
 
         {{-- ── OR PAY ANOTHER WAY (COLLAPSED — expanded by default when online isn't offered) ── --}}
+        @if($paymentMethods->isEmpty() && $merchant)
+        {{-- The event takes payment through VENTIQ: its EcoCash merchant, by hand. --}}
+        <div class="bg-white rounded-ventiq shadow-lg shadow-gray-200/40 overflow-hidden border border-gray-100">
+            @if($onlineEnabled)
+                <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
+                    <span>
+                        <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Or pay with EcoCash yourself</span>
+                        <span class="block text-[11px] font-medium text-gray-400 mt-1 normal-case">Send the payment to VENTIQ's merchant code from your EcoCash menu.</span>
+                    </span>
+                    <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" id="manual-toggle-icon"></i>
+                </button>
+            @else
+                <div class="p-6 sm:p-8 pb-0">
+                    <span class="block text-xs font-black text-gray-500 uppercase tracking-widest">Pay with EcoCash</span>
+                </div>
+            @endif
+            <div id="manual-panel" class="accordion-panel {{ !$onlineEnabled || $errors->hasAny(['merchant_phone', 'merchant_reference', 'proof']) ? 'open' : '' }}">
+                <div class="p-6 sm:p-8 pt-4">
+                    @include('public.partials.merchant-pay', ['idPrefix' => 'merchant'])
+                </div>
+            </div>
+        </div>
+        @else
         <div class="bg-white rounded-ventiq shadow-lg shadow-gray-200/40 overflow-hidden border border-gray-100">
             @if($onlineEnabled)
                 <button type="button" id="manual-toggle" class="w-full flex items-center justify-between p-6 sm:p-8 text-left">
@@ -412,6 +409,7 @@
                 </form>
             </div>
         </div>
+        @endif
 
         @include('tickets.partials.save-link', ['ticket' => $ticket, 'class' => 'mt-6'])
     </main>

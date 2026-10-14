@@ -100,6 +100,8 @@ it('falls back to the platform payment window', function () {
 });
 
 it('records the account, source and time of a direct payment, and stops the clock', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $this->event->update(['payment_window_hours' => 48]);
     $main = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_name' => 'Main', 'account_number' => '58000000', 'is_active' => true]);
     $events = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_name' => 'Events', 'account_number' => '62500000', 'is_active' => true, 'is_default' => true]);

@@ -60,10 +60,64 @@
     </div>
 
     {{-- Online payments with no answer from the gateway --}}
+    {{-- EcoCash SMS forwarded by the merchant SIM's phone --}}
+    @if($smsSetUp)
+        @php($quiet = !$smsLastHeard || $smsLastHeard->lt(now()->subHours($smsQuietHours)))
+        <p class="text-[12px] font-bold {{ $quiet ? 'text-rose-600' : 'text-gray-500' }}">
+            <i class="fas fa-tablet-screen-button mr-1"></i>
+            @if($smsLastHeard)
+                The EcoCash tablet last forwarded a message {{ $smsLastHeard->diffForHumans() }}.
+            @else
+                The EcoCash tablet hasn't forwarded anything yet.
+            @endif
+            @if($quiet) Check it's on, charged and online. @endif
+        </p>
+    @endif
+
+    @if($smsToCheck->isNotEmpty())
+        <section class="space-y-3">
+            <h2 class="text-[13px] font-black text-action-ink uppercase tracking-widest"><i class="fas fa-comment-sms mr-1"></i>EcoCash payments to check</h2>
+            <p class="text-[12px] text-gray-500">Money came into the merchant wallet but couldn't be matched on its own, or its balance didn't follow the last message. Match each to a ticket by its entry code, or set it aside.</p>
+            <div class="{{ $card }} divide-y divide-gray-50">
+                @foreach($smsToCheck as $sms)
+                    <div class="p-5 space-y-3">
+                        <div class="min-w-0">
+                            <p class="text-[14px] font-black text-[#1D4069]">{{ $m($sms->amount) }} · from {{ $sms->payer_name }} ({{ $sms->payer_phone }})</p>
+                            <p class="text-[11px] text-gray-400 font-mono">{{ $sms->received_at->format('j M, H:i') }} · {{ $sms->transaction_id }} · ref "{{ $sms->reference }}" · balance {{ $m($sms->balance_after) }}</p>
+                            @if($sms->note)
+                                <p class="text-[11px] font-bold {{ $sms->status === 'held' ? 'text-rose-600' : 'text-action-ink' }} mt-1">{{ $sms->note }}</p>
+                            @endif
+                            @if($sms->ticket)
+                                <p class="text-[11px] text-gray-500 mt-1">Looks like {{ $sms->ticket->voucher_code }}: {{ $sms->ticket->holder_name }}, {{ $sms->ticket->event?->name }}</p>
+                            @endif
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('ventiq.money.sms.decide', $sms) }}" class="flex items-center gap-2">@csrf
+                                <input type="hidden" name="decision" value="match">
+                                <input name="entry_code" required value="{{ $sms->ticket?->voucher_code }}" placeholder="Entry code, e.g. VQ-X82L" class="{{ $input }} w-44" aria-label="Entry code">
+                                <button class="{{ $button }} bg-mint-ink text-white">Match</button>
+                            </form>
+                            @if($sms->status === 'held' && $sms->balance_ok === false)
+                                <form method="POST" action="{{ route('ventiq.money.sms.decide', $sms) }}" onsubmit="return confirm('Is this payment on the EcoCash statement?')">@csrf
+                                    <input type="hidden" name="decision" value="accept">
+                                    <button class="{{ $button }} bg-[#1D4069] text-white">It's on the statement</button>
+                                </form>
+                            @endif
+                            <form method="POST" action="{{ route('ventiq.money.sms.decide', $sms) }}" onsubmit="return confirm('Set this payment aside as not for a ticket?')">@csrf
+                                <input type="hidden" name="decision" value="dismiss">
+                                <button class="{{ $button }} bg-white border border-gray-200 text-gray-500 hover:text-rose-600">Not for a ticket</button>
+                            </form>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if($toCheck->isNotEmpty())
         <section class="space-y-3">
             <h2 class="text-[13px] font-black text-action-ink uppercase tracking-widest"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Online payments to check</h2>
-            <p class="text-[12px] text-gray-500">EcoCash gave no answer for these, or the attendee paid the merchant by hand. Look for each in the EcoCash merchant statement (amount, number, time), then mark it.</p>
+            <p class="text-[12px] text-gray-500">EcoCash gave no answer for these, or the attendee paid the merchant by hand, and no SMS has matched them yet. Most clear on their own once the payment's SMS arrives; otherwise look for each in the EcoCash merchant statement (amount, number, time), then mark it.</p>
             <div class="{{ $card }} divide-y divide-gray-50">
                 @foreach($toCheck as $s)
                     <div class="p-5 flex flex-wrap items-center justify-between gap-3">

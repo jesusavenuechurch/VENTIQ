@@ -72,6 +72,8 @@ it('serves QR images and passes only for tickets that scan', function () {
 });
 
 it('finds a ticket for its balance by number and phone, and takes the balance only', function () {
+    // Paying the organizer directly is for events VENTIQ sponsors.
+    $this->event->update(['fees_sponsored' => true]);
     $this->ticket->update(['amount_paid' => 60, 'payment_status' => 'partial']);
 
     $this->post(route('installment.find'), ['ticket_number' => $this->ticket->ticket_number, 'phone' => '50000000'])->assertSessionHasErrors('ticket_number');

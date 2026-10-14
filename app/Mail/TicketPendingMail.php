@@ -13,13 +13,15 @@ class TicketPendingMail extends Mailable
 
     public Ticket $ticket;
     public $paymentMethods;
+    public ?array $merchant;
 
     public function __construct(Ticket $ticket)
     {
         $this->ticket = $ticket;
         // The accounts this event offers, the same list as the payment page.
         $this->paymentMethods = app(\App\Services\Payments\PaymentAccountService::class)
-            ->directAccountsForEvent($ticket->event);
+            ->offeredDirectAccounts($ticket->event);
+        $this->merchant = app(\App\Services\Payments\PaymentAccountService::class)->merchantForEvent($ticket->event);
     }
 
     public function build()
@@ -35,6 +37,7 @@ class TicketPendingMail extends Mailable
                 'tier' => $this->ticket->tier,
                 'organization' => $this->ticket->event->organization,
                 'paymentMethods' => $this->paymentMethods,
+                'merchant'       => $this->merchant,
                 'ticketUrl'      => route('ticket.download', $this->ticket->qr_code),
                 'paymentUrl'     => route('ticket.pay', $this->ticket->qr_code),
             ]);

@@ -213,6 +213,8 @@ describe('PayLesotho callback', function () {
 
 describe('manual payment submission', function () {
     beforeEach(function () {
+        // Paying the organizer directly is for events VENTIQ sponsors.
+        $this->event->update(['fees_sponsored' => true]);
         $this->ecocash = OrganizationPaymentMethod::create([
             'organization_id' => $this->org->id,
             'payment_method'  => 'ecocash',
