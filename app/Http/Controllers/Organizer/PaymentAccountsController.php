@@ -31,9 +31,28 @@ class PaymentAccountsController extends Controller
             ->get()
             ->each(fn ($account) => $account->setAttribute('has_payments', $this->accounts->hasPayments($account)));
 
-        return view('organizer.accounts', [
-            'accounts' => $accounts,
-            'methods'  => collect(self::METHODS)->mapWithKeys(fn ($m) => [$m => config("constants.payment_methods.{$m}.label", ucfirst($m))]),
+        $user = $request->user();
+
+        return \Inertia\Inertia::render('Organizer/Accounts', [
+            'accounts' => $accounts->map(fn (OrganizationPaymentMethod $a) => [
+                'id'           => $a->id,
+                'label'        => $a->display_label,
+                'method'       => $a->payment_method,
+                'name'         => $a->account_name,
+                'number'       => $a->account_number,
+                'instructions' => $a->instructions,
+                'isActive'     => (bool) $a->is_active,
+                'isDefault'    => (bool) $a->is_default,
+                // Has received payments: its number is locked and it can't be removed.
+                'hasPayments'  => (bool) $a->has_payments,
+            ])->values(),
+            'methods'  => collect(self::METHODS)->map(fn ($m) => ['value' => $m, 'label' => config("constants.payment_methods.{$m}.label", ucfirst($m))])->values(),
+            'can'      => [
+                'create' => $user->can('create_payment_method'),
+                'edit'   => $user->can('edit_payment_method'),
+                'delete' => $user->can('delete_payment_method'),
+            ],
+            'meta'     => ['title' => 'Payment accounts | VENTIQ'],
         ]);
     }
 

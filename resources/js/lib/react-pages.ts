@@ -7,5 +7,5 @@
 export const REACT_ROUTES = new Set<string>([
     'ticket.find', 'installment.search', 'ticket.download', 'ticket.pay', 'ticket.pay.another', 'ticket.registered',
     'public.event', 'event.short', 'registration.form',
-    'organizer.home', 'organizer.payments.index',
+    'organizer.home', 'organizer.payments.index', 'organizer.accounts.index',
 ]);

@@ -55,6 +55,6 @@ it('counts payments waiting on the organizer in the tabs', function () {
 
     $this->actingAs($this->admin)->get(route('organizer.accounts.index'))
         ->assertOk()
-        ->assertSee('To confirm')       // the phone tab bar
-        ->assertSeeInOrder(['Payments to confirm', '2']);
+        // The tabs (and the phone tab bar) show the count.
+        ->assertInertia(fn ($page) => $page->where('organizer.paymentsToConfirm', 2));
 });

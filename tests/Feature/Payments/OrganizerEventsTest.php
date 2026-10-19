@@ -198,7 +198,9 @@ describe('editing events', function () {
 describe('payment accounts', function () {
     it('lists, adds and edits accounts', function () {
         $this->actingAs($this->admin)->get(route('organizer.accounts.index'))
-            ->assertOk()->assertSee('EcoCash — Events Account')->assertSee('Main Account');
+            ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Accounts')
+                ->where('accounts', fn ($a) => collect($a)->pluck('label')->contains('EcoCash — Events Account')
+                    && collect($a)->pluck('label')->contains(fn ($l) => str_contains($l, 'Main Account'))));
 
         $this->post(route('organizer.accounts.store'), [
             'payment_method' => 'bank_transfer', 'account_name' => 'Conference Account', 'account_number' => '6200123',
