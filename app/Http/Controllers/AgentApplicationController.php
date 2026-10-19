@@ -112,8 +112,7 @@ class AgentApplicationController extends Controller
         // Authorize immediately
         Auth::login($user);
 
-        // Redirect to Filament dashboard
-        return redirect()->intended('/admin');
+        return redirect()->intended(route('agent.home'));
     }
 
 }

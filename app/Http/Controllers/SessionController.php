@@ -18,10 +18,10 @@ class SessionController extends Controller
 
     public function reports(Request $request)
     {
-        // Super admins have no organization_id — Sessions is an org-scoped
-        // area, so send them to the admin panel instead of crashing.
+        // Super admins and agents have no organization_id, and Sessions is
+        // an organization's area: send them to their own home instead.
         if (!Auth::user()->organization_id) {
-            return redirect()->route('filament.admin.pages.dashboard');
+            return redirect(\App\Support\IntentRedirect::home(Auth::user()));
         }
 
         $tab = $request->query('tab', 'needs_review');
@@ -41,10 +41,10 @@ class SessionController extends Controller
 
     public function index(Request $request)
     {
-        // Super admins have no organization_id — Sessions is an org-scoped
-        // area, so send them to the admin panel instead of crashing.
+        // Super admins and agents have no organization_id, and Sessions is
+        // an organization's area: send them to their own home instead.
         if (!Auth::user()->organization_id) {
-            return redirect()->route('filament.admin.pages.dashboard');
+            return redirect(\App\Support\IntentRedirect::home(Auth::user()));
         }
 
         $sessions = Session::forOrganization(Auth::user()->organization_id)

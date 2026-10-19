@@ -78,3 +78,15 @@ it('grades the certification on the server, needs every statement, and keeps a p
     $this->post(route('agent.certification.submit'), ['answers' => ['q1' => 'A']] + $acks);
     expect($cert->fresh()->passed)->toBeTrue();
 });
+
+it('sends super admins to the admin and agents to their page, not Filament', function () {
+    $agentUser = User::factory()->create(['email' => 'mpho@example.com', 'organization_id' => null]);
+    $agentUser->assignRole('sales_agent');
+
+    $this->actingAs($this->super);
+    expect(\App\Support\IntentRedirect::resolve(null))->toBe(route('ventiq.money.index'));
+    $this->get(route('sessions.index'))->assertRedirect(route('ventiq.money.index'));
+
+    $this->actingAs($agentUser);
+    expect(\App\Support\IntentRedirect::resolve(null))->toBe(route('agent.home'));
+});

@@ -23,7 +23,7 @@ class LowTicketInventoryNotification extends Notification
             'tier_name' => $this->tier->tier_name,
             'event_name' => $this->tier->event->name,
             'remaining' => $this->remaining,
-            'action_url' => route('filament.admin.resources.event-tiers.edit', $this->tier),
+            'action_url' => route('organizer.events.edit', $this->tier->event_id),
             'message' => "Low inventory alert: Only {$this->remaining} tickets left for {$this->tier->tier_name}",
         ];
     }

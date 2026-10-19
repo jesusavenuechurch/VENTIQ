@@ -10,9 +10,8 @@ class IntentRedirect
      * 'session' and 'host' are explicit and win. Without one (a bookmark,
      * the plain login page, an invite), an organization that uses VENTIQ
      * Sessions and has no events goes to Sessions; other org users land in
-     * the organizer area (their events and payments to confirm). Users with
-     * no organization — super admins and sales agents — keep landing on the
-     * Filament dashboard.
+     * the organizer area (their events and payments to confirm). Super
+     * admins land in VENTIQ's admin, sales agents on their own page.
      */
     public static function resolve(?string $intent): string
     {
@@ -30,7 +29,19 @@ class IntentRedirect
             return route('organizer.home');
         }
 
-        return route('filament.admin.pages.dashboard');
+        return static::home($user);
+    }
+
+    /** Where someone with no organization belongs. */
+    public static function home(?\App\Models\User $user): string
+    {
+        return match (true) {
+            (bool) $user?->isSuperAdmin() => route('ventiq.money.index'),
+            (bool) $user?->isSalesAgent() => route('agent.home'),
+            // An account with no organization and no role (the old /admin
+            // sign-up made these): the home page, where they can start one.
+            default => url('/'),
+        };
     }
 
     private static function usesOnlySessions(int $organizationId): bool

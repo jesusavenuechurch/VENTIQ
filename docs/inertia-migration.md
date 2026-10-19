@@ -30,6 +30,7 @@ page has moved; then Filament, Livewire and Alpine are removed.
   A page a controller names must exist (`ensure_pages_exist`).
 - **Confirm before something final** with `ConfirmDialog` (`components/confirm-dialog`), not `confirm()`.
 - **A form whose save comes back to the same page** (the event form) uses `preserveState: 'errors'`, so after saving it starts again from the server's data.
+- **Admin lists** use `AdminTable` (PHP) with `DataTable` (React): search, sorts and filters are named on the server and live in the URL; `rowId` + `bulk` add picking rows.
 - **Emails and PDFs stay Blade.**
 
 ## Checking your work
@@ -43,8 +44,8 @@ page has moved; then Filament, Livewire and Alpine are removed.
 | 1. Foundation | Find my ticket | Done |
 | 2. Attendee pages | Event page, registration (and its closed and error pages), payment (PIN prompt, EcoCash by hand, organizer accounts), confirmation, the ticket pass, inactive ticket, moved link | Done |
 | 3. Organizer area | Site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`), attendees and money, issue a ticket, guest-list import, event day (live with `usePoll`), Browse events | Done |
-| 4. VENTIQ admin | Money page, then each Filament resource | Next |
-| 5. The rest | Sessions, auth, home, about, pricing, terms, privacy, an organization's own events page | |
+| 4. VENTIQ admin | `/ventiq/*` (AdminLayout, DataTable + AdminTable): money, payouts, organizations, events, tickets, users, agents, inbox, session plans, ticket types, clients, tier templates, scanner app. Agents' own pages at `/agent` (home, certification). Dropped: packages, organizational records, the Filament dashboard widgets and event dashboard (event day replaces it) | Done |
+| 5. The rest | Sessions (including an organization's own plan page, still linked to Filament's Session Plan from `sessions/index` and `session-plan-payment`), auth, home, about, pricing, terms, privacy, an organization's own events page | Next |
 | 6. Removal | Filament, Livewire, Alpine | |
 
 Stays Blade: emails, and the ticket PDF (`tickets/avatar.blade.php`).
@@ -60,3 +61,12 @@ Stays Blade: emails, and the ticket PDF (`tickets/avatar.blade.php`).
   these tickets to the organizer (the attendee list already shows "not
   delivered" for a failed WhatsApp send). Raised during the migration, not
   decided.
+
+- **Agent commissions.** Commissions used to be made when VENTIQ approved an
+  organization's first paid package (20%, plus milestone bonuses). Packages
+  are gone, so nothing makes new earnings: for now a super admin records
+  each one by hand in Admin › Agents. Decide the new rule (a share of VENTIQ's
+  fees on a referred organization's first event, a flat amount per
+  organization that runs an event, ...), then build it in. The certification
+  quiz (`App\Support\AgentCertificationQuiz`) still teaches the package rules
+  in modules 1 and 3 and questions 1 and 5 to 8; rewrite those with it.

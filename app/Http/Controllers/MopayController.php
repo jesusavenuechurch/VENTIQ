@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Filament\Resources\PackagePurchaseResource;
 use App\Models\AgentEarning;
 use App\Models\Organization;
 use App\Models\OrganizationPackage;
@@ -76,13 +75,6 @@ class MopayController extends Controller
 
     /**
      * MoPay redirects here after package payment.
-     *
-     * NOTE: every redirect below uses PackagePurchaseResource::getUrl('index')
-     * instead of a hardcoded route name string. This resource now lives
-     * inside OrganizationCluster, which changed its actual route name —
-     * getUrl() always resolves correctly regardless of which cluster (or
-     * no cluster) the resource currently lives in, so this can't break
-     * again the next time navigation gets reorganized.
      */
     public function packageCallback(Request $request)
     {
@@ -91,7 +83,8 @@ class MopayController extends Controller
 
         Log::info('MoPay package callback', $request->query());
 
-        $packageIndexUrl = PackagePurchaseResource::getUrl('index');
+        // Packages are no longer sold: a late callback for one returns to the organizer area.
+        $packageIndexUrl = route('organizer.home');
 
         if (!$sessionId) {
             return redirect($packageIndexUrl)

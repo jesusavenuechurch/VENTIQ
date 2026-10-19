@@ -76,7 +76,7 @@
                     const data = await response.json();
                     if (response.ok) {
                         this.submitted = true;
-                        setTimeout(() => window.location.href = '/admin', 1500);
+                        setTimeout(() => window.location.href = @js(route('organizer.home')), 1500);
                     } else {
                         this.errorMessage = data.errors ? Object.values(data.errors).flat().join(' ') : 'Initialization failed.';
                         this.loading = false;

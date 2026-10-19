@@ -106,7 +106,7 @@
             {{-- Ticketed events live in the Filament admin, a separate
                  product from Sessions — opens in a new tab so people don't
                  lose their place on the Desk. --}}
-            <a href="{{ \App\Filament\Resources\EventResource::getUrl('create') }}" target="_blank"
+            <a href="{{ route('organizer.events.create') }}" target="_blank"
                class="inline-flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white border border-gray-100 hover:border-[#1D4069]/30 transition-all text-[10px] font-black text-[#1D4069] uppercase tracking-wide">
                 🎫 Create an Event ↗
             </a>

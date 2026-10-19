@@ -45,7 +45,7 @@ export default function SiteLayout({ children, bottomBar }: { children: React.Re
     const menu: Array<[string, string] | 'divider'> = user
         ? [
             ...(org ? ([['Events', route('organizer.home')], ['Payments', route('organizer.payments.index')]] as [string, string][]) : []),
-            ...(user.isSuperAdmin ? ([['Admin', route('filament.admin.pages.dashboard')], ['VENTIQ money', route('ventiq.money.index')]] as [string, string][]) : []),
+            ...(user.isSuperAdmin ? ([['Admin', route('ventiq.money.index')]] as [string, string][]) : []),
             ['Sessions', route('sessions.index')],
             ['Programmes', route('programmes.index')],
             ...(org ? ([['Organization', route('organizer.organization.edit')]] as [string, string][]) : []),

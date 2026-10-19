@@ -106,9 +106,9 @@ describe('super admin access', function () {
         $this->super->assignRole('super_admin');
     });
 
-    it('sends a super admin without an organization picked back to Filament', function () {
+    it('sends a super admin without an organization picked to the admin organizations list', function () {
         $this->actingAs($this->super)->get(route('organizer.home'))
-            ->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
+            ->assertRedirect(route('ventiq.organizations.index'));
     });
 
     it('lets a super admin open and leave an organization\'s organizer area', function () {
@@ -121,8 +121,8 @@ describe('super admin access', function () {
         $this->post(route('organizer.payments.decide', $payment), ['decision' => 'activate'])->assertRedirect();
         expect($payment->ticket->fresh()->status)->toBe('active');
 
-        $this->post(route('organizer.act-as.stop'))->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
-        $this->get(route('organizer.home'))->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
+        $this->post(route('organizer.act-as.stop'))->assertRedirect(route('ventiq.organizations.index'));
+        $this->get(route('organizer.home'))->assertRedirect(route('ventiq.organizations.index'));
     });
 
     it('refuses act-as to anyone but a super admin', function () {

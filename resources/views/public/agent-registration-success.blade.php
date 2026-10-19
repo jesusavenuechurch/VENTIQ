@@ -67,7 +67,7 @@
                     </div>
                 </div>
 
-                <a href="/admin"
+                <a href="{{ route('organizer.home') }}"
                    class="flex items-center justify-center gap-4 w-full bg-emerald-600 text-white font-black py-5 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:bg-emerald-500 hover:-translate-y-1 active:scale-[0.98] transition-all uppercase tracking-[0.3em] text-sm">
                     Access Console <i class="fas fa-terminal opacity-50 text-xs"></i>
                 </a>
