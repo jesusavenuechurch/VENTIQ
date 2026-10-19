@@ -33,3 +33,16 @@ page has moved; then Filament, Livewire and Alpine are removed.
 ## Checking your work
 
 `npx tsc -p tsconfig.json` (types), `npm run build`, and the PHP tests.
+
+## Progress
+
+| Phase | Pages | State |
+|---|---|---|
+| 1. Foundation | Find my ticket | Done |
+| 2. Attendee pages | Event page, registration (and its closed and error pages), payment (PIN prompt, EcoCash by hand, organizer accounts), confirmation, the ticket pass, inactive ticket, moved link | Done |
+| 3. Organizer area | Starts with the site layout (`layouts.app`: navigation, search, contact, Ventiq Assist), which 35 Blade pages share; then the organizer pages, and Browse events | Next |
+| 4. VENTIQ admin | Money page, then each Filament resource | |
+| 5. The rest | Sessions, auth, home, about, pricing, terms, privacy, an organization's own events page | |
+| 6. Removal | Filament, Livewire, Alpine | |
+
+Stays Blade: emails, and the ticket PDF (`tickets/avatar.blade.php`).
