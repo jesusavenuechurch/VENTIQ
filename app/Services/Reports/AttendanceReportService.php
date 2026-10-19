@@ -57,7 +57,10 @@ class AttendanceReportService
             'tickets.workshopDetail',
         ]);
 
+        // Only tickets that still hold a place: expired, cancelled and
+        // refunded registrations aren't expected at the door.
         $tickets = $event->tickets()
+            ->whereIn('status', EventFinance::LIVE_STATUSES)
             ->with(['client', 'tier', 'workshopDetail'])
             ->orderBy('checked_in_at')
             ->get();
@@ -88,8 +91,10 @@ class AttendanceReportService
             'tickets'      => $tickets,
             'checkedIn'    => $checkedIn,
             'notCheckedIn' => $notCheckedIn,
-            'totalCount'   => $tickets->count(),
-            'checkedCount' => $checkedIn->count(),
+            // People, not tickets: a group ticket for 3 counts 3, and
+            // counts as arrived for as many as have been scanned in.
+            'totalCount'   => (int) $tickets->sum(fn ($t) => $t->admissions ?? 1),
+            'checkedCount' => (int) $tickets->sum('admitted_count'),
             'signedCount'  => $checkedIn->filter(fn ($t) => $t->workshopDetail?->isSigned())->count(),
             'isWorkshop'   => $event->isWorkshop(),
             'logoBase64'   => $logoBase64,

@@ -139,7 +139,10 @@
             <h1 class="event-name">{{ $event->name }}</h1>
 
             <p style="font-size: 14px; color: #334155; margin: 0 0 24px 0;">
-                Hi {{ $client->full_name }}, we've received your registration. Complete payment below to confirm your spot.
+                Hi {{ $client->full_name }}, here is your ticket. It's <strong>inactive</strong> until your payment is confirmed &mdash; then the same ticket works at the entrance.
+                @if($ticket->payment_due_at)
+                    Please pay by <strong>{{ $ticket->payment_due_at->format('d M Y, H:i') }}</strong> to keep your place.
+                @endif
             </p>
 
             <table width="100%" border="0" cellpadding="0" cellspacing="0">
@@ -157,37 +160,65 @@
 
             <hr class="divider">
 
-            <div class="label" style="margin-bottom: 12px;">Payment Methods</div>
-
-            @foreach($paymentMethods as $method)
+            @if($paymentMethods->isEmpty() && $merchant)
+                {{-- VENTIQ collects: online, or its EcoCash merchant number by hand. --}}
+                <div class="label" style="margin-bottom: 12px;">How to Pay</div>
                 <div class="method-card">
-                    <div class="method-label">{{ $method->label }}</div>
-
-                    @if($method->payment_method !== 'cash')
-                        <div class="method-row"><strong>{{ $method->getAccountFieldLabel() }}:</strong> {{ $method->account_number }}</div>
-                        @if($method->account_name)
-                            <div class="method-row"><strong>Account Name:</strong> {{ $method->account_name }}</div>
-                        @endif
-                    @else
-                        <div class="method-row" style="color: #64748b;">Pay in person at the venue.</div>
-                    @endif
-
-                    @if($method->instructions)
-                        <div class="method-row" style="color: #64748b; font-size: 12px; margin-top: 6px;">{{ $method->instructions }}</div>
-                    @endif
+                    <div class="method-label">EcoCash</div>
+                    <div class="method-row">Pay merchant <strong>{{ $merchant['code'] }}</strong> ({{ $merchant['name'] }})</div>
+                    <div class="method-row"><strong>Amount:</strong> M{{ number_format(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2) }}</div>
                 </div>
-            @endforeach
 
-            <div class="ref-box">
-                <div class="label-light">Use This As Your Payment Reference</div>
-                <div class="ref-value">{{ $ticket->ticket_number }}</div>
-            </div>
+                <div class="ref-box">
+                    <div class="label-light">Type This As The Reference</div>
+                    <div class="ref-value">{{ \Illuminate\Support\Str::after($ticket->voucher_code, 'VQ-') }}</div>
+                </div>
+            @else
+                <div class="label" style="margin-bottom: 12px;">Payment Methods</div>
+
+                @foreach($paymentMethods as $method)
+                    <div class="method-card">
+                        <div class="method-label">{{ $method->display_label }}</div>
+
+                        @if($method->payment_method !== 'cash')
+                            <div class="method-row"><strong>{{ $method->getAccountFieldLabel() }}:</strong> {{ $method->account_number }}</div>
+                            @if($method->account_name)
+                                <div class="method-row"><strong>Account Name:</strong> {{ $method->account_name }}</div>
+                            @endif
+                        @else
+                            <div class="method-row" style="color: #64748b;">Pay in person at the venue.</div>
+                        @endif
+
+                        @if($method->instructions)
+                            <div class="method-row" style="color: #64748b; font-size: 12px; margin-top: 6px;">{{ $method->instructions }}</div>
+                        @endif
+                    </div>
+                @endforeach
+
+                <div class="ref-box">
+                    <div class="label-light">Use This As Your Payment Reference</div>
+                    <div class="ref-value">{{ $ticket->ticket_number }}</div>
+                </div>
+
+            @endif
+
+            <p style="margin: 24px 0; text-align: center;">
+                <a href="{{ $paymentUrl }}" style="display:inline-block;padding:14px 28px;background:#1D4069;color:#ffffff;border-radius:12px;font-weight:700;text-decoration:none;">Pay or submit your payment reference</a>
+            </p>
+            <p style="margin: 0 0 24px 0; text-align: center;">
+                <a href="{{ $ticketUrl }}" style="color:#F07F22;font-weight:700;">View your ticket</a>
+            </p>
 
             <ul class="steps">
-                <li>Make your payment using the details above</li>
-                <li>Our team verifies payment within 24 hours</li>
-                <li>You'll get a confirmation email with your ticket</li>
-                <li>Bring your ticket (digital or printed) to the entrance</li>
+                @if($paymentMethods->isEmpty() && $merchant)
+                    <li>Pay online from your payment page, or pay the EcoCash merchant above with the reference shown</li>
+                    <li>We match your payment and send your ticket, usually within minutes</li>
+                @else
+                    <li>Pay online, or pay the organizer using the details above</li>
+                    <li>If you paid the organizer, submit your payment reference using the button above</li>
+                    <li>The organizer confirms it and your ticket becomes active &mdash; we'll let you know</li>
+                @endif
+                <li>Bring the same ticket (digital or printed) to the entrance</li>
             </ul>
 
             <p class="note">

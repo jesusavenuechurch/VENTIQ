@@ -17,9 +17,19 @@ class TicketDownloadController extends Controller
             ->with(['client', 'event', 'tier'])
             ->firstOrFail();
 
-        // Check if ticket is active
-        if ($ticket->status !== 'active' && $ticket->status !== 'checked_in') {
-            abort(403, 'Ticket is not available for download');
+        // Attendees get their ticket at registration, before it's paid for:
+        // an inactive, expired or cancelled ticket still has a page, which
+        // says plainly that it won't scan yet (or any more) and what to do.
+        if (!in_array($ticket->status, ['active', 'checked_in'], true)) {
+            $ticket->loadMissing(['event.organization', 'payments']);
+
+            return view('tickets.inactive', [
+                'ticket'     => $ticket,
+                'submitted'  => $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at)
+                    || \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+                        ->where('status', 'pending')->where('created_at', '>', now()->subDay())->exists(),
+                'paymentUrl' => route('ticket.pay', $ticket->qr_code),
+            ]);
         }
 
             // Generate QR code if not exists (on-demand)
@@ -89,14 +99,28 @@ class TicketDownloadController extends Controller
     {
         $ticket = Ticket::where('qr_code', $qrCode)->firstOrFail();
 
-        if (!$ticket->avatar_path) {
-            abort(404, 'Ticket not ready for download');
+        // A pass is only handed out for a ticket that will scan.
+        abort_unless(in_array($ticket->status, ['active', 'checked_in'], true), 404);
+        if (!$ticket->avatar_path || !Storage::disk(Ticket::FILES_DISK)->exists($ticket->avatar_path)) {
+            abort_unless($ticket->generateAvatar(), 404, 'Ticket not ready for download');
         }
 
-        return response()->download(
-            Storage::disk('public')->path($ticket->avatar_path),
-            "ticket_{$ticket->ticket_number}.pdf"
-        );
+        return Storage::disk(Ticket::FILES_DISK)->download($ticket->avatar_path, "ticket_{$ticket->ticket_number}.pdf", ['Cache-Control' => 'private, no-store']);
+    }
+
+    /** The ticket's QR image, for its own page and messages. */
+    public function qr($qrCode)
+    {
+        $ticket = Ticket::with('event', 'tier')->where('qr_code', $qrCode)->firstOrFail();
+
+        abort_unless(in_array($ticket->status, ['active', 'checked_in'], true), 404);
+        if (!$ticket->qr_code_path || !Storage::disk(Ticket::FILES_DISK)->exists($ticket->qr_code_path)) {
+            abort_unless($ticket->generateQrCode(), 404);
+        }
+
+        $type = str_ends_with($ticket->qr_code_path, '.svg') ? 'image/svg+xml' : 'image/png';
+
+        return Storage::disk(Ticket::FILES_DISK)->response($ticket->qr_code_path, null, ['Content-Type' => $type, 'Cache-Control' => 'private, max-age=3600']);
     }
 }
 

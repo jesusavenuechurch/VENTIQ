@@ -28,38 +28,31 @@ public function downloadPdf(): \Symfony\Component\HttpFoundation\Response
 
     public function buildData(): array
     {
-        $event = $this->event->load(['organization', 'tiers', 'tickets.payments', 'tickets.tier']);
+        $event = $this->event->load(['organization', 'tiers']);
 
-        $tickets     = $event->tickets;
-        $paidTickets = $tickets->where('is_complimentary', false);
+        // Expired, cancelled and refunded tickets aren't sales; money is
+        // split by who collected it (see EventFinance).
+        $finance = EventFinance::for($event);
+        $summary = $finance->summary();
 
-        // Revenue figures
-        $totalExpected = $paidTickets->sum('amount');
-        $totalCollected = $paidTickets->sum('amount_paid');
-        $totalOutstanding = $totalExpected - $totalCollected;
-        $compValue = $tickets->where('is_complimentary', true)->count()
-            * ($event->tiers->first()?->price ?? 0); // estimated value
+        $paidTickets = $event->tickets()
+            ->whereIn('status', EventFinance::LIVE_STATUSES)
+            ->where('is_complimentary', false)
+            ->get();
 
-        // Payment status breakdown
+        $totalExpected    = $summary['expected'];
+        $totalCollected   = $summary['collected'];
+        $totalOutstanding = $summary['outstanding'];
+        $compValue = $summary['comp_tickets'] * ($event->tiers->first()?->price ?? 0); // estimated value
+
         $paymentBreakdown = [
             'completed' => $paidTickets->where('payment_status', 'completed')->count(),
             'partial'   => $paidTickets->where('payment_status', 'partial')->count(),
             'pending'   => $paidTickets->where('payment_status', 'pending')->count(),
-            'refunded'  => $paidTickets->where('payment_status', 'refunded')->count(),
+            'refunded'  => $event->tickets()->where('payment_status', 'refunded')->count(),
         ];
 
-        // Per-tier revenue
-        $tierRevenue = $event->tiers->map(function ($tier) use ($tickets) {
-            $tierTickets = $tickets->where('event_tier_id', $tier->id)
-                                   ->where('is_complimentary', false);
-            return [
-                'name'      => $tier->tier_name,
-                'price'     => $tier->price,
-                'sold'      => $tierTickets->count(),
-                'expected'  => $tierTickets->sum('amount'),
-                'collected' => $tierTickets->sum('amount_paid'),
-            ];
-        });
+        $tierRevenue = $finance->byTier()->map(fn ($tier) => $tier + ['sold' => $tier['tickets']]);
 
         [$logoBase64, $logoWarning] = $this->resolveLogo($event->organization);
 
@@ -72,10 +65,9 @@ public function downloadPdf(): \Symfony\Component\HttpFoundation\Response
             'totalExpected'    => $totalExpected,
             'totalCollected'   => $totalCollected,
             'totalOutstanding' => $totalOutstanding,
-            'collectionRate'   => $totalExpected > 0
-                ? round(($totalCollected / $totalExpected) * 100, 1)
-                : 0,
-            'compTickets'      => $tickets->where('is_complimentary', true)->count(),
+            'collectionRate'   => $summary['collection_rate'],
+            'compTickets'      => $summary['comp_tickets'],
+            'finance'          => $summary,
             'compValue'        => $compValue,
             'paymentBreakdown' => $paymentBreakdown,
             'tierRevenue'      => $tierRevenue,

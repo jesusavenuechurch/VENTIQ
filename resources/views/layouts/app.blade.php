@@ -22,13 +22,21 @@
     <meta property="twitter:title" content="@yield('title', 'VENTIQ | Event Operations & Access Management')">
     <meta property="twitter:description" content="@yield('meta_description', 'The modern gateway for workshops, events, and seamless registrations. Simply Connected.')">
     <meta property="twitter:image" content="{{ asset('images/meta.jpeg') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
+    {{-- Tailwind, Inter and Font Awesome are built into public/build (by
+         GitHub Actions on push; see .github/workflows/build-assets.yml),
+         so the server needs no Node and pages load no CDN styles. --}}
+    @vite('resources/css/app.css')
+    {{-- Alpine comes with Livewire. Loaded on every page, not only those
+         with a Livewire component, or the menus, search and contact box
+         stop working (they use Alpine). --}}
+    @livewireStyles
+    {{-- No separate Alpine script here — Livewire 3 bundles and boots its
+         own Alpine instance. Loading a second copy (as this page did) is a
+         documented Livewire footgun: pure-Alpine toggles like x-show can
+         appear to work off whichever instance wins, while wire:submit and
+         other Livewire-Alpine integration points silently stop binding —
+         exactly the "click/Enter do nothing, form falls back to a native
+         submit" symptom this caused for the Ask Ventiq widget. --}}
     
     <style>
         [x-cloak] { display: none !important; }
@@ -62,6 +70,11 @@
         // ── Contact modal ──────────────────────────────────────
         showChat: false,
         showTerms: false,
+        // ── Ask Ventiq — docked panel, not a page. Stays open across
+        //    navigation only within this single page load; a fresh load
+        //    re-mounts the component, which picks the user's most recent
+        //    conversation back up (see ChatPage::mount()).
+        showAssist: false,
         submitted: false,
         loading: false,
         name: '',
@@ -199,20 +212,22 @@
       @contact-open.window="showChat = true"
       @keydown.window="if (($event.metaKey || $event.ctrlKey) && $event.key === 'k') { $event.preventDefault(); openSearch(); }">
 
+{{-- Kept across wire:navigate swaps (organizer tabs): the copy already on
+     screen has been dismissed, so a tab switch never shows it again. --}}
+@persist('page-loader')
 <div id="page-loader"
      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#1D4069]">
 
     <div class="flex flex-col items-center gap-4">
 
-        <dotlottie-player
-            id="loader-lottie"
-            src="{{ asset('animation/loader.json') }}"
-            background="transparent"
-            speed="0.6"
-            style="width: 220px; height: 220px;"
-            autoplay
-            loop>
-        </dotlottie-player>
+        {{-- First visit only: the Lumela greeting (partials/lumela). --}}
+        @include('partials.lumela')
+
+        {{-- Pure CSS: no animation player to download first. --}}
+        <span class="loader-dot relative flex h-16 w-16 items-center justify-center">
+            <span class="absolute inset-0 rounded-full bg-[#F07F22]/30 animate-ping"></span>
+            <span class="relative h-10 w-10 rounded-full bg-[#F07F22]"></span>
+        </span>
 
         <div class="flex flex-col items-center gap-1">
             <span class="text-2xl font-black tracking-tighter uppercase text-white">
@@ -228,6 +243,19 @@
         Simply Connected
     </p>
 </div>
+{{-- Decided before the loader paints: greet a browser's very first visit. --}}
+<script>
+    (function () {
+        try {
+            var warm = sessionStorage.getItem('ventiq_booted') === '1';
+            if (!warm && !localStorage.getItem('ventiq_greeted')) {
+                document.getElementById('page-loader').classList.add('greet');
+                localStorage.setItem('ventiq_greeted', '1');
+            }
+        } catch (e) {}
+    })();
+</script>
+@endpersist
 
     <nav class="flex-none border-b border-gray-100 bg-white/80 backdrop-blur-md z-50 sticky top-0">
         <div class="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-6">
@@ -237,7 +265,7 @@
 
                 <!-- Brand Block -->
                 <a href="/" class="flex items-center gap-3 shrink-0 transition-transform active:scale-95">
-                    <img src="{{ asset('images/ventiq-noback.png') }}" alt="VENTIQ" class="h-6 md:h-7 w-auto object-contain">
+                    <img src="{{ asset('images/ventiq-logo-112.webp') }}" width="151" height="112" alt="VENTIQ" class="h-6 md:h-7 w-auto object-contain">
                     <div class="hidden sm:flex flex-col leading-none">
                         <span class="text-sm font-black tracking-tighter uppercase text-[#1D4069]">
                             VENTI<span class="text-[#F07F22]">Q</span>
@@ -299,28 +327,52 @@
 
             <!-- Right: System Access Controls -->
             <div class="flex items-center gap-4 md:gap-6 shrink-0">
-                <button @click="showChat = true" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#1D4069] transition-colors">
-                    Support
-                </button>
+                {{-- Icons with a tooltip on hover/focus; the label is also read out. --}}
+                <div class="flex items-center gap-1">
+                    <a href="{{ route('pricing') }}" aria-label="Pricing" class="group relative w-10 md:w-auto md:px-4 md:gap-2 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1D4069] hover:bg-gray-50 focus-visible:text-[#1D4069] focus-visible:bg-gray-50 outline-none transition-colors {{ request()->routeIs('pricing') ? 'text-[#F07F22]' : '' }}">
+                        <i class="fas fa-tag text-sm"></i>
+                        <span class="hidden md:inline text-[10px] font-bold uppercase tracking-widest">Pricing</span>
+                        <span class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap rounded-lg bg-[#1D4069] px-2.5 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 md:hidden">Pricing</span>
+                    </a>
+                    <button type="button" @click="showChat = true" aria-label="Support" class="group relative w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1D4069] hover:bg-gray-50 focus-visible:text-[#1D4069] focus-visible:bg-gray-50 outline-none transition-colors">
+                        <i class="fas fa-headset text-sm"></i>
+                        <span class="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 whitespace-nowrap rounded-lg bg-[#1D4069] px-2.5 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Support</span>
+                    </button>
+                </div>
 
 @auth
                     <div class="relative" x-data="{ accountOpen: false }">
                         <button @click="accountOpen = !accountOpen" type="button"
                                 class="flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-[#1D4069] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F07F22] transition-all duration-300 active:scale-95">
-                            <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[9px] font-black shrink-0">
-                                {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
-                            </span>
+                            <x-avatar :seed="auth()->user()->email" size="w-7 h-7" class="bg-white ring-2 ring-white/30" />
                             {{ Str::before(auth()->user()->name ?? 'Account', ' ') }}
                             <i class="fas fa-chevron-down text-[8px] transition-transform" :class="accountOpen ? 'rotate-180' : ''"></i>
                         </button>
 
-                        <div x-show="accountOpen"
-                             x-cloak
-                             @click.away="accountOpen = false"
-                             x-transition:enter="transition ease-out duration-150"
-                             x-transition:enter-start="opacity-0 -translate-y-1"
-                             x-transition:enter-end="opacity-100 translate-y-0"
-                             class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                       <div x-show="accountOpen"
+                            x-cloak
+                            @click.away="accountOpen = false"
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 -translate-y-1"
+                            x-transition:enter-end="opacity-100 translate-y-0"
+                            class="absolute right-0 mt-3 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+                            @if(\App\Support\CurrentOrganization::id())
+                                <a href="{{ route('organizer.home') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Events</a>
+                                <a href="{{ route('organizer.payments.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Payments</a>
+                            @endif
+                            @if(auth()->user()->isSuperAdmin())
+                                <a href="{{ route('filament.admin.pages.dashboard') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Admin</a>
+                                <a href="{{ route('ventiq.money.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">VENTIQ money</a>
+                            @endif
+                            <a href="{{ route('sessions.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Sessions</a>
+                            <a href="{{ route('programmes.index') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Programmes</a>
+                            <button type="button" @click="accountOpen = false; showAssist = true" class="block w-full text-left px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Ask Ventiq</button>
+                            @if(\App\Support\CurrentOrganization::id())
+                                <a href="{{ route('organizer.organization.edit') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Organization</a>
+                            @endif
+                            <a href="{{ route('organization.members') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">Team</a>
+                            <a href="{{ route('account.edit') }}" class="block px-5 py-3.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50 hover:text-[#F07F22] transition-colors">My account</a>
+                            <div class="border-t border-gray-100"></div>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit"
@@ -345,11 +397,17 @@
         @yield('content')
     </main>
 
-    <footer class="flex-none bg-white border-t border-gray-100 py-3 px-6">
+    {{-- Pages with their own phone tab bar (the organizer area) put it
+         here, under the scrolling content; the footer then shows only on
+         wider screens. --}}
+    @yield('bottom_bar')
+
+    <footer class="flex-none bg-white border-t border-gray-100 py-3 px-6 @hasSection('bottom_bar') hidden sm:block @endif">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">© {{ date('Y') }} VENTI<span class="text-[#F07F22]">Q</span> LESOTHO</p>
             <div class="flex gap-4 text-[10px] font-bold uppercase tracking-tight text-gray-500">
                 <button @click="showTerms = true" class="hover:text-[#F07F22]">Terms</button>
+                <a href="{{ route('privacy') }}" class="hover:text-[#F07F22]">Privacy</a>
                 <button @click="showChat = true" class="hover:text-[#F07F22]">Support</button>
             </div>
         </div>
@@ -511,6 +569,43 @@
     </div>
 
     {{-- =========================================================
+         ASK VENTIQ — floating, docked panel. Deliberately not a page:
+         a quick lookup shouldn't cost someone their place in whatever
+         they were doing. Org-scoped, so gated the same way the Sessions
+         desk itself is (superadmins have no organization_id).
+         ========================================================= --}}
+    @auth
+        @if(auth()->user()->organization_id)
+            <button @click="showAssist = !showAssist"
+                    class="fixed {{ View::hasSection('bottom_bar') ? 'bottom-20 sm:bottom-6' : 'bottom-6' }} right-6 z-[55] w-14 h-14 rounded-full bg-[#1D4069] hover:bg-[#F07F22] text-white shadow-xl flex items-center justify-center transition-all active:scale-95">
+                <i class="fas fa-wand-magic-sparkles text-lg" x-show="!showAssist"></i>
+                <i class="fas fa-times text-lg" x-show="showAssist" x-cloak></i>
+            </button>
+
+            <div x-show="showAssist"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-3"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 class="fixed {{ View::hasSection('bottom_bar') ? 'bottom-36 sm:bottom-24' : 'bottom-24' }} right-6 z-[55] w-[calc(100vw-3rem)] max-w-sm h-[520px] max-h-[70vh] bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+                 x-cloak>
+                <div class="flex items-center justify-between px-5 py-4 border-b shrink-0">
+                    <div>
+                        <p class="text-[13px] font-black text-[#1D4069] uppercase tracking-tight">Ask Ventiq</p>
+                        <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Search your sessions</p>
+                    </div>
+                    <button @click="showAssist = false" class="p-2 hover:bg-gray-50 rounded-full transition-colors text-gray-300">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex-1 min-h-0">
+                    @livewire('assist.chat-page')
+                </div>
+            </div>
+        @endif
+    @endauth
+
+    {{-- =========================================================
          TERMS MODAL
          ========================================================= --}}
     <div x-show="showTerms"
@@ -569,11 +664,11 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const loader = document.getElementById('page-loader');
-        const player = document.getElementById('loader-lottie');
         let dismissed = false;
 
         // Has this browser tab already seen VENTIQ boot up once this session?
-        const isWarmNavigation = sessionStorage.getItem('ventiq_booted') === '1';
+        let isWarmNavigation = false;
+        try { isWarmNavigation = sessionStorage.getItem('ventiq_booted') === '1'; } catch (e) {}
 
         function dismissLoader(fast = false) {
             if (dismissed) return;
@@ -583,25 +678,30 @@
             setTimeout(() => { document.body.style.overflow = ''; }, fast ? 150 : 300);
         }
 
-        if (isWarmNavigation) {
+        if (loader.classList.contains('greet')) {
+            // A browser's first visit: let the Lumela greeting play (about
+            // 1.8s), or skip it with a tap. Once only, ever.
+            try { sessionStorage.setItem('ventiq_booted', '1'); } catch (e) {}
+            loader.addEventListener('click', () => dismissLoader(true), { once: true });
+            setTimeout(() => dismissLoader(false), 1900);
+        } else if (isWarmNavigation) {
             // Internal navigation — user already knows the app is fast.
             // Skip the theatrics, dismiss almost immediately.
             dismissLoader(true);
         } else {
-            // Cold entry — first load this session. Let the lottie play properly.
-            sessionStorage.setItem('ventiq_booted', '1');
+            // Cold entry: a short hello, then the page. Never wait for images
+            // (window "load" waits for every poster on the page).
+            try { sessionStorage.setItem('ventiq_booted', '1'); } catch (e) {}
+            requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 250));
 
-            if (document.readyState === 'complete') {
-                requestAnimationFrame(() => setTimeout(() => dismissLoader(false), 150));
-            } else {
-                window.addEventListener('load', () => setTimeout(() => dismissLoader(false), 150));
-            }
-
-            // Safety net for cold loads only
+            // Safety net
             setTimeout(() => dismissLoader(false), 900);
         }
     });
 </script>
-@livewire('upgrade-package-modal')
+@if(config('constants.packages_for_sale'))
+    @livewire('upgrade-package-modal')
+@endif
+@livewireScripts
 </body>
 </html>

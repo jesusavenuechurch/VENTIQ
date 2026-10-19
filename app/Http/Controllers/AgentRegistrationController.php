@@ -50,7 +50,7 @@ class AgentRegistrationController extends Controller
             return response()->json([
                 'status'   => 'success',
                 'message'  => 'Welcome to VENTIQ! Please check your email to verify your account.',
-                'redirect' => route('filament.admin.auth.email-verification.prompt'),
+                'redirect' => route('verification.notice'),
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);

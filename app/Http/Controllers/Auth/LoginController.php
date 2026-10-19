@@ -12,7 +12,8 @@ class LoginController extends Controller
     public function show(Request $request)
     {
         return view('auth.login', [
-            'intent' => $request->query('intent', 'host'),
+            // No intent: IntentRedirect works out where this person belongs.
+            'intent' => in_array($request->query('intent'), ['session', 'host'], true) ? $request->query('intent') : null,
         ]);
     }
 

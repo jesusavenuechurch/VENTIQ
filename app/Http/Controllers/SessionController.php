@@ -7,122 +7,215 @@ use App\Models\Event;
 use App\Models\Participant;
 use App\Models\AiGenerationResult;
 use App\Jobs\GenerateSessionReport;
+use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class SessionController extends Controller
 {
-    public function index()
+    public function __construct(private SessionQuotaService $quota) {}
+
+    public function reports(Request $request)
     {
-        // Eager-load segments once here — the sticky notes need a
-        // presenter count and (for live sessions) which segment is
-        // active. Without this, each sticky would trigger its own
-        // query when it touches $session->segments.
+        // Super admins have no organization_id — Sessions is an org-scoped
+        // area, so send them to the admin panel instead of crashing.
+        if (!Auth::user()->organization_id) {
+            return redirect()->route('filament.admin.pages.dashboard');
+        }
+
+        $tab = $request->query('tab', 'needs_review');
+
+        $base = Session::forOrganization(Auth::user()->organization_id)->where('status', 'reported');
+
+        $reports = (clone $base)
+            ->when($tab === 'reviewed', fn ($q) => $q->whereNotNull('reviewed_at'))
+            ->when($tab !== 'reviewed', fn ($q) => $q->whereNull('reviewed_at'))
+            ->orderByDesc('date')
+            ->paginate(15);
+
+        $needsReviewCount = (clone $base)->whereNull('reviewed_at')->count();
+
+        return view('sessions.reports', compact('reports', 'tab', 'needsReviewCount'));
+    }
+
+    public function index(Request $request)
+    {
+        // Super admins have no organization_id — Sessions is an org-scoped
+        // area, so send them to the admin panel instead of crashing.
+        if (!Auth::user()->organization_id) {
+            return redirect()->route('filament.admin.pages.dashboard');
+        }
+
         $sessions = Session::forOrganization(Auth::user()->organization_id)
             ->with('segments')
             ->latest()
             ->get();
 
-        $hasFeature = Auth::user()->organization?->activePackages()
-            ->get()
-            ->contains(fn ($p) => $p->hasFeature('organizational_records')) ?? false;
+        $organization = Auth::user()->organization;
+        $plan         = $organization ? $this->quota->currentPlan($organization) : null;
 
-        // Attendee counts, batched in one query across every session
-        // that tracks participants — instead of a Participant::count()
-        // per sticky, which would be one query per session on this page.
-        $eventIds = $sessions->pluck('event_id')->filter()->unique()->values();
+        // Badge shows the subscription's own "this month" numbers — the
+        // natural customer mental model. Any PAYG top-up is what keeps
+        // hasSessionQuota() true even once these hit their limit.
+        $sessionsUsed      = $plan->sessions_used ?? 0;
+        $sessionsIncluded  = $plan->sessions_included ?? 0;
+        $sessionsRemaining = $organization ? $this->quota->remainingSessions($organization) : 0;
 
-        $participantCounts = $eventIds->isEmpty()
+        $sessionIds = $sessions->pluck('id');
+
+        $participantCounts = $sessionIds->isEmpty()
             ? collect()
-            : Participant::whereIn('event_id', $eventIds)
-                ->selectRaw('event_id, count(*) as aggregate')
-                ->groupBy('event_id')
-                ->pluck('aggregate', 'event_id');
+            : Participant::whereIn('session_id', $sessionIds)
+                ->selectRaw('session_id, count(*) as aggregate')
+                ->groupBy('session_id')
+                ->pluck('aggregate', 'session_id');
 
-        // Attach both as plain attributes so the view/partials can just
-        // read $session->attendee_count / $session->presenter_count —
-        // no guessing at relation names inside the blade files.
         $sessions->each(function ($session) use ($participantCounts) {
-            $session->attendee_count  = $session->event_id ? (int) ($participantCounts[$session->event_id] ?? 0) : null;
+            $session->attendee_count  = (int) ($participantCounts[$session->id] ?? 0);
             $session->presenter_count = $session->segments->count();
         });
 
-        $readyToReview = $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->report_last_opened_at);
+        $readyToReview = $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->reviewed_at);
         $happeningNow  = $sessions->filter(fn ($s) => $s->status === 'active');
         $comingUp      = $sessions->filter(fn ($s) => $s->status === 'draft');
-        $recentSessions = $sessions->diff($readyToReview)->diff($happeningNow)->diff($comingUp);
+        // Narrowed on purpose: this used to be "everything left over,"
+        // which silently mixed "finished, no report yet" with "reported
+        // and already reviewed" — two different things that need
+        // different actions. Reported sessions (either state) now live
+        // only in the permanent Reports archive, not here.
+        $recentSessions = $sessions->filter(fn ($s) => $s->status === 'completed');
 
-        return view('sessions.index', compact('sessions', 'hasFeature', 'readyToReview', 'happeningNow', 'comingUp', 'recentSessions'));
+        $needsReviewCount = $readyToReview->count();
+        $memberCount = $organization?->members()->count() ?? 0;
+        $pendingInviteCount = $organization?->invites()
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->count() ?? 0;
+
+        return view('sessions.index', compact(
+            'sessions', 'sessionsUsed', 'sessionsIncluded', 'sessionsRemaining', 'readyToReview', 'happeningNow', 'comingUp', 'recentSessions',
+            'organization', 'memberCount', 'pendingInviteCount', 'needsReviewCount'
+        ) + ['filter' => $request->query('filter')]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        // Presentation only for now — other types render disabled in the
-        // picker until they're actually built.
-        return view('sessions.create');
+        $programme = $request->query('event')
+            ? Event::where('id', $request->query('event'))
+                ->where('organization_id', Auth::user()->organization_id)
+                ->where('is_programme', true)
+                ->first()
+            : null;
+
+        return view('sessions.create', compact('programme'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'title'                 => 'required|string|max:255',
-            'presenters'            => 'nullable|array',
-            'presenters.*'          => 'nullable|string|max:255',
+            'type'                  => 'required|string|in:' . implode(',', \App\Support\SessionType::keys()),
+            'custom_type_label'     => 'nullable|string|max:255',
+            'date'                  => 'nullable|date',
+            'start_time'            => 'nullable|date_format:H:i',
+            'programme_id'          => 'nullable|integer|exists:events,id',
+            'people'                => 'nullable|array',
+            'people.*.name'         => 'nullable|string|max:255',
+            'people.*.role'         => 'nullable|string|max:255',
+            'people.*.presenting'   => 'nullable|boolean',
             'expected_duration'     => 'nullable|integer|min:1',
-            'judges'                => 'nullable|array',
-            'judges.*'              => 'nullable|string|max:255',
             'track_participants'    => 'nullable|boolean',
             'expected_participants' => 'nullable|integer|min:1',
         ]);
 
+        $organization = Auth::user()->organization;
+
+        if (!$this->quota->hasSessionQuota($organization)) {
+            return back()->withErrors([
+                'quota' => "You've used your included sessions. Add more sessions with PAYG or upgrade your plan.",
+            ])->withInput();
+        }
+
         $trackParticipants = $request->boolean('track_participants');
 
-        $presenterNames = collect($validated['presenters'] ?? [])
-            ->map(fn ($name) => trim((string) $name))
-            ->filter()
+        $sessionDate = $validated['date'] ?? now()->toDateString();
+        $sessionTime = $validated['start_time'] ?? now()->format('H:i');
+
+        $people = collect($validated['people'] ?? [])
+            ->map(fn ($p) => [
+                'name'       => trim($p['name'] ?? ''),
+                'role'       => $p['role'] ?? null,
+                'presenting' => filter_var($p['presenting'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            ])
+            ->filter(fn ($p) => $p['name'] !== '')
             ->values();
 
         $session = Session::create([
             'organization_id' => Auth::user()->organization_id,
             'created_by'      => Auth::id(),
-            'type'            => 'presentation',
+            'type'            => $validated['type'],
             'title'           => $validated['title'],
-            // Created for later, on purpose — status stays 'draft' until
-            // the workspace's own "Begin Capturing" action starts it.
+            'date'            => $sessionDate,
+            'start_time'      => $sessionTime,
             'status'          => 'draft',
             'meta'            => [
                 'expected_duration_minutes' => $validated['expected_duration'] ?? null,
-                'judges'                    => array_values(array_filter($validated['judges'] ?? [])),
                 'expected_participants'     => $trackParticipants ? ($validated['expected_participants'] ?? null) : null,
+                'custom_type_label'         => $validated['type'] === 'custom' ? ($validated['custom_type_label'] ?? null) : null,
             ],
         ]);
 
-        if ($trackParticipants) {
+        $this->quota->consumeSession($organization);
+
+        if (!empty($validated['programme_id'])) {
+            // Attaching to an existing Programme — verify ownership,
+            // never trust the posted id blindly. No new Event, no new
+            // public_token logic here: check-in still happens per
+            // Session (see the open Participant/event_id question),
+            // this just links the session into the Programme's Event.
+            $programme = Event::where('id', $validated['programme_id'])
+                ->where('organization_id', Auth::user()->organization_id)
+                ->where('is_programme', true)
+                ->first();
+
+            if ($programme) {
+                $session->update(['event_id' => $programme->id]);
+                if ($trackParticipants) {
+                    $session->update(['public_token' => Str::random(32), 'session_code' => Session::generateSessionCode()]);
+                }
+            }
+        } elseif ($trackParticipants) {
             $event = Event::create([
                 'organization_id' => Auth::user()->organization_id,
                 'name'            => $validated['title'],
-                'event_date'      => now(),
+                'event_date'      => "{$sessionDate} {$sessionTime}",
                 'is_public'       => false,
             ]);
-
-            $session->update([
-                'event_id'     => $event->id,
-                'public_token' => Str::random(32),
-            ]);
+            $session->update(['event_id' => $event->id, 'public_token' => Str::random(32), 'session_code' => Session::generateSessionCode()]);
         }
 
-        foreach ($presenterNames as $i => $name) {
+        foreach ($people as $i => $p) {
             $session->segments()->create([
-                'presenter_name' => $name,
+                'presenter_name' => $p['name'],
+                'role'           => $p['role'],
+                'is_presenting'  => $p['presenting'],
                 'order'          => $i,
                 'status'         => 'upcoming',
             ]);
         }
 
-        // Straight into the workspace, no interstitial screen — QR and
-        // the copy link live in the sidebar itself when tracking is on.
-        return redirect()->route('sessions.show', $session);
+        // Scheduled for today (or left blank, which defaults to today) —
+        // the organizer almost certainly means "start now," so drop them
+        // straight into capture. Scheduled for a future date — there's
+        // nothing to capture yet, so send them back to the desk where
+        // it'll show up under "Coming Up" instead.
+        if ($sessionDate === now()->toDateString()) {
+            return redirect()->route('sessions.show', $session);
+        }
+
+        return redirect()->route('sessions.index')
+            ->with('status', "\"{$session->title}\" scheduled for {$session->date->format('d M Y')}.");
     }
 
     public function show(Session $session)
@@ -131,9 +224,7 @@ class SessionController extends Controller
 
         $session->load('segments');
 
-        $participantCount = $session->event_id
-            ? Participant::where('event_id', $session->event_id)->count()
-            : 0;
+        $participantCount = Participant::where('session_id', $session->id)->count();
 
         return view('sessions.show', [
             'session'          => $session,
@@ -189,9 +280,7 @@ class SessionController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
-        $count = $session->event_id
-            ? Participant::where('event_id', $session->event_id)->count()
-            : 0;
+        $count = Participant::where('session_id', $session->id)->count();
 
         return response()->json(['count' => $count]);
     }
@@ -222,10 +311,10 @@ class SessionController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
-        // First view only — this is the entire "has anyone seen this"
-        // mechanism for now. Opening it is what clears it from
-        // "Ready to Review"; nothing else changes.
-        if ($session->status === 'reported' && !$session->report_last_opened_at) {
+        // Last-opened updates every time, unconditionally — this is now
+        // just a "have I looked at this recently" signal for a future
+        // "Continue reviewing" surface, not a gate on review status.
+        if ($session->status === 'reported') {
             $session->update(['report_last_opened_at' => now()]);
         }
 
@@ -234,13 +323,65 @@ class SessionController extends Controller
         return view('sessions.report', ['session' => $session]);
     }
 
+    public function markReviewed(Session $session)
+    {
+        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($session->status === 'reported', 400);
+
+        $session->update(['reviewed_at' => now()]);
+
+        $organization = $session->organization;
+
+        // Standalone from the thank-you+card, which already went out when
+        // the session ended (see SessionSegmentController::finish()). This
+        // is just "the notes are ready" — its own message, its own
+        // idempotency column, so it never gets confused with a re-send of
+        // the first one.
+        $participants = \App\Models\Participant::where('session_id', $session->id)
+            ->whereNull('report_notified_at')
+            ->with('client')
+            ->get();
+
+        foreach ($participants as $participant) {
+            // Email is a base feature on every tier, never quota-gated.
+            if ($participant->client?->email) {
+                \Illuminate\Support\Facades\Mail::to($participant->client->email)
+                    ->send(new \App\Mail\SessionReportReadyMail($participant));
+            }
+
+            // No WhatsApp provider configured yet — simulate on the
+            // frontend/logs so the flow is visible and testable now,
+            // swap this line for a real provider call later without
+            // touching anything else in this method.
+            if ($participant->client?->phone) {
+                if ($this->quota->hasWhatsappQuota($organization)) {
+                    \Illuminate\Support\Facades\Log::info("[SIMULATED WHATSAPP] To {$participant->client->phone}: Notes for {$session->resolved_title} are ready.");
+                    $this->quota->consumeWhatsapp($organization);
+                } else {
+                    \Illuminate\Support\Facades\Log::info("[SIMULATED WHATSAPP SKIPPED — quota exhausted] Would have notified {$participant->client->phone}");
+                }
+            }
+
+            $participant->update(['report_notified_at' => now()]);
+        }
+
+        return back()->with('status', $participants->isNotEmpty()
+            ? "Marked as reviewed — {$participants->count()} attendee(s) notified."
+            : 'Marked as reviewed.');
+    }
+
     public function reportStatus(Session $session)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
+        $failed = $session->report_job_id
+            ? \App\Models\AiGenerationResult::where('job_id', $session->report_job_id)->value('status') === 'failed'
+            : false;
+
         return response()->json([
             'status' => $session->status,
             'ready'  => $session->status === 'reported',
+            'failed' => $failed,
         ]);
     }
 

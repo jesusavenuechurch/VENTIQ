@@ -5,6 +5,8 @@ use function Pest\Livewire\livewire;
 
 describe('Agent Authorization — The Walls', function () {
 
+    beforeEach(fn () => $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class));
+
     it('agent cannot access package purchase resource URL directly', function () {
         [$agent, $user] = createApprovedAgent();
 

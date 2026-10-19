@@ -7,6 +7,10 @@ return [
         'info' => env('INFO_EMAIL', 'info@ventiq.co.ls'),
     ],
 
+    // Hours an unpaid ticket holds its place before it can expire. Events
+    // can override it (events.payment_window_hours). 0 = no deadline.
+    'payment_window_hours' => (int) env('VENTIQ_PAYMENT_WINDOW_HOURS', 48) ?: null,
+
     'company' => [
         'name' => 'VENTIQ',
         'tagline' => 'Smart Event Access for Lesotho',

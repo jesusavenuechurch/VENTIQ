@@ -10,7 +10,7 @@
                 you must configure your payment methods first so customers know where to send payments.
             </p>
             <div class="flex gap-3">
-                <a href="{{ route('filament.admin.resources.organization-payment-methods.create') }}" 
+                <a href="{{ \App\Filament\Resources\OrganizationPaymentMethodResource::getUrl('create') }}"
                    target="_blank"
                    class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg transition">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

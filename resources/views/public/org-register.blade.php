@@ -105,7 +105,7 @@
                         this.submitted = true;
                         setTimeout(() => this.setupStatus = 'Syncing security protocols...', 1200);
                         setTimeout(() => this.setupStatus = 'Preparing your dashboard...', 2400);
-                        setTimeout(() => window.location.replace(data.redirect || '/admin'), 4000);
+                        setTimeout(() => window.location.replace(data.redirect || '{{ route('verification.notice') }}'), 4000);
                     } else {
                         this.errorMessage = data.message || 'Validation failed.';
                         this.loading = false;
@@ -283,5 +283,6 @@
             </div>
         </div>
     </div>
+@include('partials.cookie-notice')
 </body>
 </html>

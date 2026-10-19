@@ -29,78 +29,41 @@ class RegistrationSummaryService
 
 public function buildData(): array
 {
-    $event = $this->event->load(['organization', 'tiers', 'tickets.tier', 'tickets.payments']);
+    $event = $this->event->load(['organization', 'tiers']);
 
-    $tickets       = $event->tickets;
-    $checkedIn     = $tickets->where('status', 'checked_in');
-    $complimentary = $tickets->where('is_complimentary', true);
-    $paid          = $tickets->where('is_complimentary', false);
+    // Counts people, not tickets (a group ticket for 3 is 3 people), and
+    // leaves out expired, cancelled and refunded tickets.
+    $tickets = $event->tickets()->whereIn('status', EventFinance::LIVE_STATUSES)->get();
+    $people  = fn ($set) => (int) $set->sum(fn ($t) => $t->admissions ?? 1);
 
-    // Per-tier breakdown
-    $tierBreakdown = $event->tiers->map(function ($tier) use ($tickets) {
+    $tierBreakdown = $event->tiers->map(function ($tier) use ($tickets, $people) {
         $tierTickets = $tickets->where('event_tier_id', $tier->id);
         return [
             'name'          => $tier->tier_name,
             'price'         => $tier->price,
-            'total'         => $tierTickets->count(),
-            'checked_in'    => $tierTickets->where('status', 'checked_in')->count(),
-            'complimentary' => $tierTickets->where('is_complimentary', true)->count(),
-            'paid'          => $tierTickets->where('is_complimentary', false)->count(),
+            'total'         => $people($tierTickets),
+            'checked_in'    => (int) $tierTickets->sum('admitted_count'),
+            'complimentary' => $people($tierTickets->where('is_complimentary', true)),
+            'paid'          => $people($tierTickets->where('is_complimentary', false)),
         ];
     });
 
-    // Per-tier revenue (for revenue section of blade)
-    $tierRevenue = $event->tiers->map(function ($tier) use ($tickets) {
-        $tierTickets = $tickets->where('event_tier_id', $tier->id)
-                               ->where('is_complimentary', false);
-        return [
-            'name'      => $tier->tier_name,
-            'price'     => $tier->price,
-            'sold'      => $tierTickets->count(),
-            'expected'  => $tierTickets->sum('amount'),
-            'collected' => $tierTickets->sum('amount_paid'),
-        ];
-    });
+    $totalPeople    = $people($tickets);
+    $admittedPeople = (int) $tickets->sum('admitted_count');
 
-    $totalExpected   = $paid->sum('amount');
-    $totalCollected  = $paid->sum('amount_paid');
+    // The revenue section reuses the revenue report's figures, so the two
+    // documents can't disagree.
+    $revenue = (new RevenueReportService($event))->buildData();
 
-    // Logo
-    [$logoBase64, $logoWarning] = $this->resolveLogo($event->organization);
-
-    return [
-        'event'            => $event,
-        'org'              => $event->organization,
-        'currency'         => config('constants.currency.symbol', 'LSL'),
-        'totalTickets'     => $tickets->count(),
-        'checkedIn'        => $checkedIn->count(),
-        'notCheckedIn'     => $tickets->count() - $checkedIn->count(),
-        'attendanceRate'   => $tickets->count() > 0
-            ? round(($checkedIn->count() / $tickets->count()) * 100, 1)
-            : 0,
-        'complimentary'    => $complimentary->count(),
-        'paid'             => $paid->count(),
-        'totalExpected'    => $totalExpected,
-        'totalCollected'   => $totalCollected,
-        'totalOutstanding' => $totalExpected - $totalCollected,
-        'collectionRate'   => $totalExpected > 0
-            ? round(($totalCollected / $totalExpected) * 100, 1)
-            : 0,
-        'compTickets'      => $complimentary->count(),
-        'compValue'        => $complimentary->count() * ($event->tiers->first()?->price ?? 0),
-        'paymentBreakdown' => [
-            'completed' => $paid->where('payment_status', 'completed')->count(),
-            'partial'   => $paid->where('payment_status', 'partial')->count(),
-            'pending'   => $paid->where('payment_status', 'pending')->count(),
-            'refunded'  => $paid->where('payment_status', 'refunded')->count(),
-        ],
-        'tierBreakdown'    => $tierBreakdown,
-        'tierRevenue'      => $tierRevenue,
-        'logoBase64'       => $logoBase64,
-        'logoWarning'      => $logoWarning,
-        'generatedAt'      => now()->format('d M Y, H:i'),
-        'generatedBy'      => auth()->user()?->name ?? 'System',
-    ];
+    return array_merge($revenue, [
+        'totalTickets'   => $totalPeople,
+        'checkedIn'      => $admittedPeople,
+        'notCheckedIn'   => $totalPeople - $admittedPeople,
+        'attendanceRate' => $totalPeople > 0 ? round($admittedPeople / $totalPeople * 100, 1) : 0,
+        'complimentary'  => $people($tickets->where('is_complimentary', true)),
+        'paid'           => $people($tickets->where('is_complimentary', false)),
+        'tierBreakdown'  => $tierBreakdown,
+    ]);
 }
 
     protected function resolveLogo($org): array

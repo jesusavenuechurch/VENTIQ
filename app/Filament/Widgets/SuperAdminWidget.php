@@ -2,6 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\OrganizationResource;
+use App\Filament\Resources\PackagePurchaseResource;
+use App\Filament\Resources\SettlementResource;
+use App\Filament\Resources\TicketResource;
 use App\Models\Organization;
 use App\Models\OrganizationPackage;
 use App\Models\PaymentSession;
@@ -78,7 +82,7 @@ class SuperAdminWidget extends Widget
                     'value'  => $pendingPackages,
                     'icon'   => 'heroicon-s-cube',
                     'color'  => '#F07F22',
-                    'route'  => 'filament.admin.resources.package-purchases.index',
+                    'url'    => PackagePurchaseResource::getUrl('index'),
                     'urgent' => $pendingPackages > 0,
                 ],
                 [
@@ -86,7 +90,7 @@ class SuperAdminWidget extends Widget
                     'value'  => $pendingTickets,
                     'icon'   => 'heroicon-s-clock',
                     'color'  => '#EF4444',
-                    'route'  => 'filament.admin.resources.tickets.index',
+                    'url'    => TicketResource::getUrl('index'),
                     'urgent' => $pendingTickets > 0,
                 ],
                 [
@@ -94,7 +98,7 @@ class SuperAdminWidget extends Widget
                     'value'  => 'M' . number_format($owedToOrgs, 0) . ' due',
                     'icon'   => 'heroicon-s-banknotes',
                     'color'  => '#10B981',
-                    'route'  => 'filament.admin.resources.settlements.index',
+                    'url'    => SettlementResource::getUrl('index'),
                     'urgent' => $owedToOrgs > 0,
                 ],
                 [
@@ -102,7 +106,7 @@ class SuperAdminWidget extends Widget
                     'value'  => $activeOrgs . ' active',
                     'icon'   => 'heroicon-s-building-office',
                     'color'  => '#1D4069',
-                    'route'  => 'filament.admin.resources.organizations.index',
+                    'url'    => OrganizationResource::getUrl('index'),
                     'urgent' => false,
                 ],
             ],
