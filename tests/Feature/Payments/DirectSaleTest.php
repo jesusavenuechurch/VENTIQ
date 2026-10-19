@@ -21,7 +21,7 @@ beforeEach(function () {
 
 it('sells a ticket for cash: active, paid to the organizer, its fee invoiced', function () {
     $this->actingAs($this->admin)->get(route('organizer.events.comp.create', [$this->event, 'kind' => 'sold']))
-        ->assertOk()->assertSee('Issue a ticket')->assertSee('Paid with')->assertSee("kind: 'sold'", false);
+        ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/IssueTicket')->where('kind', 'sold'));
 
     $this->actingAs($this->admin)->post(route('organizer.events.comp.store', $this->event), [
         'kind' => 'sold', 'event_tier_id' => $this->tier->id, 'full_name' => 'Lineo Mokoena', 'phone' => '58123456',

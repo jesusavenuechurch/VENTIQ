@@ -10,6 +10,7 @@ use App\Support\{Phone, TierCapacity};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 use InvalidArgumentException;
 
 /**
@@ -24,16 +25,22 @@ class TicketsController extends Controller
     {
         $this->authorizeEvent($request, $event);
 
-        $tiers = $event->tiers()->orderBy('price')->get()
-            ->each(fn ($tier) => $tier->setAttribute('is_full', !TierCapacity::hasRoom($tier)));
-
-        return view('organizer.comp', [
-            'event'   => $event,
-            'tiers'   => $tiers,
-            'kind'    => old('kind', $request->query('kind') === 'sold' ? 'sold' : 'comp'),
-            'methods' => DirectSaleService::METHODS,
-            'feeEach' => (float) config('constants.fees.operational_per_person'),
-            'feePercent' => (float) config('constants.fees.service_percent'),
+        return Inertia::render('Organizer/IssueTicket', [
+            'event'      => ['id' => $event->id, 'name' => $event->name, 'feesSponsored' => (bool) $event->fees_sponsored, 'status' => $event->status],
+            'tiers'      => $event->tiers()->orderBy('price')->get()->map(fn ($tier) => [
+                'id'     => $tier->id,
+                'name'   => $tier->tier_name,
+                'price'  => (float) $tier->price,
+                'admits' => max(1, (int) ($tier->quantity_per_purchase ?? 1)),
+                'full'   => !TierCapacity::hasRoom($tier),
+            ])->values(),
+            'kind'       => $request->query('kind') === 'sold' ? 'sold' : 'comp',
+            'methods'    => DirectSaleService::METHODS,
+            'fees'       => [
+                'percent'   => (float) config('constants.fees.service_percent'),
+                'perPerson' => (float) config('constants.fees.operational_per_person'),
+            ],
+            'meta'       => ['title' => "Issue a ticket · {$event->name} | VENTIQ"],
         ]);
     }
 
@@ -65,7 +72,7 @@ class TicketsController extends Controller
                 ? $sales->sell($event, $tier, $guest, $request->user(), $data['method'] ?? 'cash', $data['reference'] ?? null, $request->boolean('send_whatsapp'))
                 : $comps->issue($event, $tier, $guest, $request->user(), $data['reason'] ?? null, $request->boolean('send_whatsapp'));
         } catch (InvalidArgumentException $e) {
-            return back()->withInput()->withErrors(['event_tier_id' => $e->getMessage()]);
+            return back()->withErrors(['event_tier_id' => $e->getMessage()]);
         }
 
         $sent = $request->boolean('send_whatsapp') ? ' Their ticket is on its way on WhatsApp.' : '';
