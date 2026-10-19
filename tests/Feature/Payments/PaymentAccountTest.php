@@ -110,11 +110,11 @@ it('shows attendees only the event\'s accounts, labelled by account name', funct
 
     $this->get("/ticket/{$ticket->qr_code}/pay")
         ->assertOk()
-        ->assertSee('EcoCash — Events Account')
-        ->assertSee('Conference Account')
-        ->assertDontSee('Main Account')
-        ->assertSee('pay directly to the organizer')
-        ->assertSee('Payment processed securely through VENTIQ');
+        ->assertInertia(fn ($page) => $page->component('Tickets/Pay')
+            ->where('accounts', fn ($accounts) => collect($accounts)->pluck('label')->contains('EcoCash — Events Account')
+                && collect($accounts)->pluck('label')->contains(fn ($l) => str_contains($l, 'Conference Account'))
+                && !collect($accounts)->pluck('label')->contains(fn ($l) => str_contains($l, 'Main Account')))
+            ->where('online.methods', fn ($methods) => count($methods) > 0));
 });
 
 it('accepts a payment to an older active account but not to an archived one', function () {

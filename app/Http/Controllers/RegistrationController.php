@@ -123,9 +123,8 @@ class RegistrationController extends Controller
                     $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
                 }
 
-                session()->flash('status', "Welcome back! Here's the ticket you started, ready to pay.");
-
-                return \Inertia\Inertia::location(route('ticket.pay', $held->qr_code));
+                return redirect()->route('ticket.pay', $held->qr_code)
+                    ->with('status', "Welcome back! Here's the ticket you started, ready to pay.");
             }
         }
 
@@ -268,14 +267,11 @@ class RegistrationController extends Controller
             }
 
             // ── Route: paid tickets go to the payment screen, free tickets go straight to confirmation ──
-            // Full page loads while the payment and confirmation pages are Blade.
             if (!$isFree) {
-                return \Inertia\Inertia::location(route('ticket.pay', $createdTickets[0]->qr_code));
+                return redirect()->route('ticket.pay', $createdTickets[0]->qr_code);
             }
 
-            session()->flash('all_tickets', $createdTickets);
-
-            return \Inertia\Inertia::location(route('ticket.registered', $createdTickets[0]->qr_code));
+            return redirect()->route('ticket.registered', $createdTickets[0]->qr_code)->with('all_tickets', $createdTickets);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -395,7 +391,42 @@ class RegistrationController extends Controller
         $merchantReference = \Illuminate\Support\Str::after((string) $ticket->voucher_code, 'VQ-');
         $paidFrom = \App\Services\MobileMoney\MobileMoneyInbox::localPhone($ticket->client?->phone);
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'merchantReference', 'paidFrom', 'owed', 'anotherWay'));
+        $amount = (float) $ticket->amount;
+        $percent = (float) $event->minimum_deposit_percentage;
+
+        return \Inertia\Inertia::render('Tickets/Pay', [
+            'ticket'        => \App\Support\TicketPage::ticket($ticket),
+            'owed'          => $owed,
+            'online'        => [
+                'methods'      => array_values($onlineMethods),
+                'attemptsLeft' => $attemptsLeft,
+                'maxAttempts'  => (int) config('gateways.paylesotho.max_attempts', 3),
+                'waitSeconds'  => (int) config('gateways.paylesotho.page_wait_seconds', 90),
+                // A push still on the attendee's phone (the page was reloaded).
+                'inFlight'     => $inFlight ? ['id' => $inFlight->id, 'elapsed' => (int) $inFlight->created_at->diffInSeconds(now())] : null,
+                'phone'        => $paidFrom,
+            ],
+            'byHand'        => (bool) $byHand,
+            'anotherWay'    => $anotherWay,
+            'merchant'      => $merchant,
+            'merchantReference' => $merchantReference,
+            // The organizer's own accounts (only on events VENTIQ sponsors).
+            'accounts'      => $paymentMethods->map(fn ($m) => [
+                'id'           => $m->id,
+                'label'        => $m->display_label,
+                'isCash'       => $m->payment_method === 'cash',
+                'accountLabel' => config("constants.payment_methods.{$m->payment_method}.account_label") ?: 'Send to',
+                'number'       => $m->payment_method !== 'cash' ? $m->account_number : null,
+                'instructions' => $m->instructions,
+            ])->values(),
+            // Paying a deposit first, when the event allows it and nothing's been paid.
+            'installments'  => $event->allow_installments && (float) $ticket->amount_paid <= 0 ? [
+                'percent'    => $percent,
+                'minDeposit' => round($amount * $percent / 100, 2),
+                'full'       => $amount,
+            ] : null,
+            'meta'          => ['title' => "Payment | {$event->name} - {$organization->name}"],
+        ]);
     }
 
     /** The pay page opened on paying directly (organizer's account or VENTIQ's merchant) and sending proof. */
