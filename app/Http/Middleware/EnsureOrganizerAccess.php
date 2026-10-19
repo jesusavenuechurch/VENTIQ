@@ -20,7 +20,7 @@ class EnsureOrganizerAccess
 
         if (!$organization) {
             if ($request->user()?->isSuperAdmin()) {
-                return redirect()->route('filament.admin.organization.resources.organizations.index');
+                return redirect()->route('ventiq.organizations.index');
             }
 
             abort(403);

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Lets a super admin open the organizer area for one organization, to
- * help or correct things on its behalf, and get back to Filament after.
+ * help or correct things on its behalf, and get back to the admin after.
  */
 class ActAsController extends Controller
 {
@@ -28,6 +28,6 @@ class ActAsController extends Controller
     {
         $request->session()->forget(CurrentOrganization::SESSION_KEY);
 
-        return redirect()->route('filament.admin.organization.resources.organizations.index');
+        return redirect()->route('ventiq.organizations.index');
     }
 }

@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { ArrowUpRight, Banknote, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, Banknote, Building2, type LucideIcon, UsersRound } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { AppLink } from '@/components/app-link';
 import { Alert } from '@/components/ui/alert';
@@ -16,6 +16,8 @@ interface Section {
 /** VENTIQ's own admin, section by section as each leaves Filament. */
 const SECTIONS: Section[] = [
     { route: 'ventiq.money.index', label: 'Money', icon: Banknote, active: ['ventiq.money.*'] },
+    { route: 'ventiq.organizations.index', label: 'Organizations', icon: Building2, active: ['ventiq.organizations.*'] },
+    { route: 'ventiq.users.index', label: 'Users', icon: UsersRound, active: ['ventiq.users.*'] },
 ];
 
 /**

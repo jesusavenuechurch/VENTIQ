@@ -338,6 +338,12 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/sms/{message}', [App\Http\Controllers\VentiqMoneyController::class, 'decideSms'])->name('sms.decide');
 });
 
+// VENTIQ's own admin (super admins), section by section as each leaves Filament.
+Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->group(function () {
+    Route::resource('organizations', App\Http\Controllers\Ventiq\OrganizationsController::class)->except('show');
+    Route::resource('users', App\Http\Controllers\Ventiq\UsersController::class)->except('show');
+});
+
 // Ask Ventiq's panel on the React pages (organization users).
 Route::middleware(['auth', 'throttle:60,1'])->prefix('assist')->name('assist.')->group(function () {
     Route::get('/messages', [App\Http\Controllers\AssistController::class, 'index'])->name('messages');
