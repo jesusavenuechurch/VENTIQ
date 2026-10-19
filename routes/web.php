@@ -20,7 +20,6 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\SessionSegmentController;
 use App\Http\Controllers\PublicSessionCheckinController;
 use App\Http\Controllers\SessionParticipantController;
-use App\Http\Controllers\OrganizationMemberController;
 use App\Http\Controllers\OrganizationInviteAcceptController;    
 use App\Http\Controllers\ProgrammeController;
 use App\Http\Controllers\PayLesothoController;
@@ -298,8 +297,6 @@ Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store']
 
 Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
     Route::get('/members', fn () => redirect()->route('organizer.team.index'))->name('members');
-    Route::post('/invite', [OrganizationMemberController::class, 'invite'])->name('invite.store');
-    Route::delete('/invite/{invite}', [OrganizationMemberController::class, 'revoke'])->name('invite.revoke');
     Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->name('session-plan.payment');
 });
  

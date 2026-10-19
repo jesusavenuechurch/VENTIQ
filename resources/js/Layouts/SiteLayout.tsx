@@ -49,7 +49,7 @@ export default function SiteLayout({ children, bottomBar }: { children: React.Re
             ['Sessions', route('sessions.index')],
             ['Programmes', route('programmes.index')],
             ...(org ? ([['Organization', route('organizer.organization.edit')]] as [string, string][]) : []),
-            ['Team', route('organization.members')],
+            ['Team', route('organizer.team.index')],
             ['My account', route('account.edit')],
         ]
         : [];
