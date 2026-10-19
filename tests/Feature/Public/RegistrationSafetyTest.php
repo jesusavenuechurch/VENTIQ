@@ -91,7 +91,8 @@ it('shows the balance and the account paid to on the confirmation page', functio
     $account = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_name' => 'Events', 'account_number' => '62000000', 'is_active' => true]);
     $ticket->payments()->first()->update(['organization_payment_method_id' => $account->id, 'submitted_at' => now()]);
 
-    $this->get(route('ticket.registered', $ticket->qr_code))->assertSee('Balance left')->assertSee('M140.00')->assertSee('62000000');
+    $this->get(route('ticket.registered', $ticket->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Confirmation')
+        ->where('partlyPaid', true)->where('toPay', 140)->where('paidTo.number', '62000000'));
 });
 
 it('closes registration once the event day is over, but not on the day', function () {

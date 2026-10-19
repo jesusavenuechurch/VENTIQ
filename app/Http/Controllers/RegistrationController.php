@@ -325,7 +325,35 @@ class RegistrationController extends Controller
             $paymentMethodDetails = null;
         }
 
-        return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets', 'byHand'));
+        $completed = $ticket->payment_status === 'completed';
+        $phone = $ticket->client?->phone;
+
+        return \Inertia\Inertia::render('Tickets/Confirmation', [
+            'ticket'     => \App\Support\TicketPage::ticket($ticket),
+            'completed'  => $completed,
+            // Everyone registered together: a group shows each of its tickets.
+            'tickets'    => $allTickets->map(fn (Ticket $t) => [
+                'number'     => $t->ticket_number,
+                'holderName' => $t->holder_name,
+                'admissions' => (int) ($t->admissions ?? 1),
+                'tier'       => $t->tier?->tier_name,
+                'link'       => route('ticket.download', $t->qr_code),
+            ])->values(),
+            'toPay'      => round(max(0, (float) $allTickets->sum('amount') - (float) $allTickets->sum('amount_paid')), 2),
+            'partlyPaid' => (float) $allTickets->sum('amount_paid') > 0,
+            'byHand'     => $byHand,
+            'paidTo'     => $paymentMethodDetails ? [
+                'label'        => $paymentMethodDetails->display_label,
+                'number'       => $paymentMethodDetails->account_number,
+                'instructions' => $paymentMethodDetails->instructions,
+            ] : null,
+            'sentTo'     => $completed ? [
+                'email'    => $ticket->client?->email,
+                'whatsapp' => $ticket->has_whatsapp && $phone ? '+266 ' . str_replace('+266', '', $phone) : null,
+            ] : null,
+            'eventUrl'   => route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]),
+            'meta'       => ['title' => "Protocol Status | {$event->name}"],
+        ]);
     }
 
     /**
