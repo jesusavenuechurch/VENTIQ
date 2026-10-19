@@ -342,6 +342,10 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
 Route::middleware(['auth', 'throttle:60,1'])->prefix('assist')->name('assist.')->group(function () {
     Route::get('/messages', [App\Http\Controllers\AssistController::class, 'index'])->name('messages');
     Route::post('/messages', [App\Http\Controllers\AssistController::class, 'store'])->middleware('throttle:10,1')->name('ask');
+    // Writing an event's description on the event form.
+    Route::get('/event-content', [App\Http\Controllers\EventContentController::class, 'latest'])->name('event-content.latest');
+    Route::post('/event-content', [App\Http\Controllers\EventContentController::class, 'store'])->middleware('throttle:10,1')->name('event-content.store');
+    Route::get('/event-content/{jobId}', [App\Http\Controllers\EventContentController::class, 'show'])->name('event-content.show');
 });
 
 Route::middleware('auth')->group(function () {

@@ -88,7 +88,7 @@ it('deletes an event nobody registered for, and refuses once people have', funct
     $client = Client::create(['organization_id' => $this->org->id, 'full_name' => 'Guest', 'phone' => '+26650000001']);
     Ticket::create(['event_id' => $busy->id, 'client_id' => $client->id, 'event_tier_id' => $busy->tiers()->first()->id, 'status' => 'active', 'payment_status' => 'completed', 'amount' => 0]);
 
-    $this->get(route('organizer.events.edit', $busy))->assertSee("can't be deleted", false);
+    $this->get(route('organizer.events.edit', $busy))->assertInertia(fn ($page) => $page->where('event.hasTickets', true));
     $this->delete(route('organizer.events.destroy', $busy))->assertSessionHas('status', fn ($s) => str_contains($s, 'Cancelled'));
     expect(Event::find($busy->id))->not->toBeNull();
 

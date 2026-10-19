@@ -9,4 +9,5 @@ export const REACT_ROUTES = new Set<string>([
     'public.event', 'event.short', 'registration.form',
     'organizer.home', 'organizer.payments.index', 'organizer.accounts.index',
     'organizer.organization.edit', 'organizer.payout.edit', 'organizer.team.index', 'organizer.setup',
+    'organizer.events.create', 'organizer.events.edit',
 ]);

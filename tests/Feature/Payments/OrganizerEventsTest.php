@@ -53,12 +53,13 @@ function paidForm(object $t, array $overrides = []): array
 
 describe('creating events', function () {
     it('opens the form saying payments come to VENTIQ, not the organizer\'s accounts', function () {
+        // The form says "Payments come to VENTIQ" when the event isn't sponsored.
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
             ->assertOk()
-            ->assertSee('Create an event')
-            ->assertSee('Payments come to VENTIQ')
-            ->assertSee('Write it with Ventiq Assist')
-            ->assertDontSee('EcoCash — Events Account');
+            ->assertInertia(fn ($page) => $page->component('Organizer/EventForm')
+                ->where('event.id', null)
+                ->where('event.feesSponsored', false)
+                ->where('statuses', ['draft' => 'Save as draft', 'published' => 'Publish now']));
     });
 
     it('creates a free event with a Free ticket', function () {
@@ -147,9 +148,11 @@ describe('editing events', function () {
     });
 
     it('shows the event with its ticket types and payment options', function () {
-        $page = $this->get(route('organizer.events.edit', $this->event))
-            ->assertOk()->assertSee('Edit event')->assertSee('Table of 3');
-        expect($page->getContent())->toMatch('/value="ecocash" x-model="methods"\s+checked/');
+        $this->get(route('organizer.events.edit', $this->event))
+            ->assertOk()->assertSee('Table of 3')
+            ->assertInertia(fn ($page) => $page->component('Organizer/EventForm')
+                ->where('event.id', $this->event->id)
+                ->where('onlineMethods', fn ($m) => collect($m)->contains('ecocash')));
     });
 
     it('updates details and ticket types, removing an unsold type', function () {
@@ -183,7 +186,7 @@ describe('editing events', function () {
         expect((bool) $this->table->fresh()->is_active)->toBeFalse()
             ->and($this->event->fresh()->payment_mode)->toBe('paid');
 
-        $this->get(route('organizer.events.edit', $this->event))->assertSee('can no longer switch between free and paid');
+        $this->get(route('organizer.events.edit', $this->event))->assertInertia(fn ($page) => $page->where('modeLocked', true));
     });
 
     it('hides other organizations\' events', function () {
@@ -284,7 +287,9 @@ describe('online payment methods', function () {
 
     it('shows every method, with the ones not live yet as coming soon', function () {
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
-            ->assertOk()->assertSee('EcoCash')->assertSee('M-Pesa')->assertSee('Card')->assertSee('Coming soon');
+            ->assertOk()->assertInertia(fn ($page) => $page
+                ->where('onlineCatalog', ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'card' => 'Card'])
+                ->where('onlineDrivers', ['ecocash']));
     });
 
     it('stores the chosen methods, and attendees are offered only those that are live', function () {

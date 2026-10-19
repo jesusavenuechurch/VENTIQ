@@ -28,6 +28,8 @@ page has moved; then Filament, Livewire and Alpine are removed.
 - **Tests** check the page and its props:
   `->assertInertia(fn ($page) => $page->component('Tickets/Find')->where(...))`.
   A page a controller names must exist (`ensure_pages_exist`).
+- **Confirm before something final** with `ConfirmDialog` (`components/confirm-dialog`), not `confirm()`.
+- **A form whose save comes back to the same page** (the event form) uses `preserveState: 'errors'`, so after saving it starts again from the server's data.
 - **Emails and PDFs stay Blade.**
 
 ## Checking your work
@@ -40,7 +42,7 @@ page has moved; then Filament, Livewire and Alpine are removed.
 |---|---|---|
 | 1. Foundation | Find my ticket | Done |
 | 2. Attendee pages | Event page, registration (and its closed and error pages), payment (PIN prompt, EcoCash by hand, organizer accounts), confirmation, the ticket pass, inactive ticket, moved link | Done |
-| 3. Organizer area | Starts with the site layout (`layouts.app`: navigation, search, contact, Ventiq Assist), which 35 Blade pages share; then the organizer pages, and Browse events | Next |
+| 3. Organizer area | Done: site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`). Still Blade: attendees and money, issue a ticket, guest list, event day, Browse events | In progress |
 | 4. VENTIQ admin | Money page, then each Filament resource | |
 | 5. The rest | Sessions, auth, home, about, pricing, terms, privacy, an organization's own events page | |
 | 6. Removal | Filament, Livewire, Alpine | |
