@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if($noindex ?? false)<meta name="robots" content="noindex">@endif
     {{-- Link previews (WhatsApp, Facebook) read the HTML the server sends,
          not what React renders, so a page's preview is set here from its
          `meta` prop. --}}

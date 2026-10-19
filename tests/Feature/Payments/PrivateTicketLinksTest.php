@@ -41,7 +41,8 @@ it('sends a new registration to its private link', function () {
 it('shows nothing at an old numbered link, and only emails the link to the ticket\'s owner', function () {
     $old = "/register/{$this->org->slug}/{$this->event->slug}/payment/{$this->ticket->id}";
 
-    $this->get($old)->assertOk()->assertSee('new private link')->assertSee('l•••')
+    $this->get($old)->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Tickets/LinkMoved')->where('maskedEmail', fn ($e) => str_starts_with($e, 'l•••')))
         ->assertDontSee('Lerato')->assertDontSee($this->ticket->qr_code)->assertDontSee('lerato@example.com');
     $this->get("/register/{$this->org->slug}/{$this->event->slug}/confirmation/{$this->ticket->id}")->assertOk()->assertDontSee('Lerato');
     $this->get("/installment/{$this->ticket->id}")->assertOk()->assertDontSee('Lerato');

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ticket;
+use App\Support\TicketPage;
+use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -22,13 +24,20 @@ class TicketDownloadController extends Controller
         // says plainly that it won't scan yet (or any more) and what to do.
         if (!in_array($ticket->status, ['active', 'checked_in'], true)) {
             $ticket->loadMissing(['event.organization', 'payments']);
+            $submitted = $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at)
+                || \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
+                    ->where('status', 'pending')->where('created_at', '>', now()->subDay())->exists();
 
-            return view('tickets.inactive', [
-                'ticket'     => $ticket,
-                'submitted'  => $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at)
-                    || \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
-                        ->where('status', 'pending')->where('created_at', '>', now()->subDay())->exists(),
-                'paymentUrl' => route('ticket.pay', $ticket->qr_code),
+            return Inertia::render('Tickets/Inactive', [
+                'ticket'      => TicketPage::ticket($ticket),
+                'state'       => TicketPage::inactiveState($ticket, $submitted),
+                'submitted'   => $submitted,
+                'paymentUrl'  => route('ticket.pay', $ticket->qr_code),
+                // An expired place can be taken again while registration is open.
+                'registerUrl' => $ticket->status === 'expired' && !$ticket->event->registrationClosedReason()
+                    ? route('registration.form', [$ticket->event->organization->slug, $ticket->event->slug])
+                    : null,
+                'meta'        => ['title' => "Your ticket: {$ticket->event->name} | VENTIQ"],
             ]);
         }
 
@@ -52,9 +61,11 @@ class TicketDownloadController extends Controller
             }
         }
 
-        return view('tickets.download', [
-            'ticket' => $ticket,
-            'qrCode' => $qrCode,
+        return Inertia::render('Tickets/Pass', [
+            'ticket' => TicketPage::ticket($ticket),
+            'qrUrl'  => route('ticket.qr', $ticket->qr_code),
+            'pdfUrl' => route('ticket.avatar.download', $qrCode),
+            'meta'   => ['title' => "Ventiq Pass: {$ticket->event->name}"],
         ]);
     }
 

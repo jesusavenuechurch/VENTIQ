@@ -28,7 +28,8 @@ it('keeps the place while an online payment waits for confirmation', function ()
     $this->artisan('tickets:expire-unpaid')->assertSuccessful();
     expect($this->ticket->fresh()->status)->toBe('pending');
 
-    $this->get(route('ticket.download', $this->ticket->qr_code))->assertSee('being confirmed');
+    $this->get(route('ticket.download', $this->ticket->qr_code))
+        ->assertInertia(fn ($page) => $page->component('Tickets/Inactive')->where('state.headline', 'Payment being confirmed'));
 });
 
 it('lets a super admin confirm a payment found on the merchant statement', function () {

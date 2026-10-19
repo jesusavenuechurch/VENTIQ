@@ -260,13 +260,17 @@ describe('tickets before they are active', function () {
         $ticket = workflowTicket($this, ['payment_due_at' => now()->addDay()]);
 
         $this->get(route('ticket.download', $ticket->qr_code))
-            ->assertOk()->assertSee('Inactive — awaiting payment')->assertSee('Pay by')->assertDontSee('Scan at Entrance');
+            ->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Inactive')
+                ->where('state.headline', 'Inactive — awaiting payment')
+                ->where('ticket.paymentDueAt', $ticket->payment_due_at->format('d M Y, H:i'))
+                ->missing('qrUrl'));
     });
 
     it('says when an expired ticket has lost its place', function () {
         $ticket = workflowTicket($this, ['status' => 'expired']);
 
-        $this->get(route('ticket.download', $ticket->qr_code))->assertOk()->assertSee('Payment window ended');
+        $this->get(route('ticket.download', $ticket->qr_code))->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Tickets/Inactive')->where('state.headline', 'Payment window ended'));
     });
 
     it('holds a place for unpaid tickets until they expire', function () {

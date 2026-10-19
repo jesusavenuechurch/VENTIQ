@@ -107,5 +107,18 @@ it('sends an expired ticket to its page, which offers to register again', functi
     $ticket->update(['status' => 'expired']);
 
     $this->get(route('ticket.pay', $ticket->qr_code))->assertRedirect(route('ticket.download', $ticket->qr_code));
-    $this->get(route('ticket.download', $ticket->qr_code))->assertSee('No payment is needed')->assertSee('Register again');
+    $this->get(route('ticket.download', $ticket->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Inactive')
+        ->where('state.body', fn ($body) => str_contains($body, 'No payment is needed'))
+        ->where('registerUrl', route('registration.form', [$ticket->event->organization->slug, $ticket->event->slug])));
+});
+
+it('shows an active ticket as its pass, with its QR and entry code', function () {
+    ($this->register)();
+    $ticket = Ticket::sole();
+    $ticket->update(['status' => 'active', 'payment_status' => 'completed']);
+
+    $this->get(route('ticket.download', $ticket->qr_code))->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Pass')
+        ->where('ticket.voucherCode', $ticket->voucher_code)
+        ->where('ticket.event.name', $ticket->event->name)
+        ->where('qrUrl', route('ticket.qr', $ticket->qr_code)));
 });
