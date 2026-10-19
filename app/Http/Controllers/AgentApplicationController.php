@@ -7,6 +7,7 @@ use App\Mail\AgentApplicationReceived;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Models\User;
@@ -90,30 +91,36 @@ class AgentApplicationController extends Controller
         ]);
     }
 
+    /**
+     * Set a password from an emailed reset link. The broker checks the
+     * token belongs to this email and hasn't expired or been used; nothing
+     * changes otherwise.
+     */
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
+            'token'    => 'required',
+            'email'    => 'required|email',
             'password' => 'required|min:8|confirmed',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $signedIn = null;
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) use (&$signedIn) {
+                $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60)])->save();
+                $signedIn = $user;
+            },
+        );
 
-        if (!$user) {
-            return back()->withErrors(['email' => 'User protocol not found.']);
+        if ($status !== Password::PASSWORD_RESET) {
+            return back()->withErrors(['email' => 'That link has expired or was already used. Ask for a new one from the sign-in page.']);
         }
 
-        // Secure the account
-        $user->update([
-            'password' => Hash::make($request->password),
-        ]);
+        Auth::login($signedIn);
+        $request->session()->regenerate();
 
-        // Authorize immediately
-        Auth::login($user);
-
-        // Redirect to Filament dashboard
-        return redirect()->intended('/admin');
+        return redirect()->to(\App\Support\IntentRedirect::resolve(null));
     }
 
 }
