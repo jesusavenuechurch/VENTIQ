@@ -37,6 +37,8 @@ export function DataTable<T>({
     empty = 'Nothing here yet.',
     toolbar,
     only,
+    rowId,
+    bulk,
 }: {
     rows: Paginated<T>;
     columns: Column<T>[];
@@ -47,8 +49,18 @@ export function DataTable<T>({
     toolbar?: React.ReactNode;
     /** Props to reload on a change (default: all). */
     only?: string[];
+    /** With bulk: each row's id, for picking rows. */
+    rowId?: (row: T) => number;
+    /** Actions on the picked rows; call clear() once done. */
+    bulk?: (ids: number[], clear: () => void) => React.ReactNode;
 }) {
     const [q, setQ] = useState(state.q);
+    const [picked, setPicked] = useState<number[]>([]);
+    const selectable = !!(bulk && rowId);
+    const pageIds = selectable ? rows.data.map(rowId!) : [];
+    const allPicked = pageIds.length > 0 && pageIds.every((id) => picked.includes(id));
+    // A new page, sort or search starts with nothing picked.
+    useEffect(() => setPicked([]), [rows]);
     const first = useRef(true);
 
     const visit = (change: Partial<{ q: string; sort: string | null; dir: string; filters: Record<string, string> }>) => {
@@ -105,11 +117,24 @@ export function DataTable<T>({
                 {toolbar}
             </div>
 
+            {selectable && picked.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-brand px-4 py-3 text-white">
+                    <span className="mr-2 text-[11px] font-black uppercase tracking-widest">{picked.length} picked</span>
+                    {bulk!(picked, () => setPicked([]))}
+                    <button type="button" onClick={() => setPicked([])} className="ml-auto text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white">Clear</button>
+                </div>
+            )}
+
             <div className="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white shadow-sm">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((group) => (
                             <TableRow key={group.id} className="hover:bg-transparent">
+                                {selectable && (
+                                    <TableHead className="w-10">
+                                        <input type="checkbox" aria-label="Pick every row on this page" checked={allPicked} onChange={(e) => setPicked(e.target.checked ? pageIds : [])} className="size-4 accent-action" />
+                                    </TableHead>
+                                )}
                                 {group.headers.map((header) => {
                                     const meta = (header.column.columnDef as Column<T>).meta;
                                     const sortKey = meta?.sort;
@@ -136,11 +161,25 @@ export function DataTable<T>({
                     <TableBody>
                         {table.getRowModel().rows.length === 0 ? (
                             <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={columns.length} className="py-12 text-center text-[13px] font-bold text-gray-400">{empty}</TableCell>
+                                <TableCell colSpan={columns.length + (selectable ? 1 : 0)} className="py-12 text-center text-[13px] font-bold text-gray-400">{empty}</TableCell>
                             </TableRow>
                         ) : (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id}>
+                                <TableRow key={row.id} data-state={selectable && picked.includes(rowId!(row.original)) ? 'selected' : undefined} className="data-[state=selected]:bg-action-soft/40">
+                                    {selectable && (
+                                        <TableCell className="w-10">
+                                            <input
+                                                type="checkbox"
+                                                aria-label="Pick this row"
+                                                checked={picked.includes(rowId!(row.original))}
+                                                onChange={(e) => {
+                                                    const id = rowId!(row.original);
+                                                    setPicked((p) => (e.target.checked ? [...p, id] : p.filter((x) => x !== id)));
+                                                }}
+                                                className="size-4 accent-action"
+                                            />
+                                        </TableCell>
+                                    )}
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id} className={(cell.column.columnDef as Column<T>).meta?.className}>
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

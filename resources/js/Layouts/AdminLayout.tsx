@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { ArrowUpRight, Banknote, Building2, type LucideIcon, UsersRound } from 'lucide-react';
+import { ArrowUpRight, Banknote, Building2, CalendarDays, Contact, LayoutTemplate, type LucideIcon, Tags, Ticket, UsersRound } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { AppLink } from '@/components/app-link';
 import { Alert } from '@/components/ui/alert';
@@ -17,7 +17,12 @@ interface Section {
 const SECTIONS: Section[] = [
     { route: 'ventiq.money.index', label: 'Money', icon: Banknote, active: ['ventiq.money.*'] },
     { route: 'ventiq.organizations.index', label: 'Organizations', icon: Building2, active: ['ventiq.organizations.*'] },
+    { route: 'ventiq.events.index', label: 'Events', icon: CalendarDays, active: ['ventiq.events.*'] },
+    { route: 'ventiq.tickets.index', label: 'Tickets', icon: Ticket, active: ['ventiq.tickets.*'] },
     { route: 'ventiq.users.index', label: 'Users', icon: UsersRound, active: ['ventiq.users.*'] },
+    { route: 'ventiq.tiers.index', label: 'Ticket types', icon: Tags, active: ['ventiq.tiers.*'] },
+    { route: 'ventiq.clients.index', label: 'Clients', icon: Contact, active: ['ventiq.clients.*'] },
+    { route: 'ventiq.tier-templates.index', label: 'Tier templates', icon: LayoutTemplate, active: ['ventiq.tier-templates.*'] },
 ];
 
 /**

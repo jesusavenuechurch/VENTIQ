@@ -342,6 +342,16 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
 Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->group(function () {
     Route::resource('organizations', App\Http\Controllers\Ventiq\OrganizationsController::class)->except('show');
     Route::resource('users', App\Http\Controllers\Ventiq\UsersController::class)->except('show');
+    Route::get('/events', [App\Http\Controllers\Ventiq\EventsController::class, 'index'])->name('events.index');
+    Route::post('/events/{event}/sponsor', [App\Http\Controllers\Ventiq\EventsController::class, 'sponsor'])->name('events.sponsor');
+    Route::get('/tickets', [App\Http\Controllers\Ventiq\TicketsController::class, 'index'])->name('tickets.index');
+    Route::post('/tickets/{ticket}/resend', [App\Http\Controllers\Ventiq\TicketsController::class, 'resend'])->middleware('throttle:20,1')->name('tickets.resend');
+    Route::get('/ticket-types', [App\Http\Controllers\Ventiq\TiersController::class, 'index'])->name('tiers.index');
+    Route::post('/ticket-types/bulk', [App\Http\Controllers\Ventiq\TiersController::class, 'bulk'])->name('tiers.bulk');
+    Route::get('/clients', [App\Http\Controllers\Ventiq\ClientsController::class, 'index'])->name('clients.index');
+    Route::resource('tier-templates', App\Http\Controllers\Ventiq\TierTemplatesController::class)->except('show');
+    Route::post('/tier-templates/{tier_template}/apply', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'apply'])->name('tier-templates.apply');
+    Route::post('/tier-templates/{tier_template}/duplicate', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'duplicate'])->name('tier-templates.duplicate');
 });
 
 // Ask Ventiq's panel on the React pages (organization users).
