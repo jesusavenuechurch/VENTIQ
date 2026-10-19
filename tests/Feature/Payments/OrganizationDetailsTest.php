@@ -18,7 +18,6 @@ it('lets an admin edit an existing organization, keeping its web address once it
 
     $this->actingAs($this->admin)->get(route('organizer.organization.edit'))->assertOk()
         ->assertInertia(fn ($page) => $page->component('Organizer/Organization')->where('organization.name', 'Old Name')->where('canEdit', true));
-    $this->get(route('organizer.team.index'))->assertSee(route('organizer.organization.edit'));
 
     $this->put(route('organizer.organization.update'), [
         'name' => 'Maseru Youth Network', 'phone' => '5800 0000', 'contact_email' => 'hello@myn.ls',

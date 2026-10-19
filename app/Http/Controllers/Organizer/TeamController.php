@@ -9,6 +9,7 @@ use App\Support\TeamRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Log, Mail};
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
 /**
  * The organization's people and what each may do. Everyone can see the
@@ -22,12 +23,26 @@ class TeamController extends Controller
     {
         $organization = $this->organization($request);
 
-        return view('organizer.team', [
-            'members'   => $organization->members()->with('roles')->orderBy('name')->get(),
-            'invites'   => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->latest()->get(),
-            'roles'     => TeamRoles::ROLES,
-            'canManage' => $request->user()->can('manage_staff'),
+        $you = $request->user();
+
+        return Inertia::render('Organizer/Team', [
+            'members'   => $organization->members()->with('roles')->orderBy('name')->get()->map(fn (User $m) => [
+                'id'    => $m->id,
+                'name'  => $m->name,
+                'email' => $m->email,
+                'role'  => $m->roles->first()?->name,
+                'isYou' => $m->is($you),
+            ]),
+            'invites'   => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->latest()->get()->map(fn (OrganizationInvite $i) => [
+                'id'        => $i->id,
+                'email'     => $i->email,
+                'roleLabel' => TeamRoles::label($i->role),
+                'expires'   => $i->expires_at->format('d M'),
+            ]),
+            'roles'     => collect(TeamRoles::ROLES)->map(fn ($r, $value) => ['value' => $value, 'name' => $r[0], 'description' => $r[1]])->values(),
+            'canManage' => $you->can('manage_staff'),
             'seatsLeft' => $this->seatsLeft($organization),
+            'meta'      => ['title' => 'Team | VENTIQ'],
         ]);
     }
 

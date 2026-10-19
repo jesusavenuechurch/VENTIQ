@@ -17,7 +17,8 @@ beforeEach(function () {
 
 it('invites someone with a role, and they join with it', function () {
     $this->actingAs($this->admin)->get(route('organizer.team.index'))
-        ->assertOk()->assertSee('Teboho')->assertSee('Invite someone');
+        ->assertOk()->assertSee('Teboho')
+        ->assertInertia(fn ($page) => $page->component('Organizer/Team')->where('canManage', true));
 
     $this->post(route('organizer.team.invite'), ['email' => 'Door@Example.com', 'role' => 'scanner'])
         ->assertSessionHas('status', fn ($s) => str_contains($s, 'as Door'));
@@ -72,7 +73,8 @@ it('refuses to demote or remove the only admin', function () {
 
 it('lets staff see the team but not change it, and keeps teams apart', function () {
     $this->actingAs($this->staff)->get(route('organizer.team.index'))
-        ->assertOk()->assertSee('Naledi')->assertDontSee('Invite someone');
+        ->assertOk()->assertSee('Naledi')
+        ->assertInertia(fn ($page) => $page->component('Organizer/Team')->where('canManage', false));
     $this->post(route('organizer.team.invite'), ['email' => 'x@example.com', 'role' => 'staff'])->assertForbidden();
 
     $stranger = User::factory()->create(['organization_id' => Organization::factory()->create()->id]);

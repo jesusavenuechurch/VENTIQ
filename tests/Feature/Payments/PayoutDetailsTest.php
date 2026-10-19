@@ -16,11 +16,10 @@ beforeEach(function () {
 
 it('puts organization, payouts and team under one Settings tab', function () {
     $this->actingAs($this->admin);
-    // The React pages draw the Settings tabs in OrganizerLayout.
-    $this->get(route('organizer.organization.edit'))->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Organization'));
-    $this->get(route('organizer.payout.edit'))->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Payout'));
-    $this->get(route('organizer.team.index'))->assertOk()->assertSee('Settings')
-        ->assertSee(route('organizer.organization.edit'))->assertSee(route('organizer.payout.edit'))->assertSee(route('organizer.team.index'));
+    // OrganizerLayout draws the Settings tabs on each of them.
+    foreach (['organizer.organization.edit' => 'Organization', 'organizer.payout.edit' => 'Payout', 'organizer.team.index' => 'Team'] as $route => $page) {
+        $this->get(route($route))->assertOk()->assertInertia(fn ($p) => $p->component("Organizer/{$page}"));
+    }
     $this->get(route('organizer.settings'))->assertRedirect(route('organizer.organization.edit'));
 });
 
