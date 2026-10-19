@@ -185,9 +185,6 @@ Route::get('/pricing', function () {
 })->name('pricing');
 
 
-Route::get('/access', function () {
-    return view('public.org-admin');
-})->name('access');
 
 // Direct organization registration (NO agent token)
 Route::get('/org/register', [AgentRegistrationController::class, 'showForm'])
@@ -203,9 +200,6 @@ Route::get('/org/register/{token}', [AgentRegistrationController::class, 'showFo
 Route::post('/org/register/{token}', [AgentRegistrationController::class, 'submit'])
     ->name('agent.registration.submit');
 
-// Success page (shared by both)
-Route::get('/org/registration-success', [AgentRegistrationController::class, 'success'])
-    ->name('agent.registration.success');
 
 Route::get('/become-agent', [AgentApplicationController::class, 'showForm'])->name('agent.apply');
 Route::post('/become-agent', [AgentApplicationController::class, 'submit'])->name('agent.submit');

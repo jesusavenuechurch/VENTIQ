@@ -85,3 +85,20 @@ it('won\'t invite an email that already has an account', function () {
     $this->actingAs($this->admin)->post(route('organizer.team.invite'), ['email' => $this->staff->email, 'role' => 'staff'])
         ->assertSessionHasErrors(['email' => 'Teboho is already on your team.']);
 });
+
+it('shows the invite page, and says so when an invite has expired or the email has an account', function () {
+    $this->actingAs($this->admin)->post(route('organizer.team.invite'), ['email' => 'door@example.com', 'role' => 'scanner']);
+    $invite = OrganizationInvite::firstOrFail();
+    auth()->logout();
+
+    // This page used to crash: its view name had a typo, and the expired one didn't exist.
+    $this->get(route('organization.invite.show', $invite->token))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Organization/InviteAccept')->where('invite.pending', true)->where('invite.role', 'Door'));
+
+    User::factory()->create(['email' => 'door@example.com']);
+    $this->post(route('organization.invite.submit', $invite->token), ['name' => 'Door', 'password' => 'Secret-Pass-123', 'password_confirmation' => 'Secret-Pass-123'])
+        ->assertSessionHasErrors('name');
+
+    $invite->update(['expires_at' => now()->subDay()]);
+    $this->get(route('organization.invite.show', $invite->token))->assertOk()->assertInertia(fn ($page) => $page->where('invite.pending', false));
+});

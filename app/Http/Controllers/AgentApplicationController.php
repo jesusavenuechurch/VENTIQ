@@ -18,7 +18,7 @@ class AgentApplicationController extends Controller
 {
     public function showForm()
     {
-        return view('agent.apply');
+        return \Inertia\Inertia::render('Agent/Apply', ['meta' => ['title' => 'Become an agent | VENTIQ', 'description' => 'Introduce organizations to VENTIQ and earn for it.']]);
     }
 
     public function submit(Request $request)
@@ -32,9 +32,9 @@ class AgentApplicationController extends Controller
             'access_types.*' => 'in:Churches,Schools,Businesses,Event Planners',
             'motivation' => 'required|string|min:50|max:500',
         ], [
-            'motivation.min' => 'Our vetting core requires a more detailed motivation (min 50 characters).',
-            'email.unique' => 'This email protocol is already registered in our system.',
-            'phone.unique' => 'This phone line is already linked to an existing application.',
+            'motivation.min' => 'Tell us a little more: at least 50 characters.',
+            'email.unique' => 'Someone has already applied with this email.',
+            'phone.unique' => 'Someone has already applied with this number.',
         ]);
 
         if ($validator->fails()) {
