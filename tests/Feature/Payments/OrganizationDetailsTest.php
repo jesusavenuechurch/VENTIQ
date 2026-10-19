@@ -16,7 +16,8 @@ it('lets an admin edit an existing organization, keeping its web address once it
     \App\Models\Event::create(['organization_id' => $this->org->id, 'name' => 'Summit', 'slug' => 'summit', 'event_date' => now()->addMonth(), 'status' => 'published', 'is_public' => true]);
     $slug = $this->org->slug;
 
-    $this->actingAs($this->admin)->get(route('organizer.organization.edit'))->assertOk()->assertSee('Old Name')->assertSee('Save changes');
+    $this->actingAs($this->admin)->get(route('organizer.organization.edit'))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Organizer/Organization')->where('organization.name', 'Old Name')->where('canEdit', true));
     $this->get(route('organizer.team.index'))->assertSee(route('organizer.organization.edit'));
 
     $this->put(route('organizer.organization.update'), [
@@ -46,7 +47,8 @@ it('lets the rest of the team see the details but not change them', function () 
     $staff = User::factory()->create(['organization_id' => $this->org->id]);
     $staff->assignRole('staff');
 
-    $this->actingAs($staff)->get(route('organizer.organization.edit'))->assertOk()->assertSee('Only an admin')->assertDontSee('Save changes');
+    $this->actingAs($staff)->get(route('organizer.organization.edit'))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Organizer/Organization')->where('canEdit', false));
     $this->put(route('organizer.organization.update'), ['name' => 'Taken over', 'phone' => '58000000'])->assertForbidden();
     expect($this->org->fresh()->name)->toBe('Old Name');
 });
@@ -66,7 +68,7 @@ it('lets the web address follow the name before there are any events', function 
 
 it('keeps the organization\'s own events page to super admins for now', function () {
     $this->actingAs($this->admin)->get(route('public.events', $this->org->slug))->assertNotFound();
-    $this->get(route('organizer.organization.edit'))->assertDontSee(route('public.events', $this->org->slug));
+    $this->get(route('organizer.organization.edit'))->assertInertia(fn ($page) => $page->where('eventsPage', null));
 
     $super = User::factory()->create(['organization_id' => null]);
     $super->assignRole('super_admin');

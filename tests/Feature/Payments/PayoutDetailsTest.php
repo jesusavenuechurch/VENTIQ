@@ -16,15 +16,16 @@ beforeEach(function () {
 
 it('puts organization, payouts and team under one Settings tab', function () {
     $this->actingAs($this->admin);
-    foreach (['organizer.organization.edit', 'organizer.payout.edit', 'organizer.team.index'] as $route) {
-        $this->get(route($route))->assertOk()->assertSee('Settings')
-            ->assertSee(route('organizer.organization.edit'))->assertSee(route('organizer.payout.edit'))->assertSee(route('organizer.team.index'));
-    }
+    // The React pages draw the Settings tabs in OrganizerLayout.
+    $this->get(route('organizer.organization.edit'))->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Organization'));
+    $this->get(route('organizer.payout.edit'))->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Payout'));
+    $this->get(route('organizer.team.index'))->assertOk()->assertSee('Settings')
+        ->assertSee(route('organizer.organization.edit'))->assertSee(route('organizer.payout.edit'))->assertSee(route('organizer.team.index'));
     $this->get(route('organizer.settings'))->assertRedirect(route('organizer.organization.edit'));
 });
 
 it('lets an admin set the payout account, and tells every admin', function () {
-    $this->actingAs($this->admin)->get(route('organizer.payout.edit'))->assertSee('No payout account yet');
+    $this->actingAs($this->admin)->get(route('organizer.payout.edit'))->assertInertia(fn ($page) => $page->where('onFile', null));
 
     $this->put(route('organizer.payout.update'), [
         'payout_method' => 'bank_transfer', 'payout_bank_name' => 'Standard Lesotho Bank',
@@ -50,7 +51,8 @@ it('checks the details, and keeps them from the rest of the team', function () {
     $staff = User::factory()->create(['organization_id' => $this->org->id]);
     $staff->assignRole('staff');
 
-    $this->actingAs($staff)->get(route('organizer.payout.edit'))->assertOk()->assertSee('••••4756')->assertDontSee('59494756')->assertSee('Only an admin');
+    $this->actingAs($staff)->get(route('organizer.payout.edit'))->assertOk()->assertDontSee('59494756')
+        ->assertInertia(fn ($page) => $page->where('canEdit', false)->where('details', null)->where('onFile.summary', fn ($s) => str_contains($s, '••••4756')));
     $this->put(route('organizer.payout.update'), ['payout_method' => 'ecocash', 'payout_account_name' => 'Thief', 'payout_account_number' => '50000000'])->assertForbidden();
     expect($this->org->fresh()->payout_account_number)->toBe('59494756');
     Notification::assertNothingSent();
