@@ -1,17 +1,86 @@
 {
-  "_button-CfTZ0Ffc.js": {
-    "file": "assets/button-CfTZ0Ffc.js",
+  "_GuestLayout-COsQUXni.js": {
+    "file": "assets/GuestLayout-COsQUXni.js",
+    "name": "GuestLayout",
+    "imports": [
+      "resources/js/app.tsx",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js"
+    ]
+  },
+  "_button-r3lKYkxJ.js": {
+    "file": "assets/button-r3lKYkxJ.js",
     "name": "button",
+    "imports": [
+      "resources/js/app.tsx",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js"
+    ]
+  },
+  "_calendar-days-CKoJ4oOQ.js": {
+    "file": "assets/calendar-days-CKoJ4oOQ.js",
+    "name": "calendar-days",
+    "imports": [
+      "_createLucideIcon-Bt6UavCE.js"
+    ]
+  },
+  "_card-xkwSJvp3.js": {
+    "file": "assets/card-xkwSJvp3.js",
+    "name": "card",
     "imports": [
       "resources/js/app.tsx",
       "_utils-DMD_74kL.js"
     ]
   },
-  "_createLucideIcon-BDGOOzFb.js": {
-    "file": "assets/createLucideIcon-BDGOOzFb.js",
+  "_circle-check-BkmAv4fR.js": {
+    "file": "assets/circle-check-BkmAv4fR.js",
+    "name": "circle-check",
+    "imports": [
+      "_createLucideIcon-Bt6UavCE.js"
+    ]
+  },
+  "_createLucideIcon-Bt6UavCE.js": {
+    "file": "assets/createLucideIcon-Bt6UavCE.js",
     "name": "createLucideIcon",
     "imports": [
       "resources/js/app.tsx"
+    ]
+  },
+  "_index-BcDMJyJK.js": {
+    "file": "assets/index-BcDMJyJK.js",
+    "name": "index",
+    "imports": [
+      "_utils-DMD_74kL.js"
+    ]
+  },
+  "_input-CWMuhc5c.js": {
+    "file": "assets/input-CWMuhc5c.js",
+    "name": "input",
+    "imports": [
+      "resources/js/app.tsx",
+      "_button-r3lKYkxJ.js",
+      "_utils-DMD_74kL.js"
+    ]
+  },
+  "_lock-C8uRitnw.js": {
+    "file": "assets/lock-C8uRitnw.js",
+    "name": "lock",
+    "imports": [
+      "_createLucideIcon-Bt6UavCE.js"
+    ]
+  },
+  "_mail-BDaOnXjH.js": {
+    "file": "assets/mail-BDaOnXjH.js",
+    "name": "mail",
+    "imports": [
+      "_createLucideIcon-Bt6UavCE.js"
+    ]
+  },
+  "_users-MoGrDD-s.js": {
+    "file": "assets/users-MoGrDD-s.js",
+    "name": "users",
+    "imports": [
+      "_createLucideIcon-Bt6UavCE.js"
     ]
   },
   "_utils-DMD_74kL.js": {
@@ -329,7 +398,7 @@
     "isDynamicEntry": true
   },
   "resources/css/app.css": {
-    "file": "assets/app-78s5J4VL.css",
+    "file": "assets/app-B5f6oG0z.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -347,7 +416,7 @@
     ]
   },
   "resources/css/inertia.css": {
-    "file": "assets/inertia-CqhNBhXU.css",
+    "file": "assets/inertia-BIQ8zwnC.css",
     "src": "resources/css/inertia.css",
     "isEntry": true,
     "name": "inertia",
@@ -355,19 +424,383 @@
       "inertia.css"
     ]
   },
+  "resources/js/Pages/Events/Register.tsx": {
+    "file": "assets/Register-YSepncN4.js",
+    "name": "Register",
+    "src": "resources/js/Pages/Events/Register.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_GuestLayout-COsQUXni.js",
+      "_input-CWMuhc5c.js",
+      "_button-r3lKYkxJ.js",
+      "_calendar-days-CKoJ4oOQ.js",
+      "_mail-BDaOnXjH.js",
+      "_createLucideIcon-Bt6UavCE.js",
+      "_circle-check-BkmAv4fR.js",
+      "_users-MoGrDD-s.js",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js"
+    ],
+    "css": [
+      "assets/inertia-BIQ8zwnC.css"
+    ],
+    "assets": [
+      "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
+      "assets/inter-cyrillic-ext-400-normal-DQukG94-.woff",
+      "assets/inter-cyrillic-400-normal-obahsSVq.woff2",
+      "assets/inter-cyrillic-400-normal-HOLc17fK.woff",
+      "assets/inter-greek-ext-400-normal-DGGRlc-M.woff2",
+      "assets/inter-greek-ext-400-normal-KugGGMne.woff",
+      "assets/inter-greek-400-normal-B4URO6DV.woff2",
+      "assets/inter-greek-400-normal-q2sYcFCs.woff",
+      "assets/inter-vietnamese-400-normal-DMkecbls.woff2",
+      "assets/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+      "assets/inter-latin-ext-400-normal-C1nco2VV.woff2",
+      "assets/inter-latin-ext-400-normal-77YHD8bZ.woff",
+      "assets/inter-latin-400-normal-C38fXH4l.woff2",
+      "assets/inter-latin-400-normal-CyCys3Eg.woff",
+      "assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2",
+      "assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff",
+      "assets/inter-cyrillic-600-normal-CWCymEST.woff2",
+      "assets/inter-cyrillic-600-normal-4D_pXhcN.woff",
+      "assets/inter-greek-ext-600-normal-DRtmH8MT.woff2",
+      "assets/inter-greek-ext-600-normal-B8X0CLgF.woff",
+      "assets/inter-greek-600-normal-plRanbMR.woff2",
+      "assets/inter-greek-600-normal-BZpKdvQh.woff",
+      "assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2",
+      "assets/inter-vietnamese-600-normal-BuLX-rYi.woff",
+      "assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2",
+      "assets/inter-latin-ext-600-normal-CIVaiw4L.woff",
+      "assets/inter-latin-600-normal-LgqL8muc.woff2",
+      "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+      "assets/inter-cyrillic-ext-700-normal-BjwYoWNd.woff2",
+      "assets/inter-cyrillic-ext-700-normal-LO58E6JB.woff",
+      "assets/inter-cyrillic-700-normal-CjBOestx.woff2",
+      "assets/inter-cyrillic-700-normal-DrXBdSj3.woff",
+      "assets/inter-greek-ext-700-normal-qfdV9bQt.woff2",
+      "assets/inter-greek-ext-700-normal-BoQ6DsYi.woff",
+      "assets/inter-greek-700-normal-C3JjAnD8.woff2",
+      "assets/inter-greek-700-normal-BUv2fZ6O.woff",
+      "assets/inter-vietnamese-700-normal-DlLaEgI2.woff2",
+      "assets/inter-vietnamese-700-normal-BZaoP0fm.woff",
+      "assets/inter-latin-ext-700-normal-Ca8adRJv.woff2",
+      "assets/inter-latin-ext-700-normal-TidjK2hL.woff",
+      "assets/inter-latin-700-normal-Yt3aPRUw.woff2",
+      "assets/inter-latin-700-normal-BLAVimhd.woff",
+      "assets/inter-cyrillic-ext-900-normal-buRuWz4h.woff2",
+      "assets/inter-cyrillic-ext-900-normal-BUlv-ou0.woff",
+      "assets/inter-cyrillic-900-normal-CjyCg421.woff2",
+      "assets/inter-cyrillic-900-normal-BAVML7y5.woff",
+      "assets/inter-greek-ext-900-normal-voj7phVX.woff2",
+      "assets/inter-greek-ext-900-normal-LVqH4fM3.woff",
+      "assets/inter-greek-900-normal-Clii5heL.woff2",
+      "assets/inter-greek-900-normal-7n5hB3DA.woff",
+      "assets/inter-vietnamese-900-normal-C4P836tE.woff2",
+      "assets/inter-vietnamese-900-normal-DBSPUrC7.woff",
+      "assets/inter-latin-ext-900-normal-ty8Tfvw5.woff2",
+      "assets/inter-latin-ext-900-normal-DG9wZIMw.woff",
+      "assets/inter-latin-900-normal-D4nM5aha.woff2",
+      "assets/inter-latin-900-normal-EUCDUbiG.woff",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-D6iG63UR.woff2",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-iEXTdOVf.woff",
+      "assets/jetbrains-mono-cyrillic-700-normal-BWTpRfYl.woff2",
+      "assets/jetbrains-mono-cyrillic-700-normal-CEoEElIJ.woff",
+      "assets/jetbrains-mono-greek-700-normal-C6CZE3T8.woff2",
+      "assets/jetbrains-mono-greek-700-normal-DEigVDxa.woff",
+      "assets/jetbrains-mono-vietnamese-700-normal-k5PzE07T.woff2",
+      "assets/jetbrains-mono-vietnamese-700-normal-BDLVIk2r.woff",
+      "assets/jetbrains-mono-latin-ext-700-normal-CZipNAKV.woff2",
+      "assets/jetbrains-mono-latin-ext-700-normal-CxPITLHs.woff",
+      "assets/jetbrains-mono-latin-700-normal-BYuf6tUa.woff2",
+      "assets/jetbrains-mono-latin-700-normal-D3wTyLJW.woff"
+    ]
+  },
+  "resources/js/Pages/Events/RegistrationClosed.tsx": {
+    "file": "assets/RegistrationClosed-Z-DJ_p5V.js",
+    "name": "RegistrationClosed",
+    "src": "resources/js/Pages/Events/RegistrationClosed.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_GuestLayout-COsQUXni.js",
+      "_button-r3lKYkxJ.js",
+      "_card-xkwSJvp3.js",
+      "_lock-C8uRitnw.js",
+      "_calendar-days-CKoJ4oOQ.js",
+      "_mail-BDaOnXjH.js",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js",
+      "_createLucideIcon-Bt6UavCE.js"
+    ],
+    "css": [
+      "assets/inertia-BIQ8zwnC.css"
+    ],
+    "assets": [
+      "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
+      "assets/inter-cyrillic-ext-400-normal-DQukG94-.woff",
+      "assets/inter-cyrillic-400-normal-obahsSVq.woff2",
+      "assets/inter-cyrillic-400-normal-HOLc17fK.woff",
+      "assets/inter-greek-ext-400-normal-DGGRlc-M.woff2",
+      "assets/inter-greek-ext-400-normal-KugGGMne.woff",
+      "assets/inter-greek-400-normal-B4URO6DV.woff2",
+      "assets/inter-greek-400-normal-q2sYcFCs.woff",
+      "assets/inter-vietnamese-400-normal-DMkecbls.woff2",
+      "assets/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+      "assets/inter-latin-ext-400-normal-C1nco2VV.woff2",
+      "assets/inter-latin-ext-400-normal-77YHD8bZ.woff",
+      "assets/inter-latin-400-normal-C38fXH4l.woff2",
+      "assets/inter-latin-400-normal-CyCys3Eg.woff",
+      "assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2",
+      "assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff",
+      "assets/inter-cyrillic-600-normal-CWCymEST.woff2",
+      "assets/inter-cyrillic-600-normal-4D_pXhcN.woff",
+      "assets/inter-greek-ext-600-normal-DRtmH8MT.woff2",
+      "assets/inter-greek-ext-600-normal-B8X0CLgF.woff",
+      "assets/inter-greek-600-normal-plRanbMR.woff2",
+      "assets/inter-greek-600-normal-BZpKdvQh.woff",
+      "assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2",
+      "assets/inter-vietnamese-600-normal-BuLX-rYi.woff",
+      "assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2",
+      "assets/inter-latin-ext-600-normal-CIVaiw4L.woff",
+      "assets/inter-latin-600-normal-LgqL8muc.woff2",
+      "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+      "assets/inter-cyrillic-ext-700-normal-BjwYoWNd.woff2",
+      "assets/inter-cyrillic-ext-700-normal-LO58E6JB.woff",
+      "assets/inter-cyrillic-700-normal-CjBOestx.woff2",
+      "assets/inter-cyrillic-700-normal-DrXBdSj3.woff",
+      "assets/inter-greek-ext-700-normal-qfdV9bQt.woff2",
+      "assets/inter-greek-ext-700-normal-BoQ6DsYi.woff",
+      "assets/inter-greek-700-normal-C3JjAnD8.woff2",
+      "assets/inter-greek-700-normal-BUv2fZ6O.woff",
+      "assets/inter-vietnamese-700-normal-DlLaEgI2.woff2",
+      "assets/inter-vietnamese-700-normal-BZaoP0fm.woff",
+      "assets/inter-latin-ext-700-normal-Ca8adRJv.woff2",
+      "assets/inter-latin-ext-700-normal-TidjK2hL.woff",
+      "assets/inter-latin-700-normal-Yt3aPRUw.woff2",
+      "assets/inter-latin-700-normal-BLAVimhd.woff",
+      "assets/inter-cyrillic-ext-900-normal-buRuWz4h.woff2",
+      "assets/inter-cyrillic-ext-900-normal-BUlv-ou0.woff",
+      "assets/inter-cyrillic-900-normal-CjyCg421.woff2",
+      "assets/inter-cyrillic-900-normal-BAVML7y5.woff",
+      "assets/inter-greek-ext-900-normal-voj7phVX.woff2",
+      "assets/inter-greek-ext-900-normal-LVqH4fM3.woff",
+      "assets/inter-greek-900-normal-Clii5heL.woff2",
+      "assets/inter-greek-900-normal-7n5hB3DA.woff",
+      "assets/inter-vietnamese-900-normal-C4P836tE.woff2",
+      "assets/inter-vietnamese-900-normal-DBSPUrC7.woff",
+      "assets/inter-latin-ext-900-normal-ty8Tfvw5.woff2",
+      "assets/inter-latin-ext-900-normal-DG9wZIMw.woff",
+      "assets/inter-latin-900-normal-D4nM5aha.woff2",
+      "assets/inter-latin-900-normal-EUCDUbiG.woff",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-D6iG63UR.woff2",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-iEXTdOVf.woff",
+      "assets/jetbrains-mono-cyrillic-700-normal-BWTpRfYl.woff2",
+      "assets/jetbrains-mono-cyrillic-700-normal-CEoEElIJ.woff",
+      "assets/jetbrains-mono-greek-700-normal-C6CZE3T8.woff2",
+      "assets/jetbrains-mono-greek-700-normal-DEigVDxa.woff",
+      "assets/jetbrains-mono-vietnamese-700-normal-k5PzE07T.woff2",
+      "assets/jetbrains-mono-vietnamese-700-normal-BDLVIk2r.woff",
+      "assets/jetbrains-mono-latin-ext-700-normal-CZipNAKV.woff2",
+      "assets/jetbrains-mono-latin-ext-700-normal-CxPITLHs.woff",
+      "assets/jetbrains-mono-latin-700-normal-BYuf6tUa.woff2",
+      "assets/jetbrains-mono-latin-700-normal-D3wTyLJW.woff"
+    ]
+  },
+  "resources/js/Pages/Events/RegistrationError.tsx": {
+    "file": "assets/RegistrationError-BeHzAnT0.js",
+    "name": "RegistrationError",
+    "src": "resources/js/Pages/Events/RegistrationError.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_GuestLayout-COsQUXni.js",
+      "_button-r3lKYkxJ.js",
+      "_card-xkwSJvp3.js",
+      "_createLucideIcon-Bt6UavCE.js",
+      "_circle-check-BkmAv4fR.js",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js"
+    ],
+    "css": [
+      "assets/inertia-BIQ8zwnC.css"
+    ],
+    "assets": [
+      "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
+      "assets/inter-cyrillic-ext-400-normal-DQukG94-.woff",
+      "assets/inter-cyrillic-400-normal-obahsSVq.woff2",
+      "assets/inter-cyrillic-400-normal-HOLc17fK.woff",
+      "assets/inter-greek-ext-400-normal-DGGRlc-M.woff2",
+      "assets/inter-greek-ext-400-normal-KugGGMne.woff",
+      "assets/inter-greek-400-normal-B4URO6DV.woff2",
+      "assets/inter-greek-400-normal-q2sYcFCs.woff",
+      "assets/inter-vietnamese-400-normal-DMkecbls.woff2",
+      "assets/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+      "assets/inter-latin-ext-400-normal-C1nco2VV.woff2",
+      "assets/inter-latin-ext-400-normal-77YHD8bZ.woff",
+      "assets/inter-latin-400-normal-C38fXH4l.woff2",
+      "assets/inter-latin-400-normal-CyCys3Eg.woff",
+      "assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2",
+      "assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff",
+      "assets/inter-cyrillic-600-normal-CWCymEST.woff2",
+      "assets/inter-cyrillic-600-normal-4D_pXhcN.woff",
+      "assets/inter-greek-ext-600-normal-DRtmH8MT.woff2",
+      "assets/inter-greek-ext-600-normal-B8X0CLgF.woff",
+      "assets/inter-greek-600-normal-plRanbMR.woff2",
+      "assets/inter-greek-600-normal-BZpKdvQh.woff",
+      "assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2",
+      "assets/inter-vietnamese-600-normal-BuLX-rYi.woff",
+      "assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2",
+      "assets/inter-latin-ext-600-normal-CIVaiw4L.woff",
+      "assets/inter-latin-600-normal-LgqL8muc.woff2",
+      "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+      "assets/inter-cyrillic-ext-700-normal-BjwYoWNd.woff2",
+      "assets/inter-cyrillic-ext-700-normal-LO58E6JB.woff",
+      "assets/inter-cyrillic-700-normal-CjBOestx.woff2",
+      "assets/inter-cyrillic-700-normal-DrXBdSj3.woff",
+      "assets/inter-greek-ext-700-normal-qfdV9bQt.woff2",
+      "assets/inter-greek-ext-700-normal-BoQ6DsYi.woff",
+      "assets/inter-greek-700-normal-C3JjAnD8.woff2",
+      "assets/inter-greek-700-normal-BUv2fZ6O.woff",
+      "assets/inter-vietnamese-700-normal-DlLaEgI2.woff2",
+      "assets/inter-vietnamese-700-normal-BZaoP0fm.woff",
+      "assets/inter-latin-ext-700-normal-Ca8adRJv.woff2",
+      "assets/inter-latin-ext-700-normal-TidjK2hL.woff",
+      "assets/inter-latin-700-normal-Yt3aPRUw.woff2",
+      "assets/inter-latin-700-normal-BLAVimhd.woff",
+      "assets/inter-cyrillic-ext-900-normal-buRuWz4h.woff2",
+      "assets/inter-cyrillic-ext-900-normal-BUlv-ou0.woff",
+      "assets/inter-cyrillic-900-normal-CjyCg421.woff2",
+      "assets/inter-cyrillic-900-normal-BAVML7y5.woff",
+      "assets/inter-greek-ext-900-normal-voj7phVX.woff2",
+      "assets/inter-greek-ext-900-normal-LVqH4fM3.woff",
+      "assets/inter-greek-900-normal-Clii5heL.woff2",
+      "assets/inter-greek-900-normal-7n5hB3DA.woff",
+      "assets/inter-vietnamese-900-normal-C4P836tE.woff2",
+      "assets/inter-vietnamese-900-normal-DBSPUrC7.woff",
+      "assets/inter-latin-ext-900-normal-ty8Tfvw5.woff2",
+      "assets/inter-latin-ext-900-normal-DG9wZIMw.woff",
+      "assets/inter-latin-900-normal-D4nM5aha.woff2",
+      "assets/inter-latin-900-normal-EUCDUbiG.woff",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-D6iG63UR.woff2",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-iEXTdOVf.woff",
+      "assets/jetbrains-mono-cyrillic-700-normal-BWTpRfYl.woff2",
+      "assets/jetbrains-mono-cyrillic-700-normal-CEoEElIJ.woff",
+      "assets/jetbrains-mono-greek-700-normal-C6CZE3T8.woff2",
+      "assets/jetbrains-mono-greek-700-normal-DEigVDxa.woff",
+      "assets/jetbrains-mono-vietnamese-700-normal-k5PzE07T.woff2",
+      "assets/jetbrains-mono-vietnamese-700-normal-BDLVIk2r.woff",
+      "assets/jetbrains-mono-latin-ext-700-normal-CZipNAKV.woff2",
+      "assets/jetbrains-mono-latin-ext-700-normal-CxPITLHs.woff",
+      "assets/jetbrains-mono-latin-700-normal-BYuf6tUa.woff2",
+      "assets/jetbrains-mono-latin-700-normal-D3wTyLJW.woff"
+    ]
+  },
+  "resources/js/Pages/Events/Show.tsx": {
+    "file": "assets/Show-BCqqyXaw.js",
+    "name": "Show",
+    "src": "resources/js/Pages/Events/Show.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.tsx",
+      "_GuestLayout-COsQUXni.js",
+      "_utils-DMD_74kL.js",
+      "_users-MoGrDD-s.js",
+      "_calendar-days-CKoJ4oOQ.js",
+      "_createLucideIcon-Bt6UavCE.js",
+      "_index-BcDMJyJK.js"
+    ],
+    "css": [
+      "assets/inertia-BIQ8zwnC.css"
+    ],
+    "assets": [
+      "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
+      "assets/inter-cyrillic-ext-400-normal-DQukG94-.woff",
+      "assets/inter-cyrillic-400-normal-obahsSVq.woff2",
+      "assets/inter-cyrillic-400-normal-HOLc17fK.woff",
+      "assets/inter-greek-ext-400-normal-DGGRlc-M.woff2",
+      "assets/inter-greek-ext-400-normal-KugGGMne.woff",
+      "assets/inter-greek-400-normal-B4URO6DV.woff2",
+      "assets/inter-greek-400-normal-q2sYcFCs.woff",
+      "assets/inter-vietnamese-400-normal-DMkecbls.woff2",
+      "assets/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+      "assets/inter-latin-ext-400-normal-C1nco2VV.woff2",
+      "assets/inter-latin-ext-400-normal-77YHD8bZ.woff",
+      "assets/inter-latin-400-normal-C38fXH4l.woff2",
+      "assets/inter-latin-400-normal-CyCys3Eg.woff",
+      "assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2",
+      "assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff",
+      "assets/inter-cyrillic-600-normal-CWCymEST.woff2",
+      "assets/inter-cyrillic-600-normal-4D_pXhcN.woff",
+      "assets/inter-greek-ext-600-normal-DRtmH8MT.woff2",
+      "assets/inter-greek-ext-600-normal-B8X0CLgF.woff",
+      "assets/inter-greek-600-normal-plRanbMR.woff2",
+      "assets/inter-greek-600-normal-BZpKdvQh.woff",
+      "assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2",
+      "assets/inter-vietnamese-600-normal-BuLX-rYi.woff",
+      "assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2",
+      "assets/inter-latin-ext-600-normal-CIVaiw4L.woff",
+      "assets/inter-latin-600-normal-LgqL8muc.woff2",
+      "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+      "assets/inter-cyrillic-ext-700-normal-BjwYoWNd.woff2",
+      "assets/inter-cyrillic-ext-700-normal-LO58E6JB.woff",
+      "assets/inter-cyrillic-700-normal-CjBOestx.woff2",
+      "assets/inter-cyrillic-700-normal-DrXBdSj3.woff",
+      "assets/inter-greek-ext-700-normal-qfdV9bQt.woff2",
+      "assets/inter-greek-ext-700-normal-BoQ6DsYi.woff",
+      "assets/inter-greek-700-normal-C3JjAnD8.woff2",
+      "assets/inter-greek-700-normal-BUv2fZ6O.woff",
+      "assets/inter-vietnamese-700-normal-DlLaEgI2.woff2",
+      "assets/inter-vietnamese-700-normal-BZaoP0fm.woff",
+      "assets/inter-latin-ext-700-normal-Ca8adRJv.woff2",
+      "assets/inter-latin-ext-700-normal-TidjK2hL.woff",
+      "assets/inter-latin-700-normal-Yt3aPRUw.woff2",
+      "assets/inter-latin-700-normal-BLAVimhd.woff",
+      "assets/inter-cyrillic-ext-900-normal-buRuWz4h.woff2",
+      "assets/inter-cyrillic-ext-900-normal-BUlv-ou0.woff",
+      "assets/inter-cyrillic-900-normal-CjyCg421.woff2",
+      "assets/inter-cyrillic-900-normal-BAVML7y5.woff",
+      "assets/inter-greek-ext-900-normal-voj7phVX.woff2",
+      "assets/inter-greek-ext-900-normal-LVqH4fM3.woff",
+      "assets/inter-greek-900-normal-Clii5heL.woff2",
+      "assets/inter-greek-900-normal-7n5hB3DA.woff",
+      "assets/inter-vietnamese-900-normal-C4P836tE.woff2",
+      "assets/inter-vietnamese-900-normal-DBSPUrC7.woff",
+      "assets/inter-latin-ext-900-normal-ty8Tfvw5.woff2",
+      "assets/inter-latin-ext-900-normal-DG9wZIMw.woff",
+      "assets/inter-latin-900-normal-D4nM5aha.woff2",
+      "assets/inter-latin-900-normal-EUCDUbiG.woff",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-D6iG63UR.woff2",
+      "assets/jetbrains-mono-cyrillic-ext-700-normal-iEXTdOVf.woff",
+      "assets/jetbrains-mono-cyrillic-700-normal-BWTpRfYl.woff2",
+      "assets/jetbrains-mono-cyrillic-700-normal-CEoEElIJ.woff",
+      "assets/jetbrains-mono-greek-700-normal-C6CZE3T8.woff2",
+      "assets/jetbrains-mono-greek-700-normal-DEigVDxa.woff",
+      "assets/jetbrains-mono-vietnamese-700-normal-k5PzE07T.woff2",
+      "assets/jetbrains-mono-vietnamese-700-normal-BDLVIk2r.woff",
+      "assets/jetbrains-mono-latin-ext-700-normal-CZipNAKV.woff2",
+      "assets/jetbrains-mono-latin-ext-700-normal-CxPITLHs.woff",
+      "assets/jetbrains-mono-latin-700-normal-BYuf6tUa.woff2",
+      "assets/jetbrains-mono-latin-700-normal-D3wTyLJW.woff"
+    ]
+  },
   "resources/js/Pages/Tickets/Find.tsx": {
-    "file": "assets/Find-B5oIxMZN.js",
+    "file": "assets/Find-Cx5vvCt2.js",
     "name": "Find",
     "src": "resources/js/Pages/Tickets/Find.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_button-CfTZ0Ffc.js",
-      "_utils-DMD_74kL.js",
-      "_createLucideIcon-BDGOOzFb.js"
+      "_GuestLayout-COsQUXni.js",
+      "_input-CWMuhc5c.js",
+      "_button-r3lKYkxJ.js",
+      "_card-xkwSJvp3.js",
+      "_createLucideIcon-Bt6UavCE.js",
+      "_index-BcDMJyJK.js",
+      "_utils-DMD_74kL.js"
     ],
     "css": [
-      "assets/inertia-CqhNBhXU.css"
+      "assets/inertia-BIQ8zwnC.css"
     ],
     "assets": [
       "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
@@ -441,17 +874,18 @@
     ]
   },
   "resources/js/Pages/Tickets/Inactive.tsx": {
-    "file": "assets/Inactive-DpOLToXV.js",
+    "file": "assets/Inactive-BEfQa3tJ.js",
     "name": "Inactive",
     "src": "resources/js/Pages/Tickets/Inactive.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
       "_utils-DMD_74kL.js",
-      "_createLucideIcon-BDGOOzFb.js"
+      "_lock-C8uRitnw.js",
+      "_createLucideIcon-Bt6UavCE.js"
     ],
     "css": [
-      "assets/inertia-CqhNBhXU.css"
+      "assets/inertia-BIQ8zwnC.css"
     ],
     "assets": [
       "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
@@ -525,18 +959,19 @@
     ]
   },
   "resources/js/Pages/Tickets/LinkMoved.tsx": {
-    "file": "assets/LinkMoved-JLTZPFQR.js",
+    "file": "assets/LinkMoved-Cx2BHit1.js",
     "name": "LinkMoved",
     "src": "resources/js/Pages/Tickets/LinkMoved.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_button-CfTZ0Ffc.js",
-      "_createLucideIcon-BDGOOzFb.js",
+      "_button-r3lKYkxJ.js",
+      "_createLucideIcon-Bt6UavCE.js",
+      "_index-BcDMJyJK.js",
       "_utils-DMD_74kL.js"
     ],
     "css": [
-      "assets/inertia-CqhNBhXU.css"
+      "assets/inertia-BIQ8zwnC.css"
     ],
     "assets": [
       "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
@@ -610,19 +1045,19 @@
     ]
   },
   "resources/js/Pages/Tickets/Pass.tsx": {
-    "file": "assets/Pass-DK7qEi56.js",
+    "file": "assets/Pass-BNcUqMOi.js",
     "name": "Pass",
     "src": "resources/js/Pages/Tickets/Pass.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_createLucideIcon-BDGOOzFb.js"
+      "_createLucideIcon-Bt6UavCE.js"
     ],
     "dynamicImports": [
       "node_modules/html2canvas/dist/html2canvas.esm.js"
     ],
     "css": [
-      "assets/inertia-CqhNBhXU.css"
+      "assets/inertia-BIQ8zwnC.css"
     ],
     "assets": [
       "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
@@ -702,18 +1137,22 @@
     "isEntry": true
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-BAEbhuxW.js",
+    "file": "assets/app-BggoLeSX.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,
     "dynamicImports": [
+      "resources/js/Pages/Events/Register.tsx",
+      "resources/js/Pages/Events/RegistrationClosed.tsx",
+      "resources/js/Pages/Events/RegistrationError.tsx",
+      "resources/js/Pages/Events/Show.tsx",
       "resources/js/Pages/Tickets/Find.tsx",
       "resources/js/Pages/Tickets/Inactive.tsx",
       "resources/js/Pages/Tickets/LinkMoved.tsx",
       "resources/js/Pages/Tickets/Pass.tsx"
     ],
     "css": [
-      "assets/inertia-CqhNBhXU.css"
+      "assets/inertia-BIQ8zwnC.css"
     ],
     "assets": [
       "assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2",
