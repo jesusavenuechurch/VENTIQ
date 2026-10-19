@@ -159,15 +159,16 @@ it('lets only super admins sponsor from the organizer area, and shows the fees',
     $admin = User::factory()->create(['organization_id' => $this->org->id]);
     $admin->assignRole('org_admin');
     $this->actingAs($admin)->get(route('organizer.events.attendees', $this->event))
-        ->assertOk()->assertSee('VENTIQ fees')->assertSee('M19.75')->assertDontSee('Sponsor fees');
+        ->assertOk()->assertInertia(fn ($page) => $page->where('auth.user.isSuperAdmin', false)
+            ->where('finance.fees_total', fn ($v) => abs($v - 19.75) < 0.001));
     $this->post(route('organizer.events.fee-sponsorship', $this->event))->assertForbidden();
 
     $super = User::factory()->create(['organization_id' => null]);
     $super->assignRole('super_admin');
     $this->actingAs($super)->get(route('organizer.act-as.start', $this->org));
-    $this->get(route('organizer.events.attendees', $this->event))->assertSee('Sponsor fees');
+    $this->get(route('organizer.events.attendees', $this->event))->assertInertia(fn ($page) => $page->where('auth.user.isSuperAdmin', true));
     $this->post(route('organizer.events.fee-sponsorship', $this->event))->assertSessionHas('status');
 
     expect($this->event->fresh()->fees_sponsored)->toBeTrue();
-    $this->get(route('organizer.events.attendees', $this->event))->assertSee('Sponsored by VENTIQ');
+    $this->get(route('organizer.events.attendees', $this->event))->assertInertia(fn ($page) => $page->where('finance.fees_sponsored_event', true));
 });

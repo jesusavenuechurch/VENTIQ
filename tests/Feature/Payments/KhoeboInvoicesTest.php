@@ -91,7 +91,8 @@ describe('paying ahead', function () {
     });
 
     it('invoices the order now, records the payment, and bills only attendance beyond it', function () {
-        $this->get(route('organizer.events.attendees', $this->event))->assertSee('Invoice now (paying ahead)');
+        // Not invoiced yet, so the page offers "Invoice now (paying ahead)".
+        $this->get(route('organizer.events.attendees', $this->event))->assertInertia(fn ($page) => $page->where('khoebo.invoiceId', null));
         $this->post(route('organizer.events.khoebo.invoice-now', $this->event))->assertSessionHas('status', fn ($s) => str_contains($s, 'INV-00031'));
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices') && $r['lines'][0]['quantity'] === 50
             && $r['lines'][1]['unit_price'] === '490.00');

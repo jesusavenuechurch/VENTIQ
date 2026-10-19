@@ -327,7 +327,7 @@ describe('payment windows', function () {
         $unpaid = workflowTicket($this);
 
         $this->actingAs($this->admin)->get(route('organizer.events.attendees', [$this->event, 'filter' => 'expired']))
-            ->assertOk()->assertSee('Reinstate');
+            ->assertOk()->assertInertia(fn ($page) => $page->where('tickets.data.0.status', 'expired'));
 
         $this->post(route('organizer.tickets.reinstate', $expired));
         expect($expired->fresh()->status)->toBe('pending')

@@ -123,5 +123,5 @@ it('finds attendees by name, phone digits or entry code', function () {
     $this->actingAs($this->admin)->get($url('lerato'))->assertSee('Lerato Mokoena')->assertDontSee('Thabo Molefe');
     $this->get($url('5949 4756'))->assertSee('Lerato Mokoena')->assertDontSee('Thabo Molefe');
     $this->get($url($thabo->voucher_code))->assertSee('Thabo Molefe')->assertDontSee('Lerato Mokoena');
-    $this->get($url('nobody'))->assertSee('Nobody matches');
+    $this->get($url('nobody'))->assertInertia(fn ($page) => $page->where('tickets.data', [])->where('search', 'nobody'));
 });

@@ -40,7 +40,7 @@ it('offers sharing with the short link on the home and event pages', function ()
     $this->actingAs($this->admin)->get(route('organizer.home'))->assertOk()->assertInertia(fn ($page) => $page
         ->where('events.0.share.url', $short)->where('events.0.share.qr', route('organizer.events.qr', $this->event)));
     $this->get(route('organizer.events.attendees', $this->event))
-        ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('Download for your poster');
+        ->assertOk()->assertInertia(fn ($page) => $page->where('event.share.url', $short));
 });
 
 it('counts payments waiting on the organizer in the tabs', function () {

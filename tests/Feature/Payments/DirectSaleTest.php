@@ -57,7 +57,8 @@ it('marks a reserved ticket as paid in cash', function () {
         'status' => 'pending', 'payment_status' => 'pending', 'amount' => 200]);
 
     $this->actingAs($this->admin)->get(route('organizer.events.attendees', $this->event))
-        ->assertOk()->assertSee(route('organizer.tickets.paid', $ticket), false);
+        ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Attendees')
+            ->where('tickets.data.0.id', $ticket->id)->where('tickets.data.0.status', 'pending')->where('organizer.can.approve_payment', true));
 
     $this->post(route('organizer.tickets.paid', $ticket), ['method' => 'cash'])->assertRedirect();
 
