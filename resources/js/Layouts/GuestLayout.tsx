@@ -8,21 +8,28 @@ import { Alert } from '@/components/ui/alert';
  */
 export default function GuestLayout({
     label,
+    right,
     context,
+    wide = false,
     children,
 }: {
     /** The orange word on the right of the header, e.g. "Payment". */
-    label: string;
+    label?: string;
+    /** Something else for the right of the header, instead of the label. */
+    right?: React.ReactNode;
     /** Shown next to the V., e.g. the organizer's name. */
     context?: string;
+    /** Event pages use a wider column, with a sidebar on desktop. */
+    wide?: boolean;
     children: React.ReactNode;
 }) {
     const { flash } = usePage().props;
+    const width = wide ? 'max-w-6xl' : 'max-w-3xl';
 
     return (
         <div className="min-h-screen bg-background text-brand">
             <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-md">
-                <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
+                <div className={`mx-auto flex h-14 ${width} items-center justify-between px-6`}>
                     <div className="flex items-center gap-3">
                         <Link href="/" className="text-xl font-black tracking-tighter hover:text-action">V.</Link>
                         {context && (
@@ -32,12 +39,13 @@ export default function GuestLayout({
                             </>
                         )}
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-action">{label}</span>
+                    {right ?? <span className="text-[9px] font-black uppercase tracking-[0.2em] text-action">{label}</span>}
                 </div>
             </header>
 
-            <main className="mx-auto max-w-3xl px-4 py-8 pb-20 lg:px-6">
+            <main className={`mx-auto ${width} px-4 py-8 pb-20 lg:px-6`}>
                 {flash.status && <Alert className="mb-6">{flash.status}</Alert>}
+                {flash.error && <Alert variant="destructive" className="mb-6">{flash.error}</Alert>}
                 {children}
             </main>
         </div>

@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
             // The "status" flash every controller already uses.
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
+                'error'  => fn () => $request->session()->get('error'),
             ],
         ];
     }

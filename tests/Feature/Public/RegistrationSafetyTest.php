@@ -37,10 +37,13 @@ it('keeps the registration when a message fails to send after it is saved', func
     expect(collect($ticket->fresh()->delivery_log)->pluck('method'))->toContain('registration');
 });
 
-it('shows the number again without a second +266 after an error', function () {
+it('takes the 8 local digits, or a whole +266 number, and keeps it after an error', function () {
+    // The React form keeps what was typed when there's an error; the server
+    // only has to accept the number however it arrives.
     ($this->register)(['terms' => null])->assertSessionHasErrors('terms');
+    ($this->register)(['phone' => '+266 5949 4756'])->assertSessionHasNoErrors();
 
-    $this->get($this->form . '?tier=' . $this->tier->id)->assertSee('value="59494756"', false);
+    expect(Ticket::sole()->client->phone)->toBe('+26659494756');
 });
 
 it('keeps each person\'s name when two register with one phone, and never wipes an email', function () {

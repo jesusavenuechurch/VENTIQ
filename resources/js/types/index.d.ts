@@ -11,7 +11,7 @@ export interface SharedProps {
             organization: { id: number; name: string } | null;
         } | null;
     };
-    flash: { status: string | null };
+    flash: { status: string | null; error: string | null };
     errors: Record<string, string>;
     /** Link preview, set by the server (resources/views/inertia.blade.php). */
     meta?: { title?: string; description?: string; image?: string };

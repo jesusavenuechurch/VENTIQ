@@ -158,7 +158,12 @@ Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSl
     $error = session('error', 'Registration failed. Please try again.');
     $retryUrl = route('registration.form', ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug]); // ✅ Fixed
 
-    return view('public.registration-error', compact('organization', 'event', 'error', 'retryUrl'));
+    return \Inertia\Inertia::render('Events/RegistrationError', [
+        'event'    => \App\Support\EventPage::event($event, $organization),
+        'error'    => $error,
+        'retryUrl' => $retryUrl,
+        'meta'     => ['title' => "Registration Error - {$organization->name}"],
+    ]);
 })->name('registration.error');
 
 // Find my ticket (also how a balance is paid): phone + ticket number or entry code.

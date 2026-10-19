@@ -28,7 +28,7 @@ class RegistrationController extends Controller
             ->firstOrFail();
 
         if ($closedReason = $event->registrationClosedReason()) {
-            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
+            return $this->closed($event, $organization, $closedReason);
         }
 
         $selectedTierId = $request->query('tier');
@@ -45,7 +45,26 @@ class RegistrationController extends Controller
             $selectedTier = $event->tiers->first();
         }
 
-        return view('public.register', compact('organization', 'event', 'selectedTier'));
+        return \Inertia\Inertia::render('Events/Register', [
+            'event'     => \App\Support\EventPage::event($event, $organization),
+            'tier'      => \App\Support\EventPage::tier($selectedTier, $event),
+            'districts' => $event->event_type === 'workshop' ? config('constants.workshop_districts', []) : null,
+            'submitUrl' => route('registration.submit', [$organization->slug, $event->slug]),
+            'eventUrl'  => route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]),
+            'meta'      => ['title' => "Register for {$event->name} - {$organization->name}"],
+        ]);
+    }
+
+    /** Registration is closed: why, and where else to go. */
+    private function closed(Event $event, Organization $organization, string $closedReason)
+    {
+        return \Inertia\Inertia::render('Events/RegistrationClosed', [
+            'event'        => \App\Support\EventPage::event($event, $organization),
+            'closedReason' => $closedReason,
+            'longDate'     => $event->event_date?->format('F j, Y \\a\\t g:i A'),
+            'browseUrl'    => route('events.browse'),
+            'meta'         => ['title' => "Registration Closed - {$event->name}"],
+        ]);
     }
 
     public function register(Request $request, $orgSlug, $eventSlug)
@@ -59,7 +78,7 @@ class RegistrationController extends Controller
             ->firstOrFail();
 
         if ($closedReason = $event->registrationClosedReason()) {
-            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
+            return $this->closed($event, $organization, $closedReason);
         }
 
         // Only this event's ticket types that are on sale.
@@ -104,8 +123,9 @@ class RegistrationController extends Controller
                     $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
                 }
 
-                return redirect()->route('ticket.pay', $held->qr_code)
-                    ->with('status', "Welcome back! Here's the ticket you started, ready to pay.");
+                session()->flash('status', "Welcome back! Here's the ticket you started, ready to pay.");
+
+                return \Inertia\Inertia::location(route('ticket.pay', $held->qr_code));
             }
         }
 
@@ -248,11 +268,14 @@ class RegistrationController extends Controller
             }
 
             // ── Route: paid tickets go to the payment screen, free tickets go straight to confirmation ──
+            // Full page loads while the payment and confirmation pages are Blade.
             if (!$isFree) {
-                return redirect()->route('ticket.pay', $createdTickets[0]->qr_code);
+                return \Inertia\Inertia::location(route('ticket.pay', $createdTickets[0]->qr_code));
             }
 
-            return redirect()->route('ticket.registered', $createdTickets[0]->qr_code)->with('all_tickets', $createdTickets);
+            session()->flash('all_tickets', $createdTickets);
+
+            return \Inertia\Inertia::location(route('ticket.registered', $createdTickets[0]->qr_code));
 
         } catch (\Exception $e) {
             DB::rollBack();
