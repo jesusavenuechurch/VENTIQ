@@ -144,8 +144,8 @@ describe('confirming payments', function () {
 
         $this->actingAs($this->admin)->get(route('organizer.payments.index'))
             ->assertOk()
-            ->assertSee('MINE-1')
-            ->assertSee('EcoCash — Events Account')
+            ->assertInertia(fn ($page) => $page->component('Organizer/Payments')->has('payments', 1)
+                ->where('payments.0.reference', 'MINE-1')->where('payments.0.paidTo', 'EcoCash — Events Account'))
             ->assertDontSee('THEIRS-1');
     });
 
@@ -215,15 +215,18 @@ describe('the review link', function () {
         $payment = submittedPayment($this);
         $url = app(OrganizerNotifier::class)->reviewUrl($payment);
 
-        $page = $this->get($url)->assertOk()->assertSee('Has this payment been received?')->assertSee('ABC123');
+        $page = $this->get($url)->assertOk()->assertInertia(fn ($page) => $page->component('PaymentReview/Show')
+            ->where('decided', false)->where('payment.reference', 'ABC123'));
+        $action = $page->viewData('page')['props']['payment']['action'];
+        expect($action)->toContain('signature=');
 
-        preg_match('/action="([^"]+payment-review[^"]+)"/', $page->getContent(), $m);
-        $this->post(html_entity_decode($m[1]), ['decision' => 'activate'])->assertOk()->assertSee('is active and on its way');
+        $this->post($action, ['decision' => 'activate'])->assertOk()
+            ->assertInertia(fn ($page) => $page->component('PaymentReview/Done')->where('message', fn ($m) => str_contains($m, 'is active and on its way')));
 
         expect($payment->ticket->fresh()->status)->toBe('active')
             ->and($payment->fresh()->approved_by)->toBeNull();
 
-        $this->post(html_entity_decode($m[1]), ['decision' => 'reject'])->assertSee('already been dealt with');
+        $this->post($action, ['decision' => 'reject'])->assertInertia(fn ($page) => $page->where('message', 'This payment has already been dealt with.'));
         expect($payment->fresh()->status)->toBe('approved');
     });
 

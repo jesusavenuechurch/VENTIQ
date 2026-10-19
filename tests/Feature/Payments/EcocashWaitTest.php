@@ -195,7 +195,8 @@ it('accepts a screenshot instead of a reference when paying the organizer', func
     $admin = User::factory()->create(['organization_id' => $this->org->id]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $admin->assignRole('org_admin');
-    $this->actingAs($admin)->get(route('organizer.payments.index'))->assertSee('View screenshot');
+    $this->actingAs($admin)->get(route('organizer.payments.index'))
+        ->assertInertia(fn ($page) => $page->where('payments.0.proofUrl', route('organizer.payments.proof', $payment)));
     $this->get(route('organizer.payments.proof', $payment))->assertOk();
 });
 
