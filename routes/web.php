@@ -352,6 +352,18 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->g
     Route::resource('tier-templates', App\Http\Controllers\Ventiq\TierTemplatesController::class)->except('show');
     Route::post('/tier-templates/{tier_template}/apply', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'apply'])->name('tier-templates.apply');
     Route::post('/tier-templates/{tier_template}/duplicate', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'duplicate'])->name('tier-templates.duplicate');
+    Route::get('/payouts', [App\Http\Controllers\Ventiq\PayoutsController::class, 'index'])->name('payouts.index');
+    Route::get('/session-plans', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'index'])->name('session-plans.index');
+    Route::post('/session-plans/plan', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'changePlan'])->name('session-plans.plan');
+    Route::post('/session-plans/payg', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'addPayg'])->name('session-plans.payg');
+    Route::delete('/session-plans/{sessionPlan}', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'destroy'])->name('session-plans.destroy');
+    Route::get('/inbox', [App\Http\Controllers\Ventiq\InboxController::class, 'index'])->name('inbox.index');
+    Route::put('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'update'])->name('inbox.update');
+    Route::delete('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'destroy'])->name('inbox.destroy');
+    Route::get('/scanner-app', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'index'])->name('app-releases.index');
+    Route::post('/scanner-app', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'store'])->name('app-releases.store');
+    Route::put('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'update'])->name('app-releases.update');
+    Route::delete('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'destroy'])->name('app-releases.destroy');
 });
 
 // Ask Ventiq's panel on the React pages (organization users).
