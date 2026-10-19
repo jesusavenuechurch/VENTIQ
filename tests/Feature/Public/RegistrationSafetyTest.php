@@ -73,8 +73,12 @@ it('finds a ticket by phone and entry code, and shows the link to keep', functio
 
     $this->get(route('ticket.pay', $ticket->qr_code))->assertSee('Your ticket link: save it')
         ->assertSee(route('ticket.download', $ticket->qr_code))->assertSee($ticket->voucher_code);
-    $this->get(route('ticket.find'))->assertOk()->assertSee('entry code');
+    $this->get(route('ticket.find'))->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Find'));
     $this->get(route('terms'))->assertOk()->assertSee('Ticket terms');
+
+    // From the React page (an Inertia request), the Blade ticket pages open as a full page load.
+    $this->post(route('installment.find'), ['ticket_number' => $ticket->voucher_code, 'phone' => '59494756'], ['X-Inertia' => 'true'])
+        ->assertStatus(409)->assertHeader('X-Inertia-Location', route('ticket.pay', $ticket->qr_code));
 });
 
 it('shows the balance and the account paid to on the confirmation page', function () {

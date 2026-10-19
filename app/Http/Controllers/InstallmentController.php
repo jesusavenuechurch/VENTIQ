@@ -16,7 +16,9 @@ class InstallmentController extends Controller
 {
     public function search()
     {
-        return view('public.installment.search');
+        return \Inertia\Inertia::render('Tickets/Find', [
+            'meta' => ['title' => 'Find my ticket | VENTIQ', 'description' => 'Open your VENTIQ ticket with the phone you registered with.'],
+        ]);
     }
 
     public function find(Request $request)
@@ -39,9 +41,10 @@ class InstallmentController extends Controller
             return back()->withErrors(['ticket_number' => 'No ticket matches that phone and code. Check both and try again, or ask the organizer to send your ticket.'])->withInput();
         }
 
-        return $ticket->payment_status === 'completed'
-            ? redirect()->route('ticket.download', $ticket->qr_code)
-            : redirect()->route('ticket.pay', $ticket->qr_code);
+        // Full page loads: the ticket and payment pages are still Blade.
+        return \Inertia\Inertia::location($ticket->payment_status === 'completed'
+            ? route('ticket.download', $ticket->qr_code)
+            : route('ticket.pay', $ticket->qr_code));
     }
 
     /** Old /installment/{id} links: the number isn't a credential. */

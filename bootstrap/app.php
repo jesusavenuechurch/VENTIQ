@@ -23,7 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ]);
 
             // When people last used VENTIQ (unused accounts are removed after two months).
-            $middleware->web(append: [\App\Http\Middleware\TrackLastActive::class]);
+            $middleware->web(append: [
+                \App\Http\Middleware\TrackLastActive::class,
+                // React pages (Inertia); does nothing for Blade pages.
+                \App\Http\Middleware\HandleInertiaRequests::class,
+                \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            ]);
 
             $middleware->validateCsrfTokens(except: [
                 'payment/paylesotho/callback/*',
