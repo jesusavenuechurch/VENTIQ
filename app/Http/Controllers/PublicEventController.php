@@ -114,7 +114,27 @@ class PublicEventController extends Controller
             ->paginate(12)
             ->withQueryString();
     
-        return view('events.browse', compact('events'));
+        return \Inertia\Inertia::render('Events/Browse', [
+            'events'  => $events->through(fn (Event $event) => [
+                'id'           => $event->id,
+                'name'         => $event->name,
+                'tagline'      => $event->tagline,
+                'organization' => $event->organization->name,
+                'url'          => route('public.event', ['orgSlug' => $event->organization->slug, 'eventSlug' => $event->slug]),
+                'banner'       => $event->banner_image ? \App\Support\Thumb::url($event->banner_image, 480) : null,
+                'date'         => $event->event_date?->format('M j, Y · g:i A'),
+                'venue'        => $event->venue,
+                'from'         => $event->tiers->min('price'),
+            ]),
+            'filters' => [
+                'district' => $validDistrict ? $request->district : null,
+                'category' => $validCategory ? config("constants.categories.{$request->category}.label") : null,
+                'when'     => in_array($when, ['weekend', 'tonight'], true) ? $when : null,
+                'free'     => $free,
+                'closingSoon' => $closingSoon,
+            ],
+            'meta'    => ['title' => 'Browse events | VENTIQ', 'description' => 'Upcoming events across Lesotho, with tickets on VENTIQ.'],
+        ]);
     }
 
     /**

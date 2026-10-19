@@ -6,7 +6,7 @@
  */
 export const REACT_ROUTES = new Set<string>([
     'ticket.find', 'installment.search', 'ticket.download', 'ticket.pay', 'ticket.pay.another', 'ticket.registered',
-    'public.event', 'event.short', 'registration.form',
+    'public.event', 'event.short', 'registration.form', 'events.browse',
     'organizer.home', 'organizer.payments.index', 'organizer.accounts.index',
     'organizer.organization.edit', 'organizer.payout.edit', 'organizer.team.index', 'organizer.setup',
     'organizer.events.create', 'organizer.events.edit', 'organizer.events.attendees', 'organizer.events.comp.create', 'organizer.events.guests.create', 'organizer.events.day',

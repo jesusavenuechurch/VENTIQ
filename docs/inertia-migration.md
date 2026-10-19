@@ -42,9 +42,21 @@ page has moved; then Filament, Livewire and Alpine are removed.
 |---|---|---|
 | 1. Foundation | Find my ticket | Done |
 | 2. Attendee pages | Event page, registration (and its closed and error pages), payment (PIN prompt, EcoCash by hand, organizer accounts), confirmation, the ticket pass, inactive ticket, moved link | Done |
-| 3. Organizer area | Done: site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`). Still Blade: attendees and money, issue a ticket, guest list, event day, Browse events | In progress |
-| 4. VENTIQ admin | Money page, then each Filament resource | |
+| 3. Organizer area | Site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`), attendees and money, issue a ticket, guest-list import, event day (live with `usePoll`), Browse events | Done |
+| 4. VENTIQ admin | Money page, then each Filament resource | Next |
 | 5. The rest | Sessions, auth, home, about, pricing, terms, privacy, an organization's own events page | |
 | 6. Removal | Filament, Livewire, Alpine | |
 
 Stays Blade: emails, and the ticket PDF (`tickets/avatar.blade.php`).
+
+## Open questions (decide before building)
+
+- **A ticket that reaches nobody.** At registration the attendee can choose
+  not to get their ticket by email. If they also left the email out, or their
+  number isn't on WhatsApp, the ticket is delivered nowhere: they only have
+  the confirmation page. Options to weigh: require one working channel (email
+  when they say they have no WhatsApp); show the ticket link and "save it"
+  prompt more strongly on the confirmation page; fall back to SMS; and flag
+  these tickets to the organizer (the attendee list already shows "not
+  delivered" for a failed WhatsApp send). Raised during the migration, not
+  decided.
