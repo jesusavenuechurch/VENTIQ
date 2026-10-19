@@ -76,7 +76,8 @@ describe('getting into the organizer area', function () {
     });
 
     it('points the home page Host link at the organizer area', function () {
-        $this->actingAs($this->admin)->get('/')->assertSee(route('organizer.home'), false);
+        $this->actingAs($this->admin)->get('/')
+            ->assertInertia(fn ($page) => $page->component('Home')->where('links.host', route('organizer.home')));
     });
 
     it('sends new organizations to email verification, then the organizer area', function () {

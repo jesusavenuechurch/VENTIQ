@@ -2,6 +2,7 @@
 
 use App\Support\Thumb;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 
 it('serves a small WebP copy of a big poster, made once', function () {
     Storage::fake('public');
@@ -24,7 +25,9 @@ it('falls back to the original when a copy cannot be made', function () {
 });
 
 it('shows the per-ticket fee on the pricing page, not the old packages', function () {
-    $this->get(route('pricing'))->assertOk()
-        ->assertSee('4.9%')->assertSee('M7.50')->assertSee('M12.40')->assertSee('M87.60')
-        ->assertDontSee('Starter')->assertDontSee('M600');
+    $this->get(route('pricing'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('Pricing')
+        ->where('rate', 0.049)
+        ->where('perPerson', 7.5)
+        ->where('plans', fn ($plans) => collect($plans)->pluck('label')->doesntContain('Starter')));
 });

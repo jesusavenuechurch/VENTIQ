@@ -1,11 +1,11 @@
 <?php
 
+use Inertia\Testing\AssertableInertia as Assert;
+
 it('serves the privacy policy publicly, as Meta needs for WhatsApp', function () {
     $this->get('/privacy')->assertOk()
-        ->assertSee('Privacy policy')
-        ->assertSee('support@ventiq.co.ls')
-        ->assertSee('WhatsApp Business Platform')
-        ->assertSee('id="delete"', false);
+        ->assertSee('<title inertia>Privacy | VENTIQ</title>', false)
+        ->assertInertia(fn (Assert $page) => $page->component('Legal/Privacy'));
 
-    $this->get('/terms')->assertSee(route('privacy'));
+    $this->get('/terms')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Legal/Terms'));
 });

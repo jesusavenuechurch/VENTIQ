@@ -8,6 +8,7 @@ export const REACT_ROUTES = new Set<string>([
     'ticket.find', 'installment.search', 'ticket.download', 'ticket.pay', 'ticket.pay.another', 'ticket.registered',
     'public.event', 'event.short', 'registration.form', 'events.browse',
     'organization.invite.show', 'agent.apply', 'account.edit', 'certificates.lookup', 'certificates.verify',
+    'home', 'about', 'pricing', 'terms', 'privacy', 'public.events',
     'login', 'login.link.show', 'org.register.direct', 'agent.registration.form', 'password.reset', 'verification.notice',
     'ventiq.money.index', 'ventiq.organizations.index', 'ventiq.organizations.create', 'ventiq.organizations.edit',
     'ventiq.users.index', 'ventiq.users.create', 'ventiq.users.edit', 'ventiq.events.index', 'ventiq.tickets.index',

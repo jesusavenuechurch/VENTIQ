@@ -1,4 +1,5 @@
 <?php
+use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketDownloadController;
 use App\Http\Controllers\PublicEventController;
@@ -63,7 +64,9 @@ Route::get('/sitemap.xml', function () {
 
 Route::get('/', [PublicEventController::class, 'index'])->name('home');
 
-Route::view('/about', 'public.about')->name('about');
+Route::get('/about', fn () => Inertia::render('About', [
+    'meta' => ['title' => 'About VENTIQ | Built in Lesotho', 'description' => 'Why VENTIQ exists: registration, tickets, payments and check-in for organizations in Lesotho.'],
+]))->name('about');
 // 1. The handler for the email link (Fixes your 'verification.verify' error)
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
@@ -76,7 +79,7 @@ Route::get('/email/verify', function (Illuminate\Http\Request $request) {
     if ($request->user()->hasVerifiedEmail()) {
         return redirect()->to(\App\Support\IntentRedirect::resolve('host'));
     }
-    return Inertia\Inertia::render('Auth/VerifyEmail', ['email' => $request->user()->email, 'meta' => ['title' => 'Verify your email | VENTIQ']]);
+    return Inertia::render('Auth/VerifyEmail', ['email' => $request->user()->email, 'meta' => ['title' => 'Verify your email | VENTIQ']]);
 })->middleware('auth')->name('verification.notice');
 
 Route::post('/email/verification-notification', function (Illuminate\Http\Request $request) {
@@ -157,7 +160,7 @@ Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSl
     $error = session('error', 'Registration failed. Please try again.');
     $retryUrl = route('registration.form', ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug]); // ✅ Fixed
 
-    return \Inertia\Inertia::render('Events/RegistrationError', [
+    return Inertia::render('Events/RegistrationError', [
         'event'    => \App\Support\EventPage::event($event, $organization),
         'error'    => $error,
         'retryUrl' => $retryUrl,
@@ -176,12 +179,18 @@ Route::prefix('installment')->name('installment.')->group(function () {
 });
 
 
-Route::view('/terms', 'public.terms')->name('terms');
-Route::view('/privacy', 'public.privacy')->name('privacy');
+Route::get('/terms', fn () => Inertia::render('Legal/Terms', ['meta' => ['title' => 'Ticket terms | VENTIQ']]))->name('terms');
+Route::get('/privacy', fn () => Inertia::render('Legal/Privacy', ['meta' => ['title' => 'Privacy | VENTIQ']]))->name('privacy');
 
-Route::get('/pricing', function () {
-    return view('public.pricing');
-})->name('pricing');
+// From config, so the page always matches what's charged.
+Route::get('/pricing', fn () => Inertia::render('Pricing', [
+    'rate'      => (float) config('constants.fees.service_percent'),
+    'perPerson' => (float) config('constants.fees.operational_per_person'),
+    'plans'     => collect(\App\Support\SessionPackageDefinition::tiers())
+        ->map(fn ($plan, $key) => ['key' => $key, 'label' => $plan['label'], 'price' => $plan['price'], 'description' => $plan['description']])
+        ->values(),
+    'meta'      => ['title' => 'Pricing | Event tickets in Lesotho - VENTIQ', 'description' => 'No monthly fee. VENTIQ takes a small fee on each ticket, and nothing else.'],
+]))->name('pricing');
 
 
 

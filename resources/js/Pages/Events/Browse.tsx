@@ -1,20 +1,10 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, MapPin, X } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { ArrowLeft, X } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { Pagination, type Paginated } from '@/components/pagination';
-import { cn, money } from '@/lib/utils';
+import { EventCard, type EventCardData } from '@/components/site/event-card';
+import { cn } from '@/lib/utils';
 
-interface Card {
-    id: number;
-    name: string;
-    tagline: string | null;
-    organization: string;
-    url: string;
-    banner: string | null;
-    date: string | null;
-    venue: string | null;
-    from: number | null;
-}
 
 interface Filters {
     district: string | null;
@@ -27,7 +17,7 @@ interface Filters {
 type Query = Record<string, string | number | boolean | undefined>;
 
 /** Every upcoming listed event, twelve at a time, with quick filters. */
-export default function Browse({ events, filters }: { events: Paginated<Card>; filters: Filters }) {
+export default function Browse({ events, filters }: { events: Paginated<EventCardData>; filters: Filters }) {
     // Keep what the link chose (district, category) and change one thing.
     const current = (): Query => {
         const q = Object.fromEntries(new URLSearchParams(window.location.search)) as Query;
@@ -73,34 +63,7 @@ export default function Browse({ events, filters }: { events: Paginated<Card>; f
                 {events.data.length > 0 ? (
                     <>
                         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                            {events.data.map((e) => (
-                                <Link key={e.id} href={e.url} className="group flex flex-col overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm outline-none transition-all duration-500 hover:shadow-2xl hover:shadow-blue-900/10 focus-visible:ring-2 focus-visible:ring-action">
-                                    <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100">
-                                        {e.banner ? (
-                                            <img src={e.banner} alt="" loading="lazy" className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                                        ) : (
-                                            <div className="flex size-full items-center justify-center bg-gradient-to-br from-brand to-brand/80"><span className="text-4xl font-black uppercase italic tracking-tighter text-white/20">Ventiq.</span></div>
-                                        )}
-                                        {e.from !== null && (
-                                            <span className="absolute right-4 top-4 rounded-lg bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand shadow-sm backdrop-blur">
-                                                {e.from === 0 ? 'Free' : `${money(e.from).replace(/\.00$/, '')}+`}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-grow flex-col p-8">
-                                        <p className="mb-3 text-[9px] font-black uppercase tracking-[0.2em] text-action">{e.organization}</p>
-                                        <h3 className="mb-2 line-clamp-2 min-h-[56px] text-xl font-black uppercase leading-tight tracking-tight text-brand transition-colors group-hover:text-action">{e.name}</h3>
-                                        <p className="mb-6 line-clamp-2 min-h-[40px] text-xs font-medium italic text-gray-500">{e.tagline}</p>
-                                        <div className="mb-8 flex-grow space-y-3 text-[11px] font-bold uppercase tracking-tight text-gray-600">
-                                            {e.date && <p className="flex items-center gap-2"><CalendarDays className="size-4 text-action" />{e.date}</p>}
-                                            {e.venue && <p className="flex items-center gap-2"><MapPin className="size-4 shrink-0 text-brand" /><span className="line-clamp-1">{e.venue}</span></p>}
-                                        </div>
-                                        <span className="mt-auto w-full rounded-2xl bg-brand px-4 py-4 text-center text-[10px] font-black uppercase tracking-[0.3em] text-white shadow-lg shadow-blue-900/10 transition-all group-hover:bg-action">
-                                            Get tickets
-                                        </span>
-                                    </div>
-                                </Link>
-                            ))}
+                            {events.data.map((e) => <EventCard key={e.id} event={e} />)}
                         </div>
                         <div className="mt-16"><Pagination page={events} /></div>
                     </>

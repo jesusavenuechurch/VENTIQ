@@ -35,7 +35,8 @@ it('lets an admin edit an existing organization, keeping its web address once it
     // The logo now shows to attendees (public pages read ->logo).
     $super = User::factory()->create(['organization_id' => null]);
     $super->assignRole('super_admin');
-    $this->actingAs($super)->get(route('public.events', $slug))->assertSee(Storage::url($org->logo_path));
+    $this->actingAs($super)->get(route('public.events', $slug))
+        ->assertInertia(fn ($page) => $page->component('Events/Organization')->where('organization.logo', Storage::url($org->logo_path)));
     $this->actingAs($this->admin);
 
     $this->put(route('organizer.organization.update'), ['name' => 'Maseru Youth Network', 'phone' => '58000000', 'remove_logo' => '1']);
