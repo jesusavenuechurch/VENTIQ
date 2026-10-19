@@ -1,0 +1,1 @@
+import{j as o}from"./app-CKqjWmsL.js";import{c as r}from"./utils-DMD_74kL.js";function a({className:e,...t}){return o.jsx("select",{className:r("w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-50 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-gray-900 outline-none transition-all focus:border-action focus:bg-white",e),...t})}export{a as N};
