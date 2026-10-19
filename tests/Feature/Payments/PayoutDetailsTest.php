@@ -70,11 +70,11 @@ it('shows VENTIQ where to pay, and warns about a change just made', function () 
     $session = \App\Models\PaymentSession::create(['payable_type' => 'ticket', 'payable_id' => $ticket->id, 'gateway' => 'paylesotho', 'client_reference' => 'R' . Str::random(8), 'payment_method' => 'ecocash', 'amount' => 100, 'status' => 'completed', 'organization_id' => $this->org->id]);
     app(\App\Services\Payments\TicketActivationService::class)->activate($ticket, \App\Services\Payments\TicketActivationService::SOURCE_VENTIQ_ONLINE, 'ecocash', 'TX', null, $session);
 
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('No payout account on file');
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('payoutsDue.0.payoutTo.summary', null));
 
     $this->org->update(['payout_method' => 'mpesa', 'payout_account_name' => 'Lerato', 'payout_account_number' => '58000000', 'payout_updated_at' => now()]);
-    $this->get(route('ventiq.money.index'))->assertSee('M-Pesa · Lerato · 58000000')->assertSee('confirm with the organizer by phone');
+    $this->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('payoutsDue.0.payoutTo.summary', 'M-Pesa · Lerato · 58000000')->where('payoutsDue.0.payoutTo.changed', fn ($c) => $c !== null));
 
     $this->org->update(['payout_updated_at' => now()->subWeek()]);
-    $this->get(route('ventiq.money.index'))->assertDontSee('confirm with the organizer by phone');
+    $this->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('payoutsDue.0.payoutTo.changed', null));
 });

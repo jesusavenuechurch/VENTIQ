@@ -49,7 +49,7 @@ it('shows what is owed to organizers and pays it out in a batch', function () {
     $owed = 2 * round(200 - (200 * 0.049 + 7.5), 2);
 
     $this->actingAs($this->super)->get(route('ventiq.money.index'))
-        ->assertOk()->assertSee('Maseru Youth Network')->assertSee('M' . number_format($owed, 2));
+        ->assertOk()->assertInertia(fn ($page) => $page->where('payoutsDue.0.organization', 'Maseru Youth Network')->where('payoutsDue.0.owed', fn ($v) => abs($v - $owed) < 0.001));
 
     $this->post(route('ventiq.money.payouts.create', $this->org))->assertSessionHas('status', fn ($s) => str_contains($s, 'ready for Maseru Youth Network'));
     $batch = Settlement::sole();
@@ -70,10 +70,9 @@ it('lists fees to invoice, skipping past events and sponsored fees, and tracks t
     ($this->sell)($event, 'online');   // its fee comes off the payout instead
 
     $fee = round(200 * 0.049 + 7.5, 2);
-    $page = $this->actingAs($this->super)->get(route('ventiq.money.index'))->assertOk();
-    $page->assertSee('1 ticket')->assertSee('M' . number_format($fee, 2));
-
-    preg_match('/name="up_to" value="(\d+)"/', $page->getContent(), $m);
+    $page = $this->actingAs($this->super)->get(route('ventiq.money.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page->has('toInvoice', 1)->where('toInvoice.0.tickets', 1)->where('toInvoice.0.total', fn ($v) => abs($v - $fee) < 0.001));
+    $m = [1 => $page->viewData('page')['props']['toInvoice'][0]['upTo']];
     $csv = $this->get(route('ventiq.money.fees.csv', [$this->org, 'up_to' => $m[1]]))->assertOk();
     expect($csv->getContent())->toContain($a->ticket_number)->toContain(number_format($fee, 2, '.', ''));
 

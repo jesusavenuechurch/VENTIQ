@@ -124,7 +124,7 @@ it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', f
     $super = User::factory()->create(['organization_id' => null]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $super->assignRole('super_admin');
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('Paid the merchant by hand from 62552155')->assertSee('screenshot');
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('toCheck.0.byHand.from', '62552155')->where('toCheck.0.byHand.proofUrl', route('ventiq.money.online.proof', $session)));
     $this->get(route('ventiq.money.online.proof', $session))->assertOk();
 
     $this->withoutExceptionHandling()->post(route('ventiq.money.online.decide', $session), ['decision' => 'received']);
@@ -175,9 +175,9 @@ it('lists money paid for a ticket that was already paid, to refund', function ()
     $super = User::factory()->create(['organization_id' => null]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $super->assignRole('super_admin');
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('Paid twice: refund these');
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->has('paidTwice', 1));
     $this->post(route('ventiq.money.online.refunded', $second), ['reference' => 'RF1'])->assertSessionHas('status');
-    $this->withoutExceptionHandling()->get(route('ventiq.money.index'))->assertDontSee('Paid twice: refund these');
+    $this->withoutExceptionHandling()->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->has('paidTwice', 0));
 });
 
 it('accepts a screenshot instead of a reference when paying the organizer', function () {

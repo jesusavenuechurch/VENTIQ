@@ -33,7 +33,7 @@ it('keeps the place while an online payment waits for confirmation', function ()
 });
 
 it('lets a super admin confirm a payment found on the merchant statement', function () {
-    $this->actingAs($this->super)->get(route('ventiq.money.index'))->assertSee('Online payments to check')->assertSee('Lerato');
+    $this->actingAs($this->super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('toCheck.0.id', $this->session->id)->where('toCheck.0.ticket.holder', fn ($h) => str_contains($h, 'Lerato')));
 
     $this->post(route('ventiq.money.online.decide', $this->session), ['decision' => 'received', 'reference' => 'MP123'])
         ->assertSessionHas('status', fn ($s) => str_contains($s, 'is active'));
