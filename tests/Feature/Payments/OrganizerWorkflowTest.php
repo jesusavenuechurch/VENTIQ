@@ -86,7 +86,7 @@ describe('getting into the organizer area', function () {
             'user_password' => 'Secret-Pass-123', 'user_password_confirmation' => 'Secret-Pass-123',
         ])->assertOk()->assertJsonPath('redirect', route('verification.notice'));
 
-        $this->get(route('verification.notice'))->assertOk()->assertSee('Check your email');
+        $this->get(route('verification.notice'))->assertOk()->assertInertia(fn ($page) => $page->component('Auth/VerifyEmail'));
         $this->get(route('organizer.home'))->assertRedirect(route('verification.notice'));
     });
 

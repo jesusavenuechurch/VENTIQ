@@ -85,10 +85,11 @@ class AgentApplicationController extends Controller
 
     public function showResetForm(Request $request, $token)
     {
-        return view('auth.reset-password', [
+        return \Inertia\Inertia::render('Auth/ResetPassword', [
             'token' => $token,
-            'email' => $request->email
-        ]);
+            'email' => (string) $request->query('email'),
+            'meta'  => ['title' => 'Choose a password | VENTIQ'],
+        ])->withViewData(['noindex' => true]);
     }
 
     /**

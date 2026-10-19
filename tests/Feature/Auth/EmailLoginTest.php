@@ -88,7 +88,7 @@ it('signs in from the emailed link on a tap, once', function () {
     $path = parse_url($link, PHP_URL_PATH);
 
     // Opening the link (as a mail scanner would) doesn't sign in or use it up.
-    $this->get($path)->assertOk()->assertSee('Sign in as naledi@example.com');
+    $this->get($path)->assertOk()->assertInertia(fn ($page) => $page->component('Auth/LoginLink')->where('email', 'naledi@example.com'));
     $this->assertGuest();
 
     $this->post($path)->assertRedirect(route('organizer.home'));
@@ -97,7 +97,7 @@ it('signs in from the emailed link on a tap, once', function () {
     auth()->logout();
     $this->post($path)->assertRedirect(route('login'));
     $this->assertGuest();
-    $this->get($path)->assertSee('no longer works');
+    $this->get($path)->assertInertia(fn ($page) => $page->where('email', null));
 });
 
 it('only lets the newest code work and limits how often codes are sent', function () {

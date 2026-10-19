@@ -77,7 +77,7 @@ Route::get('/email/verify', function (Illuminate\Http\Request $request) {
     if ($request->user()->hasVerifiedEmail()) {
         return redirect()->to(\App\Support\IntentRedirect::resolve('host'));
     }
-    return view('auth.verify-email');
+    return Inertia\Inertia::render('Auth/VerifyEmail', ['email' => $request->user()->email, 'meta' => ['title' => 'Verify your email | VENTIQ']]);
 })->middleware('auth')->name('verification.notice');
 
 Route::post('/email/verification-notification', function (Illuminate\Http\Request $request) {
