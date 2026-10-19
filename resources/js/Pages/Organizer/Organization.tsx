@@ -1,8 +1,8 @@
 import { Head, useForm } from '@inertiajs/react';
-import { ImageIcon, Link2, Upload } from 'lucide-react';
-import { useState } from 'react';
+import { Link2 } from 'lucide-react';
 import OrganizerLayout from '@/Layouts/OrganizerLayout';
 import { Field } from '@/components/field';
+import { LogoField } from '@/components/organizer/logo-field';
 import { PhoneInput } from '@/components/phone-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,15 +34,11 @@ export default function Organization({ organization, canEdit, eventsPage }: { or
         logo: null,
         remove_logo: false,
     });
-    const [preview, setPreview] = useState(organization.logoUrl);
-
     function submit(e: React.FormEvent) {
         e.preventDefault();
         // A file goes as a form post; _method makes it the update.
         form.post(route('organizer.organization.update'), { forceFormData: true, preserveScroll: true });
     }
-
-    const showLogo = preview && !form.data.remove_logo;
 
     return (
         <OrganizerLayout title="Settings" settings subtitle="Who's hosting: the name, logo and contact details attendees see on your events and tickets.">
@@ -57,37 +53,15 @@ export default function Organization({ organization, canEdit, eventsPage }: { or
                 <form onSubmit={submit} className="rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
                     <fieldset disabled={!canEdit} className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <div className="md:col-span-2">
-                            <span className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Logo</span>
-                            <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
-                                    {showLogo ? <img src={preview!} alt="" className="size-full object-contain" /> : <ImageIcon className="size-7 text-slate-300" />}
-                                </div>
-                                {canEdit && (
-                                    <div className="min-w-0 space-y-1.5">
-                                        <label htmlFor="logo" className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-action px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-action-ink">
-                                            <Upload className="size-3.5" />{preview ? 'Change logo' : 'Upload logo'}
-                                        </label>
-                                        <p className="truncate text-[11px] text-gray-400">{form.data.logo?.name || 'PNG, JPG or WebP, up to 4 MB'}</p>
-                                        {organization.logoUrl && (
-                                            <label className="flex cursor-pointer items-center gap-2 text-[11px] font-bold text-gray-500">
-                                                <input type="checkbox" checked={form.data.remove_logo} onChange={(e) => form.setData('remove_logo', e.target.checked)} className="rounded" /> Remove the logo
-                                            </label>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <input
-                                id="logo"
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="sr-only"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0] ?? null;
-                                    form.setData((d) => ({ ...d, logo: file, remove_logo: false }));
-                                    setPreview(file ? URL.createObjectURL(file) : organization.logoUrl);
-                                }}
+                            <LogoField
+                                current={organization.logoUrl}
+                                file={form.data.logo}
+                                remove={form.data.remove_logo}
+                                onFile={(logo) => form.setData((d) => ({ ...d, logo, remove_logo: false }))}
+                                onRemove={(remove) => form.setData('remove_logo', remove)}
+                                error={form.errors.logo}
+                                editable={canEdit}
                             />
-                            {form.errors.logo && <p className="ml-1 mt-1 text-[11px] font-bold text-rose-500">{form.errors.logo}</p>}
                         </div>
 
                         <Field className="md:col-span-2" label="Organization name" htmlFor="name" error={form.errors.name}>

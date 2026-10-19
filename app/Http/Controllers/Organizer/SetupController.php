@@ -5,14 +5,23 @@ namespace App\Http\Controllers\Organizer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OrganizationDetailsRequest;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 /** The organizer's first stop when sign-up didn't ask about their organization. */
 class SetupController extends Controller
 {
     public function show(Request $request)
     {
-        return view('organizer.setup', [
-            'organization' => $request->attributes->get('organization'),
+        $organization = $request->attributes->get('organization');
+
+        return Inertia::render('Organizer/Setup', [
+            'organization' => [
+                'name'         => $organization->name,
+                'phone'        => $organization->phone ? substr($organization->phone, -8) : '',
+                'contactEmail' => $organization->contact_email,
+                'description'  => $organization->description,
+            ],
+            'meta' => ['title' => 'Set up your organization | VENTIQ'],
         ]);
     }
 
