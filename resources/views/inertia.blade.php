@@ -23,6 +23,14 @@
     @inertiaHead
 </head>
 <body>
+    {{-- The site's loading screen (and, on a browser's first visit, the
+         Lumela greeting): on full page loads of pages inside the site
+         layout, not attendee pages. Moving between React pages never
+         shows it again. --}}
+    @php($withLoader = !\Illuminate\Support\Str::startsWith($page['component'], ['Tickets/', 'Events/']))
+    @if($withLoader)
+        @include('partials.page-loader')
+    @endif
     @inertia
 </body>
 </html>

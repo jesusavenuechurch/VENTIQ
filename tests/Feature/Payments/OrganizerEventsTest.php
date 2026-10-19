@@ -269,11 +269,9 @@ describe('leaving Filament behind', function () {
     });
 
     it('links the organizer pages to each other, with Home instead of Sessions', function () {
-        $this->actingAs($this->admin)->get(route('organizer.home'))
-            ->assertSee(route('organizer.events.create'))
-            ->assertSee(route('organizer.accounts.index'))
-            ->assertSee(route('home'))
-            ->assertDontSee(route('filament.admin.events.resources.events.create'));
+        // Create event and the Accounts tab show for an admin (links are built by the React pages).
+        $this->actingAs($this->admin)->get(route('organizer.home'))->assertInertia(fn ($page) => $page->component('Organizer/Home')
+            ->where('organizer.can.create_event', true)->where('organizer.can.view_payment_method', true));
     });
 });
 

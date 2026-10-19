@@ -34,10 +34,18 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? [
                     'id'           => $user->id,
                     'name'         => $user->name,
+                    'firstName'    => \Illuminate\Support\Str::before($user->name ?? 'Account', ' '),
                     'email'        => $user->email,
+                    'avatar'       => \App\Support\Avatar::url($user->email),
                     'isSuperAdmin' => $user->isSuperAdmin(),
                     'organization' => $user->organization ? ['id' => $user->organization->id, 'name' => $user->organization->name] : null,
+                    // The organization whose area they're in (a super admin acting for one too).
+                    'currentOrganizationId' => \App\Support\CurrentOrganization::id(),
                 ] : null,
+            ],
+            // For the site layout (resources/js/Layouts/SiteLayout.tsx).
+            'site' => [
+                'districts' => config('constants.districts'),
             ],
             // The "status" flash every controller already uses.
             'flash' => [

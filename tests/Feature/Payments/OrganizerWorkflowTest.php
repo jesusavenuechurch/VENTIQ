@@ -95,8 +95,8 @@ describe('getting into the organizer area', function () {
 
         $this->actingAs($this->admin)->get(route('organizer.home'))
             ->assertOk()
-            ->assertSee('Maseru Youth Summit')
-            ->assertSee('1 person paid you and is waiting for their ticket');
+            ->assertInertia(fn ($page) => $page->component('Organizer/Home')
+                ->where('events.0.name', 'Maseru Youth Summit')->where('toConfirm', 1)->where('organizer.paymentsToConfirm', 1));
     });
 });
 
@@ -114,7 +114,8 @@ describe('super admin access', function () {
     it('lets a super admin open and leave an organization\'s organizer area', function () {
         $this->actingAs($this->super)->get(route('organizer.act-as.start', $this->org))->assertRedirect(route('organizer.home'));
 
-        $this->get(route('organizer.home'))->assertOk()->assertSee('Super admin view of')->assertSee($this->org->name);
+        $this->get(route('organizer.home'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('organizer.actingAs', true)->where('organizer.organization.name', $this->org->name));
 
         $payment = submittedPayment($this);
         $this->post(route('organizer.payments.decide', $payment), ['decision' => 'activate'])->assertRedirect();

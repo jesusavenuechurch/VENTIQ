@@ -12,7 +12,9 @@
 
 @source '../js/**/*.tsx';
 @source '../js/**/*.ts';
-@source './../views/inertia.blade.php';
+@source '../views/inertia.blade.php';
+@source '../views/partials/page-loader.blade.php';
+@source '../views/partials/lumela.blade.php';
 
 /* VENTIQ palette: one meaning per colour (docs/design/ventiq-palette.png).
    brand  – navy: headings, primary actions, selected tab

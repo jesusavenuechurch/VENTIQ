@@ -140,5 +140,5 @@ it('shows the organizer the split on the event page and totals on the home page'
         ->assertSee('M230.25')
         ->assertSee(route('reports.revenue', $this->event));
 
-    $this->get(route('organizer.home'))->assertSee('M1,250.00 collected');
+    $this->get(route('organizer.home'))->assertInertia(fn ($page) => $page->where('events.0.collected', 1250));
 });

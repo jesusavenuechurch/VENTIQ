@@ -1,6 +1,6 @@
 {{-- Shared top of every organizer page: who we're looking at, the area's
      tabs, and the super admin "acting as" banner. The tabs use Livewire's
-     wire:navigate: the next page is fetched in the background and only the
+    : the next page is fetched in the background and only the
      page is swapped, so switching tabs doesn't reload everything. --}}
 @if($actingAsOrganization ?? false)
     <div class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4">
@@ -38,7 +38,7 @@
     {{-- Wider screens: the row of tabs, always first. --}}
     <nav class="mt-3 pb-5 mb-6 border-b border-gray-100 hidden sm:flex flex-wrap items-center gap-2">
         @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
-            <a href="{{ route($route) }}" wire:navigate.hover
+            <a href="{{ route($route) }}"
                class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
                       {{ request()->routeIs(...explode('|', $active)) ? 'bg-brand border border-brand text-white' : 'bg-white border border-gray-100 text-gray-500 hover:text-[#1D4069]' }}">
                 <i class="fas {{ $icon }} mr-1"></i>{{ $label }}
@@ -56,7 +56,7 @@
             @foreach($crumbs as $i => $crumb)
                 @if($i > 0)<i class="fas fa-chevron-right text-[8px] text-gray-300" aria-hidden="true"></i>@endif
                 @if(isset($crumb[1]))
-                    <a href="{{ $crumb[1] }}" wire:navigate class="hover:text-[#1D4069] max-w-[14rem] truncate">
+                    <a href="{{ $crumb[1] }}" class="hover:text-[#1D4069] max-w-[14rem] truncate">
                         @if($i === 0)<i class="fas fa-arrow-left mr-1"></i>@endif{{ $crumb[0] }}
                     </a>
                 @else
@@ -101,7 +101,7 @@
         <div class="grid {{ count($tabs) === 4 ? 'grid-cols-4' : 'grid-cols-3' }}">
             @foreach($tabs as [$route, $label, $short, $icon, $active, $badge])
                 @php $on = request()->routeIs(...explode('|', $active)); @endphp
-                <a href="{{ route($route) }}" wire:navigate @if($on) aria-current="page" @endif
+                <a href="{{ route($route) }}" @if($on) aria-current="page" @endif
                    class="relative flex flex-col items-center gap-1 py-2.5 {{ $on ? 'text-brand' : 'text-gray-400' }}">
                     @if($on)<span class="absolute top-0 inset-x-6 h-0.5 rounded-full bg-brand"></span>@endif
                     <span class="relative">

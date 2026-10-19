@@ -73,7 +73,8 @@ it('shows the page, its live refresh, and only to the event\'s organization', fu
     $this->get(route('organizer.events.day', [$this->event, 'partial' => 1]))
         ->assertOk()->assertSee('People in')->assertDontSee('<html', false);
 
-    $this->get(route('organizer.home'))->assertSee(route('organizer.events.day', $this->event));
+    // Event day shows on the home card for an event that's today.
+    $this->get(route('organizer.home'))->assertInertia(fn ($page) => $page->where('events.0.isToday', true)->where('events.0.id', $this->event->id));
 
     $outsider = User::factory()->create(['organization_id' => Organization::factory()->create()->id]);
     $outsider->assignRole('org_admin');

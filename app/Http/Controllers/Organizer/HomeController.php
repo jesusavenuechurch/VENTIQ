@@ -39,6 +39,23 @@ class HomeController extends Controller
             \App\Services\Reports\EventFinance::for($event)->summary()['collected'],
         ));
 
-        return view('organizer.home', compact('events', 'toConfirm'));
+        return \Inertia\Inertia::render('Organizer/Home', [
+            'toConfirm'  => $toConfirm,
+            'events'     => $events->map(fn (Event $e) => [
+                'id'         => $e->id,
+                'name'       => $e->name,
+                'date'       => $e->event_date?->format('d M Y'),
+                'status'     => $e->status,
+                'isToday'    => (bool) $e->event_date?->isToday(),
+                'active'     => (int) $e->active_count,
+                'awaiting'   => (int) $e->awaiting_count,
+                'toConfirm'  => (int) $e->to_confirm_count,
+                'collected'  => (float) $e->collected_total,
+                'sponsored'  => (bool) $e->fees_sponsored,
+                'share'      => \App\Support\Organizer\EventCard::share($e),
+            ])->values(),
+            'scannerApp' => \App\Support\Organizer\EventCard::scannerApp(),
+            'meta'       => ['title' => 'Events | VENTIQ'],
+        ]);
     }
 }

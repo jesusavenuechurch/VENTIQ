@@ -120,7 +120,7 @@
                 <span x-show="kind === 'sold'"><i class="fas fa-money-bill-wave mr-1"></i>Sell ticket · <span x-text="'M' + (price[tier] || 0).toFixed(2)"></span></span>
                 <span x-show="kind === 'comp'"><i class="fas fa-gift mr-1"></i>Issue free ticket</span>
             </button>
-            <a href="{{ route('organizer.events.attendees', $event) }}" wire:navigate class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Cancel</a>
+            <a href="{{ route('organizer.events.attendees', $event) }}" class="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-[#1D4069]">Cancel</a>
         </div>
     </form>
     </div>

@@ -338,6 +338,12 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/sms/{message}', [App\Http\Controllers\VentiqMoneyController::class, 'decideSms'])->name('sms.decide');
 });
 
+// Ask Ventiq's panel on the React pages (organization users).
+Route::middleware(['auth', 'throttle:60,1'])->prefix('assist')->name('assist.')->group(function () {
+    Route::get('/messages', [App\Http\Controllers\AssistController::class, 'index'])->name('messages');
+    Route::post('/messages', [App\Http\Controllers\AssistController::class, 'store'])->middleware('throttle:10,1')->name('ask');
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/account', [App\Http\Controllers\AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [App\Http\Controllers\AccountController::class, 'updateProfile'])->name('account.update');
