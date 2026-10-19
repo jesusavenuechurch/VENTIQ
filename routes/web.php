@@ -338,6 +338,13 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/sms/{message}', [App\Http\Controllers\VentiqMoneyController::class, 'decideSms'])->name('sms.decide');
 });
 
+// A sales agent's own pages.
+Route::middleware('auth')->prefix('agent')->name('agent.')->group(function () {
+    Route::get('/', [App\Http\Controllers\AgentAreaController::class, 'home'])->name('home');
+    Route::get('/certification', [App\Http\Controllers\AgentAreaController::class, 'certification'])->name('certification');
+    Route::post('/certification', [App\Http\Controllers\AgentAreaController::class, 'submitCertification'])->middleware('throttle:10,1')->name('certification.submit');
+});
+
 // VENTIQ's own admin (super admins), section by section as each leaves Filament.
 Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->group(function () {
     Route::resource('organizations', App\Http\Controllers\Ventiq\OrganizationsController::class)->except('show');
@@ -364,6 +371,11 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->g
     Route::post('/scanner-app', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'store'])->name('app-releases.store');
     Route::put('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'update'])->name('app-releases.update');
     Route::delete('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'destroy'])->name('app-releases.destroy');
+    Route::get('/agents', [App\Http\Controllers\Ventiq\AgentsController::class, 'index'])->name('agents.index');
+    Route::post('/agents/{agent}/approve', [App\Http\Controllers\Ventiq\AgentsController::class, 'approve'])->name('agents.approve');
+    Route::post('/agents/{agent}/decline', [App\Http\Controllers\Ventiq\AgentsController::class, 'decline'])->name('agents.decline');
+    Route::post('/agents/{agent}/earnings', [App\Http\Controllers\Ventiq\AgentsController::class, 'earning'])->name('agents.earning');
+    Route::post('/agents/{agent}/payout', [App\Http\Controllers\Ventiq\AgentsController::class, 'payout'])->name('agents.payout');
 });
 
 // Ask Ventiq's panel on the React pages (organization users).

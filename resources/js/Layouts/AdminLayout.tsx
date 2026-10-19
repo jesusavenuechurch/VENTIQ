@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { ArrowLeftRight, ArrowUpRight, Banknote, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
+import { ArrowLeftRight, ArrowUpRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { AppLink } from '@/components/app-link';
 import { Alert } from '@/components/ui/alert';
@@ -21,6 +21,7 @@ const SECTIONS: Section[] = [
     { route: 'ventiq.events.index', label: 'Events', icon: CalendarDays, active: ['ventiq.events.*'] },
     { route: 'ventiq.tickets.index', label: 'Tickets', icon: Ticket, active: ['ventiq.tickets.*'] },
     { route: 'ventiq.users.index', label: 'Users', icon: UsersRound, active: ['ventiq.users.*'] },
+    { route: 'ventiq.agents.index', label: 'Agents', icon: BriefcaseBusiness, active: ['ventiq.agents.*'] },
     { route: 'ventiq.inbox.index', label: 'Inbox', icon: Inbox, active: ['ventiq.inbox.*'] },
     { route: 'ventiq.session-plans.index', label: 'Session plans', icon: Video, active: ['ventiq.session-plans.*'] },
     { route: 'ventiq.tiers.index', label: 'Ticket types', icon: Tags, active: ['ventiq.tiers.*'] },
