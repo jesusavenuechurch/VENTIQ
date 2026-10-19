@@ -1,0 +1,1 @@
+const o=(()=>{const r=new Uint32Array(256);for(let e=0;e<256;e++){let t=e;for(let n=0;n<8;n++)t=t&1?3988292384^t>>>1:t>>>1;r[e]=t>>>0}return r})();function c(r){const e=new TextEncoder().encode(r);let t=4294967295;for(const n of e)t=o[(t^n)&255]^t>>>8;return(t^4294967295)>>>0}function a(r){return`/images/avatars/${c((r??"").trim().toLowerCase())%32}.svg`}export{a};
