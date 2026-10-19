@@ -251,6 +251,17 @@ class SessionSegmentController extends Controller
         ]);
     }
 
+    // The presentation's name, typed on the notebook page.
+    public function update(Request $request, Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        $validated = $request->validate(['title' => 'nullable|string|max:255']);
+        $segment->update(['title' => $validated['title'] ?: null]);
+
+        return response()->json(['status' => 'ok']);
+    }
+
     // A lineup changes — someone drops out before their turn, or turns out
     // never to have actually presented. Only removable while there's
     // nothing captured under their name yet: once real notes exist against

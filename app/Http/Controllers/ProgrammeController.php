@@ -7,6 +7,7 @@ use App\Models\Session;
 use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class ProgrammeController extends Controller
 {
@@ -25,7 +26,16 @@ class ProgrammeController extends Controller
             ->latest('event_date')
             ->get();
 
-        return view('programmes.index', compact('programmes'));
+        return Inertia::render('Programmes/Index', [
+            'programmes' => $programmes->map(fn (Event $p) => [
+                'id'       => $p->id,
+                'name'     => $p->name,
+                'dates'    => $this->dates($p),
+                'sessions' => $p->sessions_count,
+            ]),
+            'canCreate' => $this->quota->meetsMinimumTier(Auth::user()->organization, 'business'),
+            'meta'      => ['title' => 'Programmes | VENTIQ Sessions'],
+        ]);
     }
 
     public function create()
@@ -39,7 +49,10 @@ class ProgrammeController extends Controller
             ]);
         }
 
-        return view('programmes.create');
+        return Inertia::render('Programmes/Create', [
+            'today' => now()->toDateString(),
+            'meta'  => ['title' => 'New programme | VENTIQ Sessions'],
+        ]);
     }
 
     public function store(Request $request)
@@ -102,7 +115,29 @@ class ProgrammeController extends Controller
             ->distinct('client_id')
             ->count('client_id');
 
-        return view('programmes.show', compact('programme', 'sessions', 'issuedCertificates', 'eligibleCount'));
+        return Inertia::render('Programmes/Show', [
+            'programme' => [
+                'id'           => $programme->id,
+                'name'         => $programme->name,
+                'dates'        => $this->dates($programme),
+                'venue'        => $programme->venue,
+                'certificates' => (bool) $programme->certificates_enabled,
+            ],
+            'sessions' => $sessions->map(fn (Session $s) => [
+                'id'     => $s->id,
+                'title'  => $s->resolved_title,
+                'when'   => trim(($s->date?->format('d M Y') ?? '') . ($s->start_time ? ' · ' . \Carbon\Carbon::parse($s->start_time)->format('g:i A') : '')),
+                'status' => $s->status,
+            ]),
+            'certificates' => $issuedCertificates->map(fn ($c) => [
+                'id'     => $c->id,
+                'name'   => $c->client?->full_name ?? 'Unknown',
+                'issued' => $c->issued_at?->format('d M Y'),
+                'url'    => route('certificates.verify', $c->token),
+            ]),
+            'eligible' => $eligibleCount,
+            'meta'     => ['title' => "{$programme->name} | VENTIQ Sessions"],
+        ]);
     }
 
     public function issueCertificates(Event $programme)
@@ -172,8 +207,34 @@ class ProgrammeController extends Controller
 
         $sessions = Session::where('event_id', $programme->id)->orderBy('date')->orderBy('start_time')->get();
         $reportedCount = $sessions->where('status', 'reported')->count();
+        $job = $programme->programme_report_job_id
+            ? \App\Models\AiGenerationResult::where('job_id', $programme->programme_report_job_id)->value('status')
+            : null;
 
-        return view('programmes.report', compact('programme', 'sessions', 'reportedCount'));
+        return Inertia::render('Programmes/Report', [
+            'programme' => [
+                'id'         => $programme->id,
+                'name'       => $programme->name,
+                'report'     => $programme->programme_report,
+                'generating' => in_array($job, ['pending', 'processing'], true),
+                'failed'     => $job === 'failed',
+            ],
+            'reported' => $reportedCount,
+            'total'    => $sessions->count(),
+            'meta'     => ['title' => "{$programme->name}: report | VENTIQ Sessions"],
+        ])->withViewData(['noindex' => true]);
+    }
+
+    /** "12 Mar" or "12 – 14 Mar 2026". */
+    private function dates(Event $programme): ?string
+    {
+        if (!$programme->event_date) {
+            return null;
+        }
+
+        return $programme->duration_days > 1
+            ? $programme->event_date->format('d M') . ' – ' . $programme->event_date->copy()->addDays($programme->duration_days - 1)->format('d M Y')
+            : $programme->event_date->format('d M Y');
     }
 
     public function reportStatus(Event $programme)

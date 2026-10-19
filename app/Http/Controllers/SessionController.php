@@ -11,6 +11,7 @@ use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 
 class SessionController extends Controller
 {
@@ -18,85 +19,79 @@ class SessionController extends Controller
 
     public function reports(Request $request)
     {
-        // Super admins and agents have no organization_id, and Sessions is
-        // an organization's area: send them to their own home instead.
-        if (!Auth::user()->organization_id) {
-            return redirect(\App\Support\IntentRedirect::home(Auth::user()));
-        }
+        $tab = $request->query('tab') === 'reviewed' ? 'reviewed' : 'needs_review';
 
-        $tab = $request->query('tab', 'needs_review');
-
-        $base = Session::forOrganization(Auth::user()->organization_id)->where('status', 'reported');
-
-        $reports = (clone $base)
-            ->when($tab === 'reviewed', fn ($q) => $q->whereNotNull('reviewed_at'))
-            ->when($tab !== 'reviewed', fn ($q) => $q->whereNull('reviewed_at'))
+        $reports = Session::forOrganization(Auth::user()->organization_id)
+            ->where('status', 'reported')
+            ->when($tab === 'reviewed', fn ($q) => $q->whereNotNull('reviewed_at'), fn ($q) => $q->whereNull('reviewed_at'))
             ->orderByDesc('date')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
-        $needsReviewCount = (clone $base)->whereNull('reviewed_at')->count();
-
-        return view('sessions.reports', compact('reports', 'tab', 'needsReviewCount'));
+        return Inertia::render('Sessions/Reports', [
+            'tab'     => $tab,
+            'reports' => $reports->through(fn (Session $s) => [
+                'id'       => $s->id,
+                'title'    => $s->resolved_title,
+                'date'     => $s->date?->format('d M Y'),
+                'reviewed' => $s->reviewed_at?->format('d M Y'),
+            ]),
+            'meta'    => ['title' => 'Reports | VENTIQ Sessions'],
+        ]);
     }
 
     public function index(Request $request)
     {
-        // Super admins and agents have no organization_id, and Sessions is
-        // an organization's area: send them to their own home instead.
-        if (!Auth::user()->organization_id) {
-            return redirect(\App\Support\IntentRedirect::home(Auth::user()));
-        }
+        $organization = Auth::user()->organization;
 
-        $sessions = Session::forOrganization(Auth::user()->organization_id)
+        $sessions = Session::forOrganization($organization->id)
             ->with('segments')
             ->latest()
             ->get();
 
-        $organization = Auth::user()->organization;
-        $plan         = $organization ? $this->quota->currentPlan($organization) : null;
-
-        // Badge shows the subscription's own "this month" numbers — the
-        // natural customer mental model. Any PAYG top-up is what keeps
-        // hasSessionQuota() true even once these hit their limit.
-        $sessionsUsed      = $plan->sessions_used ?? 0;
-        $sessionsIncluded  = $plan->sessions_included ?? 0;
-        $sessionsRemaining = $organization ? $this->quota->remainingSessions($organization) : 0;
-
-        $sessionIds = $sessions->pluck('id');
-
-        $participantCounts = $sessionIds->isEmpty()
+        $participantCounts = $sessions->isEmpty()
             ? collect()
-            : Participant::whereIn('session_id', $sessionIds)
+            : Participant::whereIn('session_id', $sessions->pluck('id'))
                 ->selectRaw('session_id, count(*) as aggregate')
                 ->groupBy('session_id')
                 ->pluck('aggregate', 'session_id');
 
-        $sessions->each(function ($session) use ($participantCounts) {
-            $session->attendee_count  = (int) ($participantCounts[$session->id] ?? 0);
-            $session->presenter_count = $session->segments->count();
-        });
+        $tile = function (Session $s) use ($participantCounts) {
+            $activeIndex = $s->segments->search(fn ($seg) => $seg->status === 'active');
+            $starts = $s->date
+                ? $s->date->copy()->setTimeFromTimeString($s->start_time ?: '00:00')
+                : null;
 
-        $readyToReview = $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->reviewed_at);
-        $happeningNow  = $sessions->filter(fn ($s) => $s->status === 'active');
-        $comingUp      = $sessions->filter(fn ($s) => $s->status === 'draft');
-        // Narrowed on purpose: this used to be "everything left over,"
-        // which silently mixed "finished, no report yet" with "reported
-        // and already reviewed" — two different things that need
-        // different actions. Reported sessions (either state) now live
-        // only in the permanent Reports archive, not here.
-        $recentSessions = $sessions->filter(fn ($s) => $s->status === 'completed');
+            return [
+                'id'         => $s->id,
+                'title'      => $s->resolved_title,
+                'type'       => $s->meta['custom_type_label'] ?? \App\Support\SessionType::label($s->type),
+                'status'     => $s->status,
+                'attendees'  => (int) ($participantCounts[$s->id] ?? 0),
+                'expected'   => $s->meta['expected_participants'] ?? null,
+                'presenters' => $s->segments->count(),
+                'speaker'    => $activeIndex === false ? null : $activeIndex + 1,
+                'starts'     => $starts ? ($s->start_time ? $starts->format('D j M · H:i') : $starts->format('D j M')) : null,
+                'updated'    => $s->updated_at->diffForHumans(),
+            ];
+        };
 
-        $needsReviewCount = $readyToReview->count();
-        $memberCount = $organization?->members()->count() ?? 0;
-        $pendingInviteCount = $organization?->invites()
-            ->whereNull('accepted_at')
-            ->where('expires_at', '>', now())
-            ->count() ?? 0;
+        // Reported sessions live in Reports once reviewed; finished ones
+        // without a report yet are "Recently finished".
+        $columns = [
+            'ready'    => $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->reviewed_at),
+            'live'     => $sessions->filter(fn ($s) => $s->status === 'active'),
+            'upcoming' => $sessions->filter(fn ($s) => $s->status === 'draft')->sortBy(fn ($s) => $s->date?->toDateString() . ' ' . $s->start_time),
+            'recent'   => $sessions->filter(fn ($s) => $s->status === 'completed'),
+        ];
 
-        return view('sessions.index', compact(
-            'sessions', 'sessionsUsed', 'sessionsIncluded', 'sessionsRemaining', 'readyToReview', 'happeningNow', 'comingUp', 'recentSessions',
-            'organization', 'memberCount', 'pendingInviteCount', 'needsReviewCount'
-        ) + ['filter' => $request->query('filter')]);
+        return Inertia::render('Sessions/Index', [
+            'columns'        => collect($columns)->map(fn ($items) => $items->map($tile)->values()),
+            'filter'         => in_array($request->query('filter'), array_keys($columns), true) ? $request->query('filter') : null,
+            'members'        => $organization->members()->count(),
+            'pendingInvites' => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->count(),
+            'meta'           => ['title' => 'Sessions | VENTIQ'],
+        ]);
     }
 
     public function create(Request $request)
@@ -108,7 +103,18 @@ class SessionController extends Controller
                 ->first()
             : null;
 
-        return view('sessions.create', compact('programme'));
+        return Inertia::render('Sessions/Create', [
+            'types' => collect(\App\Support\SessionType::keys())->map(fn ($key) => [
+                'key'   => $key,
+                'label' => \App\Support\SessionType::label($key),
+                'roles' => collect(\App\Support\SessionType::roles($key))
+                    ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
+                    ->values(),
+            ]),
+            'programme' => $programme ? ['id' => $programme->id, 'name' => $programme->name] : null,
+            'today'     => now()->toDateString(),
+            'meta'      => ['title' => 'Schedule a session | VENTIQ'],
+        ]);
     }
 
     public function store(Request $request)
@@ -222,15 +228,35 @@ class SessionController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
-        $session->load('segments');
+        $session->load('segments.insights');
 
-        $participantCount = Participant::where('session_id', $session->id)->count();
-
-        return view('sessions.show', [
-            'session'          => $session,
-            'segments'         => $session->segments,
-            'participantCount' => $participantCount,
-        ]);
+        return Inertia::render('Sessions/Show', [
+            'session' => [
+                'id'           => $session->id,
+                'title'        => $session->resolved_title,
+                'status'       => $session->status,
+                'tracking'     => (bool) $session->event_id,
+                'checkinUrl'   => $session->public_token ? route('public.session-checkin.form', $session->public_token) : null,
+                'expected'     => $session->meta['expected_participants'] ?? null,
+                'participants' => Participant::where('session_id', $session->id)->count(),
+            ],
+            'segments' => $session->segments->map(fn ($s) => [
+                'id'         => $s->id,
+                'name'       => $s->presenter_name,
+                'role'       => $s->role,
+                'presenting' => (bool) $s->is_presenting,
+                'topic'      => $s->title ?? '',
+                'status'     => $s->status,
+                'paused'     => $s->status === 'active' && $s->paused_at !== null,
+                'duration'   => (int) ($s->duration_seconds ?? 0),
+                'logs'       => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
+                'insights'   => $s->insights->map(fn ($i) => ['id' => $i->id, 'type' => $i->category, 'text' => $i->content])->values(),
+            ])->values(),
+            'roles' => collect(\App\Support\SessionType::roles($session->type))
+                ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
+                ->values(),
+            'meta' => ['title' => "{$session->resolved_title} | VENTIQ Sessions"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function checkinQr(Session $session)
@@ -243,9 +269,28 @@ class SessionController extends Controller
 
         $url = route('public.session-checkin.form', $session->public_token);
 
-        $qr = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(400)->margin(1)->generate($url);
+        [$qr, $type] = $this->qr($url);
 
-        return response($qr, 200)->header('Content-Type', 'image/png');
+        return response($qr, 200)->header('Content-Type', $type);
+    }
+
+    /**
+     * The check-in QR code and its type: a PNG needs the imagick
+     * extension, so without it an SVG (as for tickets).
+     */
+    private function qr(string $url): array
+    {
+        $make = fn (string $format) => (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format($format)->size(400)->margin(1)->generate($url);
+
+        if (extension_loaded('imagick')) {
+            try {
+                return [$make('png'), 'image/png'];
+            } catch (\Throwable) {
+                // Falls through to the SVG.
+            }
+        }
+
+        return [$make('svg'), 'image/svg+xml'];
     }
 
     public function checkinPass(Session $session)
@@ -253,7 +298,20 @@ class SessionController extends Controller
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
         abort_unless($session->public_token, 404);
 
-        return view('sessions.checkin-pass', ['session' => $session]);
+        return Inertia::render('Sessions/CheckinPass', [
+            'pass' => [
+                'id'           => $session->id,
+                'title'        => $session->resolved_title,
+                'type'         => $session->meta['custom_type_label'] ?? \App\Support\SessionType::label($session->type),
+                'date'         => ($session->date ?? $session->created_at)->format('d M Y'),
+                'expected'     => $session->meta['expected_participants'] ?? null,
+                'location'     => $session->location,
+                'organization' => $session->organization->name,
+                'code'         => $session->session_code,
+                'joinUrl'      => route('public.session-join'),
+            ],
+            'meta' => ['title' => "Check-in pass: {$session->resolved_title} | VENTIQ"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function checkinPassPdf(Session $session)
@@ -263,13 +321,12 @@ class SessionController extends Controller
 
         $checkinUrl = route('public.session-checkin.form', $session->public_token);
 
-        $qrBase64 = base64_encode(
-            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(400)->margin(1)->generate($checkinUrl)
-        );
+        [$qr, $qrType] = $this->qr($checkinUrl);
 
         $pdf = \PDF::loadView('sessions.checkin-pass-pdf', [
             'session'    => $session,
-            'qrBase64'   => $qrBase64,
+            'qrBase64'   => base64_encode($qr),
+            'qrType'     => $qrType,
             'checkinUrl' => $checkinUrl,
         ])->setPaper('a5', 'landscape');
 
@@ -320,7 +377,28 @@ class SessionController extends Controller
 
         $session->load('segments');
 
-        return view('sessions.report', ['session' => $session]);
+        return Inertia::render('Sessions/Report', [
+            'session' => [
+                'id'       => $session->id,
+                'title'    => $session->resolved_title,
+                'date'     => ($session->date ?? $session->created_at)->format('d M Y'),
+                'status'   => $session->status,
+                'report'   => $session->session_report,
+                'reviewed' => $session->reviewed_at?->format('d M Y, g:i A'),
+                'tracking' => (bool) $session->event_id,
+                // The report is written in the background; this says if that failed.
+                'failed'   => $session->status === 'completed' && $session->report_job_id
+                    && AiGenerationResult::where('job_id', $session->report_job_id)->value('status') === 'failed',
+            ],
+            'segments' => $session->segments->map(fn ($s) => [
+                'id'      => $s->id,
+                'name'    => $s->presenter_name,
+                'role'    => $s->role,
+                'summary' => $s->ai_summary['summary'] ?? null,
+                'logs'    => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
+            ])->values(),
+            'meta' => ['title' => "{$session->resolved_title}: report | VENTIQ Sessions"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function markReviewed(Session $session)

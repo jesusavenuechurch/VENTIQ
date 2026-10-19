@@ -45,10 +45,12 @@ page has moved; then Filament, Livewire and Alpine are removed.
 | 2. Attendee pages | Event page, registration (and its closed and error pages), payment (PIN prompt, EcoCash by hand, organizer accounts), confirmation, the ticket pass, inactive ticket, moved link | Done |
 | 3. Organizer area | Site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`), attendees and money, issue a ticket, guest-list import, event day (live with `usePoll`), Browse events | Done |
 | 4. VENTIQ admin | `/ventiq/*` (AdminLayout, DataTable + AdminTable): money, payouts, organizations, events, tickets, users, agents, inbox, session plans, ticket types, clients, tier templates, scanner app. Agents' own pages at `/agent` (home, certification). Dropped: packages, organizational records, the Filament dashboard widgets and event dashboard (event day replaces it) | Done |
-| 5. The rest | Sessions (including an organization's own plan page, still linked to Filament's Session Plan from `sessions/index` and `session-plan-payment`), auth, home, about, pricing, terms, privacy, an organization's own events page | Next |
+| 5. The rest | Sign in and sign-up pages, account, team invite, certificates, home, about, pricing, terms, privacy, an organization's own events page. Sessions (SessionsLayout, shared props from `EnsureSessionsAccess`): desk, schedule, live console, report, reports, check-in list and pass, programmes, the plan page and its payment (replacing Filament's Session Plan), and the public join and self check-in pages | Done |
 | 6. Removal | Filament, Livewire, Alpine | |
 
-Stays Blade: emails, and the ticket PDF (`tickets/avatar.blade.php`).
+Stays Blade: emails and PDFs (the ticket pass `tickets/avatar.blade.php`, certificates, and the Sessions report, attendance and check-in pass PDFs).
+
+Terms and privacy are drawn in the browser like every other page (no SSR service runs); their title and description are in the HTML the server sends.
 
 ## Open questions (decide before building)
 

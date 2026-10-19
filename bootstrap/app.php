@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // before reaching the controller.
             $middleware->alias([
                 'organizer' => \App\Http\Middleware\EnsureOrganizerAccess::class,
+                'sessions.area' => \App\Http\Middleware\EnsureSessionsAccess::class,
                 'organizer.setup' => \App\Http\Middleware\EnsureOrganizationSetUp::class,
                 'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             ]);

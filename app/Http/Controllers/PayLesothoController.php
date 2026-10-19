@@ -162,6 +162,8 @@ class PayLesothoController extends Controller
     public function status(PaymentSession $session)
     {
         abort_if($session->payable_type === 'ticket', 404);
+        // A Sessions plan payment is only the paying organization's business.
+        abort_if($session->payable_type === 'session_package' && (int) $session->organization_id !== (int) Auth::user()?->organization_id, 404);
 
         return response()->json(['status' => $session->status]);
     }

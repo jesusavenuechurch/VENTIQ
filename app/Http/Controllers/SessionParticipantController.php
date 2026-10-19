@@ -22,7 +22,21 @@ class SessionParticipantController extends Controller
             ->latest('attended_at')
             ->get();
 
-        return view('sessions.checkin', compact('session', 'participants'));
+        return \Inertia\Inertia::render('Sessions/Checkin', [
+            'session'      => ['id' => $session->id, 'title' => $session->resolved_title],
+            'participants' => $participants->map(fn (Participant $p) => [
+                'id'          => $p->id,
+                'name'        => $p->client?->full_name,
+                'phone'       => $p->client?->phone,
+                'email'       => $p->client?->email,
+                'photo'       => $p->client?->photo_path ? Storage::url($p->client->photo_path) : null,
+                'time'        => $p->attended_at?->format('g:i A'),
+                'institution' => $p->institution,
+                'position'    => $p->position,
+                'notified'    => (bool) $p->notified_at,
+            ]),
+            'meta' => ['title' => "Check-in: {$session->resolved_title} | VENTIQ"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function store(Request $request, Session $session)
@@ -31,11 +45,20 @@ class SessionParticipantController extends Controller
         abort_unless($session->event_id, 404);
 
         $validated = $request->validate([
-            'full_name' => 'required|string|max:255',
-            'phone'     => 'nullable|string|max:20',
+            'full_name'   => 'required|string|max:255',
+            'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
             'institution' => 'nullable|string|max:255',
             'position'    => 'nullable|string|max:255',
         ]);
+
+        // With an email, the same person as the self check-in form; the
+        // email is how they get their attendance card afterwards.
+        if (!empty($validated['email'])) {
+            $session->checkInAttendee($validated + ['source' => 'walk_in']);
+
+            return redirect()->route('sessions.checkin', $session)->with('status', "{$validated['full_name']} is checked in.");
+        }
 
         if (!empty($validated['phone'])) {
             $client = Client::firstOrCreate(
@@ -70,7 +93,7 @@ class SessionParticipantController extends Controller
         $participant->position        = $validated['position'] ?? null;
         $participant->save();
 
-        return redirect()->route('sessions.checkin', $session);
+        return redirect()->route('sessions.checkin', $session)->with('status', "{$validated['full_name']} is checked in.");
     }
 
     public function update(Request $request, Session $session, Participant $participant)
@@ -81,17 +104,18 @@ class SessionParticipantController extends Controller
         $validated = $request->validate([
             'full_name'   => 'required|string|max:255',
             'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
             'institution' => 'nullable|string|max:255',
             'position'    => 'nullable|string|max:255',
         ]);
 
-        $participant->client->update(['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null]);
+        $participant->client->update(['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null, 'email' => $validated['email'] ?? $participant->client->email]);
         $participant->update([
             'institution' => $validated['institution'] ?? null,
             'position'    => $validated['position'] ?? null,
         ]);
 
-        return redirect()->route('sessions.checkin', $session);
+        return redirect()->route('sessions.checkin', $session)->with('status', 'Saved.');
     }
 
     public function exportPdf(Session $session)

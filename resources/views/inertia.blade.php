@@ -27,7 +27,7 @@
          Lumela greeting): on full page loads of pages inside the site
          layout, not attendee pages. Moving between React pages never
          shows it again. --}}
-    @php($withLoader = !\Illuminate\Support\Str::startsWith($page['component'], ['Tickets/', 'Events/']))
+    @php($withLoader = !\Illuminate\Support\Str::startsWith($page['component'], ['Tickets/', 'Events/', 'Public/', 'Sessions/Show', 'Sessions/CheckinPass']))
     @if($withLoader)
         @include('partials.page-loader')
     @endif

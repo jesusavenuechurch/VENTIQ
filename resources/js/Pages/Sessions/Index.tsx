@@ -1,0 +1,143 @@
+import { Link, usePage } from '@inertiajs/react';
+import { ArrowLeft, CalendarPlus, Clock, Mic, Sparkles, Ticket, UsersRound } from 'lucide-react';
+import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
+import { AppLink } from '@/components/app-link';
+import { cn } from '@/lib/utils';
+import type { SessionsArea, SharedProps } from '@/types';
+
+type Column = 'ready' | 'live' | 'upcoming' | 'recent';
+
+interface Tile {
+    id: number;
+    title: string;
+    type: string;
+    status: string;
+    attendees: number;
+    expected: number | null;
+    presenters: number;
+    speaker: number | null;
+    starts: string | null;
+    updated: string;
+}
+
+interface Props {
+    columns: Record<Column, Tile[]>;
+    filter: Column | null;
+    members: number;
+    pendingInvites: number;
+}
+
+const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = {
+    ready: { label: 'Ready to review', tint: '#FDF3D9', empty: 'Nothing waiting' },
+    live: { label: 'Happening now', tint: '#FFE9CE', empty: 'Nothing live' },
+    upcoming: { label: 'Coming up', tint: '#E9EEF5', empty: 'Nothing scheduled' },
+    recent: { label: 'Recently finished', tint: '#F1F5F9', empty: 'Nothing yet' },
+};
+const ROTATIONS = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg'];
+
+/** The desk: sessions to review, live, coming up and just finished, as notes on a board. */
+export default function Index({ columns, filter, members, pendingInvites }: Props) {
+    const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    const outOfSessions = sessionsArea.quota.remaining <= 0;
+    const anything = (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
+
+    return (
+        <SessionsLayout
+            title={`${greeting}, ${auth.user?.firstName ?? 'there'}`}
+            subtitle="What's happening today?"
+            actions={
+                <>
+                    <AppLink to="sessions.create" className={primaryButton}><Sparkles className="size-4" />Schedule a session</AppLink>
+                    <AppLink to="organizer.team.index" className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
+                    <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>
+                    <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>
+                </>
+            }
+        >
+            {outOfSessions && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                    <p className="text-[12px] font-bold text-amber-800">You've used the sessions in your plan this month. Add more, or move to a bigger plan.</p>
+                    <AppLink to="sessions.plan" className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</AppLink>
+                </div>
+            )}
+
+            {filter ? (
+                <>
+                    <Link href={route('sessions.index')} className="mb-4 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand"><ArrowLeft className="size-3" />Back to the desk</Link>
+                    <Board>
+                        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{COLUMNS[filter].label} · {columns[filter].length}</p>
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                            {columns[filter].map((t) => <Note key={t.id} tile={t} column={filter} />)}
+                            {columns[filter].length === 0 && <p className="text-[11px] italic text-gray-400">{COLUMNS[filter].empty}</p>}
+                        </div>
+                    </Board>
+                </>
+            ) : anything ? (
+                <Board>
+                    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
+                        {(Object.keys(COLUMNS) as Column[]).map((c, i) => (
+                            <div key={c} className={cn(i > 0 && 'lg:border-l lg:border-dashed lg:border-slate-900/10 lg:pl-6', i < 3 && 'lg:pr-6')}>
+                                <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{COLUMNS[c].label}</p>
+                                <div className="space-y-5">
+                                    {columns[c].slice(0, 4).map((t) => <Note key={t.id} tile={t} column={c} />)}
+                                    {columns[c].length === 0 && <p className="text-[11px] italic text-gray-400">{COLUMNS[c].empty}</p>}
+                                </div>
+                                {columns[c].length > 4 && (
+                                    <Link href={route('sessions.index', { filter: c })} className="mt-3 inline-block text-[11px] font-bold text-brand underline">See all {columns[c].length}</Link>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Board>
+            ) : (
+                <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
+                    <p className="text-sm font-bold text-gray-400">Your sessions will show up here.</p>
+                    <AppLink to="sessions.create" className={cn(primaryButton, 'mt-6')}><Sparkles className="size-4" />Schedule your first session</AppLink>
+                </div>
+            )}
+        </SessionsLayout>
+    );
+}
+
+function Board({ children }: { children: React.ReactNode }) {
+    return <div className="rounded-3xl bg-[#F7F3EC] p-6">{children}</div>;
+}
+
+/** A session as a taped-on sticky note. */
+function Note({ tile, column }: { tile: Tile; column: Column }) {
+    const href = tile.status === 'reported' ? route('sessions.report', tile.id) : route('sessions.show', tile.id);
+    const people =
+        column === 'live' ? `${tile.attendees} checked in` : column === 'upcoming' ? `${tile.attendees || tile.expected || '—'} expected` : `${tile.attendees} attended`;
+    const status = {
+        ready: 'Report ready',
+        live: 'Live now',
+        upcoming: tile.starts ? `Starts ${tile.starts}` : 'Scheduled',
+        recent: tile.updated,
+    }[column];
+
+    return (
+        <Link
+            href={href}
+            className="group relative block rounded-b-[10px] rounded-t px-3.5 pb-3.5 pt-[18px] shadow-[0_10px_20px_rgba(15,23,42,0.12)] transition-all hover:!rotate-0 hover:-translate-y-1 hover:shadow-[0_16px_28px_rgba(15,23,42,0.18)]"
+            style={{ background: COLUMNS[column].tint, transform: `rotate(${ROTATIONS[tile.id % ROTATIONS.length]})` }}
+        >
+            <span className="absolute -top-2.5 left-1/2 h-[18px] w-[50px] -translate-x-1/2 -rotate-3 border border-white/80 bg-white/60 shadow-sm" />
+            <p className="mb-1 line-clamp-2 text-[13px] font-black leading-snug text-brand">{tile.title}</p>
+            <p className="mb-2.5 text-[9px] font-black uppercase tracking-widest text-slate-900/40">{tile.type}</p>
+            <div className="mb-2.5 flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-900/55">
+                <span className="inline-flex items-center gap-1"><UsersRound className="size-3" />{people}</span>
+                {column === 'live' && tile.speaker ? (
+                    <span className="inline-flex items-center gap-1"><Mic className="size-3" />Speaker {tile.speaker} of {tile.presenters}</span>
+                ) : tile.presenters > 0 ? (
+                    <span className="inline-flex items-center gap-1"><Mic className="size-3" />{tile.presenters} {tile.presenters === 1 ? 'presenter' : 'presenters'}</span>
+                ) : null}
+            </div>
+            <p className="flex items-center gap-1 text-[9px] font-bold text-slate-900/45">
+                {column === 'live' ? <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> : column === 'upcoming' && <Clock className="size-3" />}
+                {status}
+            </p>
+        </Link>
+    );
+}

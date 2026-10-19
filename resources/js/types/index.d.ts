@@ -45,3 +45,10 @@ export interface OrganizerProps {
         boolean
     >;
 }
+
+/** The Sessions area's shared props (App\Http\Middleware\EnsureSessionsAccess). */
+export interface SessionsArea {
+    organization: string;
+    needsReview: number;
+    quota: { used: number; included: number; remaining: number };
+}

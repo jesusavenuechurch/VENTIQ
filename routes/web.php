@@ -263,7 +263,7 @@ Route::get('/events/upcoming', [PublicEventController::class, 'upcoming'])->name
 Route::get('/events/discover', [PublicEventController::class, 'discover'])->name('events.discover');
 
 
-Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(function () {
+Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions.')->group(function () {
     Route::get('/', [SessionController::class, 'index'])->name('index');
     Route::get('/create', [SessionController::class, 'create'])->name('create');
     Route::post('/', [SessionController::class, 'store'])->name('store');
@@ -271,10 +271,12 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     // MUST be above '/{session}' — otherwise Laravel tries to bind
     // "reports" as a Session ID and 404s before this line is ever reached.
     Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
+    Route::get('/plan', [SessionPlanController::class, 'show'])->name('plan');
 
     Route::get('/{session}', [SessionController::class, 'show'])->name('show');
     Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
     Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
+    Route::patch('/{session}/segments/{segment}', [SessionSegmentController::class, 'update'])->name('segments.update');
     Route::delete('/{session}/segments/{segment}', [SessionSegmentController::class, 'destroy'])->name('segments.destroy');
     Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
     Route::post('/{session}/segments/{segment}/log/undo', [SessionSegmentController::class, 'undoLog'])->name('segments.log.undo');
@@ -306,7 +308,7 @@ Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store']
 
 Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
     Route::get('/members', fn () => redirect()->route('organizer.team.index'))->name('members');
-    Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->name('session-plan.payment');
+    Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->middleware('sessions.area')->name('session-plan.payment');
 });
  
 // Public — no auth, the invite token itself is the credential
@@ -479,7 +481,7 @@ Route::middleware('signed')->group(function () {
     Route::get('/payment-review/{payment}/proof', [App\Http\Controllers\PaymentReviewController::class, 'proof'])->name('payment-review.proof');
 });
 
-Route::middleware(['auth'])->prefix('programmes')->name('programmes.')->group(function () {
+Route::middleware(['auth', 'sessions.area'])->prefix('programmes')->name('programmes.')->group(function () {
     Route::get('/', [ProgrammeController::class, 'index'])->name('index');
     Route::get('/create', [ProgrammeController::class, 'create'])->name('create');
     Route::post('/', [ProgrammeController::class, 'store'])->name('store');
