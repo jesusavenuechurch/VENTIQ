@@ -7,15 +7,16 @@ use App\Models\{AiGenerationResult, AssistConversation, AssistMessage, User};
 use Illuminate\Support\Str;
 
 /**
- * Ask Ventiq: a user's conversation about their organization's sessions.
- * Used by the React panel (AssistController).
+ * Ask Ventiq: a user's conversation about their organization's sessions,
+ * answered from its own records (App\Services\Memory). Used by the React
+ * panel (AssistController). Only for people whose role reads reports.
  */
 class AssistChat
 {
     // How long a reply may stay "thinking" before it's given up on. The
     // job's own retries only help a job that runs and fails; a worker that
     // dies or never picks it up would otherwise leave it pending forever.
-    private const STALE_AFTER_SECONDS = 45;
+    private const STALE_AFTER_SECONDS = 270;
 
     /** The user's latest conversation, or a new one. */
     public function conversation(User $user): AssistConversation
@@ -41,6 +42,18 @@ class AssistChat
 
         if (!$conversation->title) {
             $conversation->update(['title' => Str::limit($text, 40)]);
+        }
+
+        // Reading the organization's records is what a role that reads reports may do.
+        if (!\App\Support\SessionsAccess::can($user, 'view')) {
+            AssistMessage::create([
+                'conversation_id' => $conversation->id,
+                'role'            => 'assistant',
+                'content'         => "Your role on the team doesn't include reading reports, so I can't search them for you. Ask an Admin if you need it.",
+                'status'          => 'completed',
+            ]);
+
+            return;
         }
 
         $jobId = (string) Str::uuid();

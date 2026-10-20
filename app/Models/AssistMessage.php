@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssistMessage extends Model
 {
-    protected $fillable = ['conversation_id', 'role', 'content', 'status', 'job_id'];
+    protected $fillable = ['conversation_id', 'role', 'content', 'sources', 'status', 'job_id'];
+
+    protected $casts = ['sources' => 'array'];
 
     public function conversation(): BelongsTo
     {

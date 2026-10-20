@@ -9,6 +9,9 @@ return [
         'model'       => env('OLLAMA_MODEL', 'qwen2.5:7b'),
         'timeout'     => env('OLLAMA_TIMEOUT', 300),
         'temperature' => env('OLLAMA_TEMPERATURE', 0.7),
+        // For Ask Ventiq's search: run `ollama pull nomic-embed-text` on the Mac mini.
+        'embed_model' => env('OLLAMA_EMBED_MODEL', 'nomic-embed-text'),
+        'embed_timeout' => env('OLLAMA_EMBED_TIMEOUT', 60),
     ],
 
     'openrouter' => [

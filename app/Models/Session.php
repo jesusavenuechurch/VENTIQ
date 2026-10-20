@@ -58,6 +58,15 @@ class Session extends Model
                 \App\Jobs\IssueProgrammeCertificates::dispatch($session->event_id)->afterCommit();
             }
         });
+
+        // Ask Ventiq's memory of it: made when it's reported, and again when it changes.
+        static::updated(function (Session $session) {
+            $reported = $session->status === 'reported' || $session->getOriginal('status') === 'reported';
+            if ($reported && $session->wasChanged(['status', 'session_report', 'minutes', 'reviewed_at', 'title', 'date', 'location', 'meta'])) {
+                \App\Jobs\IndexSessionMemory::dispatch($session->id)->afterCommit();
+            }
+        });
+        static::deleted(fn (Session $session) => \App\Models\MemoryChunk::where('session_id', $session->id)->delete());
     }
 
     // ── Relationships ────────────────────────────────────────────────────

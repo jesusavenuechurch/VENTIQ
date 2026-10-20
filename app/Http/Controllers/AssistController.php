@@ -24,8 +24,10 @@ class AssistController extends Controller
                 'role'    => $m->role,
                 'status'  => $m->status,
                 // Answers are Markdown, written by VENTIQ's own assistant.
-                'html'    => $m->role === 'assistant' && $m->content ? Str::markdown($m->content, ['html_input' => 'escape']) : null,
+                'html'    => $m->role === 'assistant' && $m->content ? self::cite(Str::markdown($m->content, ['html_input' => 'escape']), $m->sources ?? []) : null,
                 'text'    => $m->role === 'user' ? $m->content : null,
+                // The sessions the answer came from, to open.
+                'sources' => $m->sources ?? [],
             ])->values(),
             'pending' => $conversation->messages->contains('status', 'pending'),
         ]);
@@ -38,5 +40,15 @@ class AssistController extends Controller
         $this->chat->ask($this->chat->conversation($request->user()), $request->user(), $data['text']);
 
         return $this->index($request);
+    }
+
+    /** [1] in an answer becomes a small link to that session. */
+    public static function cite(string $html, array $sources): string
+    {
+        $urls = collect($sources)->pluck('url', 'n');
+
+        return preg_replace_callback('/\[(\d+)\]/', fn ($m) => isset($urls[(int) $m[1]])
+            ? '<a href="' . e($urls[(int) $m[1]]) . '" class="cite">' . $m[1] . '</a>'
+            : $m[0], $html);
     }
 }

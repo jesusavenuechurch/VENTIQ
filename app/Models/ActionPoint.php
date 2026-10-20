@@ -25,6 +25,14 @@ class ActionPoint extends Model
         'reminded_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // Ask Ventiq knows what's been agreed and what's done.
+        $reindex = fn (ActionPoint $point) => $point->session_id && \App\Jobs\IndexSessionMemory::dispatch($point->session_id)->afterCommit();
+        static::saved($reindex);
+        static::deleted($reindex);
+    }
+
     public function session(): BelongsTo
     {
         return $this->belongsTo(Session::class, 'session_id');

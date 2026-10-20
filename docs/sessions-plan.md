@@ -124,7 +124,25 @@ each question the app finds the relevant ones and sends them with it
    signatures (`certificates.design`), so later changes don't alter
    certificates already out.
 7. **Ask Ventiq over the organization's memory** (search, then answers with
-   sources).
+   sources). *Done:* `memory_chunks` holds each held session as passages:
+   each part's write-up (for a meeting, its minutes as confirmed or
+   edited), the notes as typed, the attendance and the action points with
+   their status (`MemoryIndexer`, run again on every change; a passage
+   whose words didn't change keeps its embedding). Embeddings come from the
+   Mac mini (`OLLAMA_EMBED_MODEL`, default `nomic-embed-text`) and are
+   stored here, normalised float32; passages wait when it's off and the
+   hourly `sessions:index-memory` embeds them. A question is searched by
+   meaning and by words (full-text), merged; its dates are read from the
+   words ("this month", "in March"); the counts and, when asked, the open
+   action points are added; one call to the model writes the answer,
+   citing the sessions, which the panel links to. Only the asking
+   organization's records, and only for roles that read reports.
+
+   **To switch on:** on the Mac mini, `ollama pull nomic-embed-text`; after
+   deploying, `php artisan migrate` and `php artisan sessions:index-memory
+   --all` once. At a few thousand passages per organization the
+   similarity is worked out in PHP; past that, a vector index (MariaDB
+   11.7's VECTOR type) is the next step.
 8. **Transcription** (a phone in the room, Whisper on the local server).
 
 ## What exists already, to build on

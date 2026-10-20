@@ -1,4 +1,4 @@
-import { ArrowUp, Sparkles, X } from 'lucide-react';
+import { ArrowUp, FileText, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,8 @@ interface Message {
     status: 'pending' | 'completed' | 'failed';
     html: string | null;
     text: string | null;
+    /** The sessions the answer came from. */
+    sources: { n: number; title: string; date: string | null; url: string }[];
 }
 
 /**
@@ -71,7 +73,7 @@ export function AskVentiq({ raised }: { raised: boolean }) {
                     <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
                         <div>
                             <p className="text-[13px] font-black uppercase tracking-tight text-brand">Ask Ventiq</p>
-                            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Search your sessions</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">From your minutes, reports and action points</p>
                         </div>
                         <button type="button" onClick={() => setOpen(false)} className="rounded-full p-2 text-gray-300 transition-colors hover:bg-gray-50" aria-label="Close"><X className="size-4" /></button>
                     </div>
@@ -80,19 +82,32 @@ export function AskVentiq({ raised }: { raised: boolean }) {
                         {messages.length === 0 ? (
                             <div className="flex h-full flex-col items-center justify-center px-4 text-center">
                                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">Ask Ventiq</p>
-                                <p className="max-w-[220px] text-[12px] text-gray-400">"How many meetings this year?" · "What came up about procurement?"</p>
+                                <p className="max-w-[240px] text-[12px] leading-relaxed text-gray-400">"What did we discuss about logistics this month?" · "What's still open from the board meeting?" · "Who's handling the venue quotes?"</p>
                             </div>
                         ) : (
                             messages.map((m) => (
                                 <div key={m.id} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                                     <div className={cn('max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px]', m.role === 'user' ? 'bg-brand text-white' : 'bg-gray-50 text-gray-800')}>
                                         {m.status === 'pending' ? (
-                                            <span className="flex gap-1 py-1">
-                                                {[0, 150, 300].map((d) => <span key={d} className="size-1.5 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: `${d}ms` }} />)}
+                                            <span className="flex items-center gap-2 py-1">
+                                                <span className="flex gap-1">{[0, 150, 300].map((d) => <span key={d} className="size-1.5 animate-bounce rounded-full bg-gray-400" style={{ animationDelay: `${d}ms` }} />)}</span>
+                                                <span className="text-[11px] text-gray-400">Reading your records…</span>
                                             </span>
                                         ) : m.html ? (
-                                            // The server renders the answer's Markdown, escaping any HTML in it.
-                                            <div className="space-y-2 [&_a]:underline [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc" dangerouslySetInnerHTML={{ __html: m.html }} />
+                                            <>
+                                                {/* The server renders the answer's Markdown, escaping any HTML in it; [1] links to a session. */}
+                                                <div className="space-y-2 [&_a.cite]:ml-0.5 [&_a.cite]:inline-flex [&_a.cite]:size-4 [&_a.cite]:items-center [&_a.cite]:justify-center [&_a.cite]:rounded-full [&_a.cite]:bg-brand [&_a.cite]:align-super [&_a.cite]:text-[9px] [&_a.cite]:font-black [&_a.cite]:text-white [&_a.cite]:no-underline [&_a]:underline [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc" dangerouslySetInnerHTML={{ __html: m.html }} />
+                                                {m.sources.length > 0 && (
+                                                    <div className="mt-3 space-y-1 border-t border-gray-200/70 pt-2">
+                                                        {m.sources.map((src) => (
+                                                            <a key={src.n} href={src.url} className="flex items-start gap-1.5 text-[11px] font-bold text-brand hover:text-action">
+                                                                <span className="mt-px flex size-4 shrink-0 items-center justify-center rounded-full bg-brand text-[9px] font-black text-white">{src.n}</span>
+                                                                <span className="min-w-0"><FileText className="mr-1 inline size-3 text-gray-400" />{src.title}{src.date && <span className="font-medium text-gray-400"> · {src.date}</span>}</span>
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
                                         ) : (
                                             <p className="whitespace-pre-line">{m.text}</p>
                                         )}
@@ -103,7 +118,7 @@ export function AskVentiq({ raised }: { raised: boolean }) {
                     </div>
 
                     <form onSubmit={ask} className="flex shrink-0 gap-2 border-t bg-white p-3">
-                        <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your sessions..." className="min-w-0 flex-1 rounded-full border border-gray-200 px-4 py-2 text-[13px] outline-none focus:ring-2 focus:ring-action/20" />
+                        <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your meetings…" className="min-w-0 flex-1 rounded-full border border-gray-200 px-4 py-2 text-[13px] outline-none focus:ring-2 focus:ring-action/20" />
                         <button type="submit" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-action text-white transition-colors hover:bg-brand" aria-label="Send"><ArrowUp className="size-4" /></button>
                     </form>
                 </div>
