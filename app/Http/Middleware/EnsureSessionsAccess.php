@@ -44,6 +44,7 @@ class EnsureSessionsAccess
 
         \Inertia\Inertia::share('sessionsArea', fn () => [
             'can'          => SessionsAccess::all($user),
+            'canSign'      => (bool) $user->can_sign_certificates,
             'organization' => $organization->name,
             'needsReview'  => Session::forOrganization($organization->id)->where('status', 'reported')->whereNull('reviewed_at')->count(),
             'overdueActions' => \App\Models\ActionPoint::where('organization_id', $organization->id)->where('status', 'open')->whereDate('due_date', '<', today())->count(),

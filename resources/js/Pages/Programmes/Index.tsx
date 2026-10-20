@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronRight, Lock, Plus } from 'lucide-react';
+import { Award, ChevronRight, Lock, PenLine, Plus } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import type { SessionsArea } from '@/types';
@@ -13,7 +13,7 @@ interface Programme {
 
 /** Programmes: anything with more than one session, like a training over several days. */
 export default function Index({ programmes, canCreate }: { programmes: Programme[]; canCreate: boolean }) {
-    const { can } = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea;
+    const { can, canSign } = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea;
 
     return (
         <SessionsLayout
@@ -21,11 +21,15 @@ export default function Index({ programmes, canCreate }: { programmes: Programme
             subtitle="For anything with more than one session: trainings, conferences, events over several days."
             width="max-w-4xl"
             actions={
-                !can.run ? null : canCreate ? (
-                    <AppLink to="programmes.create" className={primaryButton}><Plus className="size-4" />New programme</AppLink>
-                ) : (
-                    can.plan && <AppLink to="sessions.plan" className={quietButton}><Lock className="size-3.5" />Business plan</AppLink>
-                )
+                <>
+                    {canSign && <Link href={route('sessions.signature')} className={quietButton}><PenLine className="size-3.5" />My signature</Link>}
+                    {can.run && <Link href={route('sessions.certificates.design')} className={quietButton}><Award className="size-3.5" />Certificate design</Link>}
+                    {!can.run ? null : canCreate ? (
+                        <AppLink to="programmes.create" className={primaryButton}><Plus className="size-4" />New programme</AppLink>
+                    ) : (
+                        can.plan && <AppLink to="sessions.plan" className={quietButton}><Lock className="size-3.5" />Business plan</AppLink>
+                    )}
+                </>
             }
         >
             {!canCreate && can.run && (

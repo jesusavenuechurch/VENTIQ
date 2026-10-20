@@ -258,6 +258,13 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
     Route::get('/plan', [SessionPlanController::class, 'show'])->name('plan');
     Route::get('/actions', [App\Http\Controllers\ActionPointsController::class, 'index'])->name('actions.index');
+    Route::get('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'edit'])->name('certificates.design');
+    Route::put('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'update'])->name('certificates.design.update');
+    Route::delete('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'reset'])->name('certificates.design.reset');
+    Route::post('/certificate-design/preview', [App\Http\Controllers\CertificateDesignController::class, 'preview'])->name('certificates.design.preview');
+    Route::get('/certificate-design/sample', [App\Http\Controllers\CertificateDesignController::class, 'sample'])->name('certificates.design.sample');
+    Route::get('/signature', [App\Http\Controllers\SignatureController::class, 'show'])->name('signature');
+    Route::put('/signature', [App\Http\Controllers\SignatureController::class, 'update'])->name('signature.update');
     Route::patch('/actions/{actionPoint}', [App\Http\Controllers\ActionPointsController::class, 'update'])->name('actions.update');
     Route::post('/actions/{actionPoint}/done', [App\Http\Controllers\ActionPointsController::class, 'done'])->name('actions.done');
     Route::post('/actions/{actionPoint}/reopen', [App\Http\Controllers\ActionPointsController::class, 'reopen'])->name('actions.reopen');
@@ -425,6 +432,7 @@ Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name(
         Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
         Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');
         Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
+        Route::put('/team/{member}/signs', [App\Http\Controllers\Organizer\TeamController::class, 'signs'])->name('team.signs');
         Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
     });
 });

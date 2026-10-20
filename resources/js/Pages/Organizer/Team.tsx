@@ -23,6 +23,9 @@ interface Member {
     email: string;
     role: string | null;
     isYou: boolean;
+    /** Signs certificates (Sessions), and has drawn their signature. */
+    signs: boolean;
+    signed: boolean;
 }
 
 interface Invite {
@@ -124,6 +127,12 @@ export default function Team({
                                                 {member.name} {member.isYou && <span className="text-[11px] font-bold text-gray-400">(you)</span>}
                                             </p>
                                             <p className="truncate text-[11px] font-medium text-gray-500">{member.email}</p>
+                                            {canManage ? (
+                                                <label className="mt-1 inline-flex cursor-pointer items-center gap-1.5 text-[10px] font-bold text-gray-500">
+                                                    <input type="checkbox" checked={member.signs} onChange={(e) => router.put(route('organizer.team.signs', member.id), { signs: e.target.checked }, { preserveScroll: true })} className="accent-brand" />
+                                                    Signs certificates{member.signs && !member.signed && <span className="text-amber-600">· no signature drawn yet</span>}
+                                                </label>
+                                            ) : member.signs && <p className="mt-1 text-[10px] font-bold text-mint-ink">Signs certificates</p>}
                                         </div>
                                     </div>
 

@@ -201,6 +201,7 @@ function Certificates({ programme, board, canEdit }: { programme: Props['program
                 <div>
                     <p className={cardTitle}><Award className="size-4 text-action" />Certificates</p>
                     <p className="mt-1 text-[12px] font-medium text-gray-500">{programme.certificates ? 'Issued and emailed on their own, the evening someone meets the rule.' : 'Off for this programme.'}</p>
+                    {canEdit && <Link href={route('sessions.certificates.design', { programme: programme.id })} className="mt-1 inline-block text-[11px] font-bold text-brand underline">Design and signatures</Link>}
                 </div>
                 {canEdit && (
                     <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500">

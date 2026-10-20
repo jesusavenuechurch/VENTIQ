@@ -32,6 +32,9 @@ class TeamController extends Controller
                 'email' => $m->email,
                 'role'  => $m->roles->first()?->name,
                 'isYou' => $m->is($you),
+                // Signs certificates (Sessions), and has drawn their signature.
+                'signs'  => (bool) $m->can_sign_certificates,
+                'signed' => (bool) $m->signature_path,
             ]),
             'invites'   => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->latest()->get()->map(fn (OrganizationInvite $i) => [
                 'id'        => $i->id,
@@ -101,6 +104,27 @@ class TeamController extends Controller
         Log::info("User {$member->id} given role {$data['role']} by user {$request->user()->id}");
 
         return back()->with('status', "{$member->name} is now " . TeamRoles::label($data['role']) . '.');
+    }
+
+    /**
+     * Allow someone to sign certificates, or not. Allowed, they're emailed
+     * a link to draw their signature. Admins may allow themselves: signing
+     * puts only your own signature on certificates.
+     */
+    public function signs(Request $request, User $member)
+    {
+        $organization = $this->organization($request);
+        abort_unless($member->organization_id === $organization->id, 404);
+        $data = $request->validate(['signs' => 'required|boolean']);
+
+        $member->forceFill(['can_sign_certificates' => $data['signs']])->save();
+        if ($data['signs'] && !$member->signature_path && !$member->is($request->user())) {
+            Mail::to($member->email)->queue(new \App\Mail\SignCertificatesMail($member, $organization->name));
+        }
+
+        return back()->with('status', $data['signs']
+            ? ($member->is($request->user()) ? 'You can sign certificates. Draw your signature under Sessions, My signature.' : "{$member->name} can sign certificates. We've emailed them a link to draw their signature.")
+            : "{$member->name} no longer signs certificates. Ones already issued keep their signature.");
     }
 
     /** Take someone off the team. Their account stays, without access to this organization. */

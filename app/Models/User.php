@@ -37,6 +37,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'signature_path',
     ];
 
     /**
@@ -51,7 +52,15 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'last_active_at' => 'datetime',
             'removal_warned_at' => 'datetime',
+            'can_sign_certificates' => 'boolean',
+            'signature_updated_at' => 'datetime',
         ];
+    }
+
+    /** Their drawn signature, for a certificate (it's kept on the private disk). */
+    public function signatureDataUri(): ?string
+    {
+        return \App\Support\Signature::dataUri($this->signature_path);
     }
 
     public function isSuperAdmin(): bool

@@ -16,10 +16,12 @@ class Certificate extends Model
         'token',
         'certificate_number',
         'issued_at',
+        'design',
     ];
 
     protected $casts = [
         'issued_at' => 'datetime',
+        'design'    => 'array',
     ];
 
     protected static function boot()
@@ -33,6 +35,11 @@ class Certificate extends Model
 
             if (empty($cert->certificate_number)) {
                 $cert->certificate_number = static::nextCertificateNumber();
+            }
+
+            // Issued with the design (and signatures) of the day; it keeps them.
+            if (empty($cert->design)) {
+                $cert->design = CertificateDesign::for($cert->organization_id, $cert->event_id)->snapshot();
             }
         });
     }
@@ -73,13 +80,41 @@ class Certificate extends Model
         return $this->belongsTo(Client::class);
     }
 
-    /** The certificate as a PDF (one design for now; the designer comes next). */
+    /** The certificate as a PDF, in the design it was issued with. */
     public function pdf()
     {
-        $this->loadMissing(['client', 'programme', 'organization']);
+        return self::renderPdf(
+            $this->design ?? CertificateDesign::for($this->organization_id, $this->event_id)->snapshot(),
+            $this->facts(),
+        );
+    }
 
-        return \PDF::loadView('certificates.certificate', ['certificate' => $this, 'qr' => \App\Support\Qr::dataUri($this->verify_url, 300)])
+    /** A design and one certificate's facts, as the A4 landscape PDF. */
+    public static function renderPdf(array $design, array $facts)
+    {
+        return \PDF::loadView('certificates.certificate', ['c' => CertificateDesign::view($design, $facts)])
             ->setPaper('a4', 'landscape');
+    }
+
+    /** What this certificate says: who, for what, when. */
+    public function facts(): array
+    {
+        $this->loadMissing(['client', 'programme', 'organization']);
+        $days = Participant::whereIn('session_id', Session::where('event_id', $this->event_id)->pluck('id'))
+            ->where('client_id', $this->client_id)->whereNotNull('attended_at')->distinct()->count('session_id');
+
+        return [
+            'recipient'    => $this->client?->full_name ?? '',
+            'programme'    => $this->programme?->name ?? '',
+            'organization' => $this->organization?->name ?? '',
+            'venue'        => $this->programme?->venue,
+            'dates'        => $this->programme ? CertificateDesign::programmeDates($this->programme) : null,
+            'days'         => $days ? ($days === 1 ? '1 day' : "{$days} days") : null,
+            'issued'       => $this->issued_at->format('j F Y'),
+            'number'       => $this->certificate_number,
+            'verify_url'   => $this->verify_url,
+            'logo_path'    => $this->organization?->logo_path,
+        ];
     }
 
     public function getVerifyUrlAttribute(): string

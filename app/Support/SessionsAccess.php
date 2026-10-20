@@ -61,7 +61,8 @@ class SessionsAccess
     public static function abilityFor(?string $routeName): string
     {
         return match (true) {
-            in_array($routeName, ['sessions.index'], true) => 'desk',
+            // Your own signature: anyone an Admin allowed to sign, whatever their role.
+            in_array($routeName, ['sessions.index', 'sessions.signature', 'sessions.signature.update'], true) => 'desk',
             in_array($routeName, [
                 'sessions.checkin', 'sessions.checkin.store', 'sessions.checkin.update', 'sessions.checkin.pdf', 'sessions.checkin.card',
                 'sessions.checkin.qr', 'sessions.checkin.pass', 'sessions.checkin.pass.pdf', 'sessions.participants.count', 'programmes.participants.pdf',

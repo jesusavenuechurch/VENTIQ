@@ -53,5 +53,7 @@ export interface SessionsArea {
     can: Record<'desk' | 'checkin' | 'view' | 'run' | 'plan', boolean>;
     needsReview: number;
     overdueActions: number;
+    /** An Admin allowed them to sign certificates. */
+    canSign: boolean;
     quota: { used: number; included: number; remaining: number };
 }

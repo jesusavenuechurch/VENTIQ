@@ -112,7 +112,17 @@ each question the app finds the relevant ones and sends them with it
    (`sessions:issue-certificates`) for days only checked in to. A rule
    change that would issue some asks first. Certificate QR codes fall back
    to SVG without Imagick (`App\Support\Qr`).
-6. **Certificate designer and stored signatures.**
+6. **Certificate designer and stored signatures.** *Done:* Programmes,
+   Certificate design (`CertificateDesign`): banner, classic or minimal
+   layout, colours, title, wording with `{programme}` `{organization}`
+   `{venue}` `{dates}` `{days}`, the logo, and up to two signatories; one
+   for the organization and optionally one per programme, with a live
+   preview from the PDF's own view. An Admin allows people to sign on the
+   Team page (`users.can_sign_certificates`); each draws their signature
+   once under My signature (any role), kept on the private disk and never
+   overwritten. Each certificate keeps a snapshot of its design and
+   signatures (`certificates.design`), so later changes don't alter
+   certificates already out.
 7. **Ask Ventiq over the organization's memory** (search, then answers with
    sources).
 8. **Transcription** (a phone in the room, Whisper on the local server).
