@@ -99,7 +99,19 @@ each question the app finds the relevant ones and sends them with it
    was recorded (Self, Desk, Scanner), blank rows to fill in by hand
    (`?blank=`, default 5), a note on how it was produced and a "certified
    by" line. Self check-ins are now recorded as `self`, not `walk_in`.
-5. **Programme enrolment and automatic certificates.**
+5. **Programme enrolment and automatic certificates.** *Done:*
+   `programme_enrolments`: people enrol by the programme's link
+   (`/enrol/{token}`, closable, emails the days), the organizer adds them
+   (one, or a list pasted from a spreadsheet), and checking in to a day
+   enrols too; withdrawing keeps their attendance. The rule is every day
+   (default) or at least N days (`events.certificate_min_days`).
+   `ProgrammeProgress` shows each person's days and standing (certified,
+   meets the rule, on track, missed too many) and issues certificates to
+   whoever meets it, emailed with the PDF: when a day ends (a `Session`
+   status change) and each evening at 18:50
+   (`sessions:issue-certificates`) for days only checked in to. A rule
+   change that would issue some asks first. Certificate QR codes fall back
+   to SVG without Imagick (`App\Support\Qr`).
 6. **Certificate designer and stored signatures.**
 7. **Ask Ventiq over the organization's memory** (search, then answers with
    sources).

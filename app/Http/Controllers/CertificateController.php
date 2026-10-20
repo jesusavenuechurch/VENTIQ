@@ -83,11 +83,6 @@ class CertificateController extends Controller
 
     private function renderPdf(Certificate $certificate)
     {
-        $qrBase64 = base64_encode(
-            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(300)->margin(1)->generate($certificate->verify_url)
-        );
-
-        return \PDF::loadView('certificates.certificate', ['certificate' => $certificate, 'qrBase64' => $qrBase64])
-            ->setPaper('a4', 'landscape');
+        return $certificate->pdf();
     }
 }

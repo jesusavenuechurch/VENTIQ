@@ -240,17 +240,7 @@ class SessionController extends Controller
      */
     private function qr(string $url): array
     {
-        $make = fn (string $format) => (string) \SimpleSoftwareIO\QrCode\Facades\QrCode::format($format)->size(400)->margin(1)->generate($url);
-
-        if (extension_loaded('imagick')) {
-            try {
-                return [$make('png'), 'image/png'];
-            } catch (\Throwable) {
-                // Falls through to the SVG.
-            }
-        }
-
-        return [$make('svg'), 'image/svg+xml'];
+        return \App\Support\Qr::make($url);
     }
 
     public function checkinPass(Session $session)

@@ -50,6 +50,16 @@ class Session extends Model
         'counted_at'             => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // A programme's day has ended: anyone who now meets its rule gets their certificate.
+        static::updated(function (Session $session) {
+            if ($session->event_id && $session->wasChanged('status') && in_array($session->status, ['completed', 'reported'], true)) {
+                \App\Jobs\IssueProgrammeCertificates::dispatch($session->event_id)->afterCommit();
+            }
+        });
+    }
+
     // ── Relationships ────────────────────────────────────────────────────
 
     public function organization(): BelongsTo
@@ -215,6 +225,11 @@ class Session extends Model
             $participant->attended_at = now();
         }
         $participant->save();
+
+        // Coming to a programme's day puts you on the programme.
+        if ($this->event?->is_programme) {
+            app(\App\Services\Sessions\ProgrammeProgress::class)->enrolClient($this->event, $client, $participant->institution, $participant->position, 'checkin');
+        }
 
         $participant->wasAlreadyCheckedIn = $wasAlreadyCheckedIn;
 

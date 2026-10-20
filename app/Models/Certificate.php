@@ -73,6 +73,15 @@ class Certificate extends Model
         return $this->belongsTo(Client::class);
     }
 
+    /** The certificate as a PDF (one design for now; the designer comes next). */
+    public function pdf()
+    {
+        $this->loadMissing(['client', 'programme', 'organization']);
+
+        return \PDF::loadView('certificates.certificate', ['certificate' => $this, 'qr' => \App\Support\Qr::dataUri($this->verify_url, 300)])
+            ->setPaper('a4', 'landscape');
+    }
+
     public function getVerifyUrlAttribute(): string
     {
         return route('certificates.verify', $this->token);

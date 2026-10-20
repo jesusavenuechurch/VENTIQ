@@ -102,18 +102,8 @@ class ProgrammeController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $issuedCertificates = $programme->certificates_enabled
-            ? $programme->certificates()->with('client')->get()
-            : collect();
-
-        // Eligible = checked into at least one session in this Programme,
-        // dedup'd by client. "At least one" is the default rule for now —
-        // an explicit call, not a hidden assumption: revisit if you want
-        // an attendance threshold instead (e.g. all sessions, or a %).
-        $eligibleCount = \App\Models\Participant::whereIn('session_id', $sessions->pluck('id'))
-            ->whereNotNull('attended_at')
-            ->distinct('client_id')
-            ->count('client_id');
+        $progress = app(\App\Services\Sessions\ProgrammeProgress::class);
+        $board = $progress->board($programme);
 
         return Inertia::render('Programmes/Show', [
             'programme' => [
@@ -122,6 +112,9 @@ class ProgrammeController extends Controller
                 'dates'        => $this->dates($programme),
                 'venue'        => $programme->venue,
                 'certificates' => (bool) $programme->certificates_enabled,
+                'minDays'      => $programme->certificate_min_days,
+                'enrolOpen'    => (bool) $programme->enrolment_open,
+                'enrolUrl'     => $progress->link($programme),
             ],
             'sessions' => $sessions->map(fn (Session $s) => [
                 'id'     => $s->id,
@@ -129,13 +122,8 @@ class ProgrammeController extends Controller
                 'when'   => trim(($s->date?->format('d M Y') ?? '') . ($s->start_time ? ' · ' . \Carbon\Carbon::parse($s->start_time)->format('g:i A') : '')),
                 'status' => $s->status,
             ]),
-            'certificates' => $issuedCertificates->map(fn ($c) => [
-                'id'     => $c->id,
-                'name'   => $c->client?->full_name ?? 'Unknown',
-                'issued' => $c->issued_at?->format('d M Y'),
-                'url'    => route('certificates.verify', $c->token),
-            ]),
-            'eligible' => $eligibleCount,
+            // Who's on it, the days each came to, and their certificate.
+            'board'    => $board,
             'types'    => \App\Support\SessionType::forForm(),
             'today'    => now()->toDateString(),
             'openSchedule' => (bool) session('schedule'),
@@ -155,40 +143,17 @@ class ProgrammeController extends Controller
         ])->setPaper('a4', 'landscape')->download('participant-list-' . \Illuminate\Support\Str::slug($programme->name) . '.pdf');
     }
 
+    /** Issue now, rather than waiting for the evening: to everyone who meets the rule. */
     public function issueCertificates(Event $programme)
     {
         abort_unless($programme->organization_id === Auth::user()->organization_id, 403);
         abort_unless($programme->certificates_enabled, 400);
 
-        $sessionIds = Session::where('event_id', $programme->id)->pluck('id');
-
-        $clientIds = \App\Models\Participant::whereIn('session_id', $sessionIds)
-            ->whereNotNull('attended_at')
-            ->distinct()
-            ->pluck('client_id');
-
-        $issued = 0;
-        foreach ($clientIds as $clientId) {
-            $cert = \App\Models\Certificate::firstOrNew([
-                'event_id'  => $programme->id,
-                'client_id' => $clientId,
-            ]);
-            if (!$cert->exists) {
-                $cert->organization_id = $programme->organization_id;
-                $cert->issued_at = now();
-                $cert->save();
-                $issued++;
-
-                if ($cert->client?->email) {
-                    \Illuminate\Support\Facades\Mail::to($cert->client->email)
-                        ->send(new \App\Mail\CertificateIssuedMail($cert));
-                }
-            }
-        }
+        $issued = app(\App\Services\Sessions\ProgrammeProgress::class)->issueDue($programme)->count();
 
         return back()->with('status', $issued > 0
-            ? "{$issued} certificate(s) issued."
-            : 'Everyone eligible already has a certificate.');
+            ? "{$issued} " . ($issued === 1 ? 'certificate' : 'certificates') . ' issued and emailed.'
+            : 'Everyone who meets the rule already has their certificate.');
     }
 
     public function generateReport(Event $programme)

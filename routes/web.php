@@ -302,6 +302,9 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
 Route::get('/join', [PublicSessionCheckinController::class, 'join'])->name('public.session-join');
 Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
+// A programme's enrolment link: the token is the credential, as with check-in.
+Route::get('/enrol/{token}', [\App\Http\Controllers\PublicProgrammeEnrolController::class, 'show'])->name('public.programme-enrol.form');
+Route::post('/enrol/{token}', [\App\Http\Controllers\PublicProgrammeEnrolController::class, 'store'])->middleware('throttle:20,1')->name('public.programme-enrol.submit');
 
 Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
     Route::get('/members', fn () => redirect()->route('organizer.team.index'))->name('members');
@@ -496,6 +499,11 @@ Route::middleware(['auth', 'sessions.area'])->prefix('programmes')->name('progra
     Route::get('/{programme}', [ProgrammeController::class, 'show'])->name('show');
     Route::post('/{programme}/certificates', [ProgrammeController::class, 'issueCertificates'])->name('certificates.issue');
     Route::get('/{programme}/participants/pdf', [ProgrammeController::class, 'participantList'])->name('participants.pdf');
+    Route::post('/{programme}/enrolments', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'store'])->name('enrolments.store');
+    Route::post('/{programme}/enrolments/import', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'import'])->name('enrolments.import');
+    Route::post('/{programme}/enrolments/{enrolment}/withdraw', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'withdraw'])->name('enrolments.withdraw');
+    Route::post('/{programme}/enrolments/{enrolment}/restore', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'restore'])->name('enrolments.restore');
+    Route::patch('/{programme}/settings', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'settings'])->name('settings');
     Route::post('/{programme}/report/generate', [ProgrammeController::class, 'generateReport'])->name('report.generate');
     Route::get('/{programme}/report', [ProgrammeController::class, 'report'])->name('report');
     Route::get('/{programme}/report/status', [ProgrammeController::class, 'reportStatus'])->name('report.status');

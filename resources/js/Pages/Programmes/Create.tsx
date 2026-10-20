@@ -6,7 +6,7 @@ import SessionsLayout, { field, fieldLabel } from '@/Layouts/SessionsLayout';
 export default function Create({ today }: { today: string }) {
     const form = useForm({ name: '', start_date: today, end_date: today, venue: '', certificates_enabled: false, signature_capture_enabled: false });
     const toggles: ['certificates_enabled' | 'signature_capture_enabled', string, string][] = [
-        ['certificates_enabled', 'Offer certificates', "You issue them yourself when you're ready. Nothing goes out on its own."],
+        ['certificates_enabled', 'Certificates', 'Issued and emailed on their own to everyone who attends every day. You can change the rule on the programme page.'],
         ['signature_capture_enabled', 'Signatures at check-in', 'Door staff using the scanner app collect a signature, role, institution and district from each person.'],
     ];
 

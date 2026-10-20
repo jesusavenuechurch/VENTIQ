@@ -29,3 +29,5 @@ Artisan::command('inspire', function () {
 
 // Action points from sessions: reminders before and on the due date, weekly when overdue.
 \Illuminate\Support\Facades\Schedule::command('sessions:action-reminders')->dailyAt('07:05')->withoutOverlapping();
+// Programme certificates, for days that ended today (and days that were only checked in to).
+\Illuminate\Support\Facades\Schedule::command('sessions:issue-certificates')->dailyAt('18:50')->withoutOverlapping();

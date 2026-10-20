@@ -176,7 +176,7 @@
                             <div class="info-value">{{ $certificate->issued_at->format('d M Y') }}</div>
                         </div>
                         <div class="info-cell">
-                            <img src="data:image/png;base64,{{ $qrBase64 }}" width="60" height="60">
+                            <img src="{{ $qr }}" width="60" height="60">
                             <div class="info-small">Scan to verify</div>
                         </div>
                         <div class="info-cell">

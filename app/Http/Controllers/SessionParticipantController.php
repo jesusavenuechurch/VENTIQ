@@ -93,6 +93,10 @@ class SessionParticipantController extends Controller
         $participant->position        = $validated['position'] ?? null;
         $participant->save();
 
+        if ($session->event?->is_programme) {
+            app(\App\Services\Sessions\ProgrammeProgress::class)->enrolClient($session->event, $client, $participant->institution, $participant->position, 'checkin');
+        }
+
         return redirect()->route('sessions.checkin', $session)->with('status', "{$validated['full_name']} is checked in.");
     }
 

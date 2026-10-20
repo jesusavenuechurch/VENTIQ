@@ -35,6 +35,9 @@ class Event extends Model
         'is_programme',
         'kind',
         'certificates_enabled',
+        'enrol_token',
+        'enrolment_open',
+        'certificate_min_days',
         'signature_capture_enabled',
         'event_type',
         'payment_mode',
@@ -52,6 +55,7 @@ class Event extends Model
         'registration_deadline' => 'datetime',
         'is_programme' => 'boolean',
         'certificates_enabled' => 'boolean',
+        'enrolment_open'       => 'boolean',
         'signature_capture_enabled' => 'boolean',
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
@@ -312,4 +316,5 @@ class Event extends Model
         return $this->hasMany(Session::class);
     }
     public function certificates(): HasMany { return $this->hasMany(Certificate::class); }
+    public function enrolments(): HasMany { return $this->hasMany(ProgrammeEnrolment::class); }
 }
