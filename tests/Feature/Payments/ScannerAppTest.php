@@ -41,8 +41,8 @@ it('keeps older builds for super admins only', function () {
     $super = User::factory()->create(['organization_id' => null]);
     $super->assignRole('super_admin');
     $this->actingAs($super)->get(route('scanner-app.download.release', $old))->assertOk();
-    $this->get(\App\Filament\Resources\AppReleaseResource::getUrl('index'))->assertOk()->assertSee('1.0.0');
-    $this->get(\App\Filament\Resources\AppReleaseResource::getUrl('create'))->assertOk()->assertSee('APK file');
+    $this->get(route('ventiq.app-releases.index'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('releases.0.version', '1.0.0'));
 });
 
 it('needs a sign-in', function () {

@@ -1,1 +1,0 @@
-@livewire('ventiq-assist.event-description-assist')

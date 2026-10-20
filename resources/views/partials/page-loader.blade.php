@@ -1,6 +1,6 @@
 {{-- The loading screen: a short hello on a cold visit, the Lumela
      greeting on a browser's very first one, and almost nothing on later
-     page loads in the same tab. Used by layouts/app and the React root. --}}
+     page loads in the same tab. Used by the React root (inertia.blade.php). --}}
 <style>
     #page-loader { transition: opacity .7s cubic-bezier(.4,0,.2,1), visibility .7s cubic-bezier(.4,0,.2,1); }
     #page-loader.done { opacity: 0; visibility: hidden; pointer-events: none; }

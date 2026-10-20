@@ -8,8 +8,7 @@ use Illuminate\Support\Str;
 
 /**
  * Ask Ventiq: a user's conversation about their organization's sessions.
- * Used by the React panel (AssistController) and the Livewire chat on the
- * pages that are still Blade.
+ * Used by the React panel (AssistController).
  */
 class AssistChat
 {

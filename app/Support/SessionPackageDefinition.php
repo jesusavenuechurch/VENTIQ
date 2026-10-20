@@ -57,26 +57,6 @@ class SessionPackageDefinition
         return self::tiers()[$tier] ?? null;
     }
 
-    /**
-     * One-line description per tier for use in a Filament Radio's
-     * ->descriptions([...]) — the price/session/WhatsApp/SMS numbers
-     * spelled out in the option itself, not hidden behind a selection.
-     */
-    public static function radioDescriptions(): array
-    {
-        return collect(self::tiers())->mapWithKeys(function ($def, $tier) {
-            $price = $def['price'] === null
-                ? 'Custom pricing'
-                : ($def['price'] == 0 ? 'Free' : "M{$def['price']}/month");
-
-            $line = $tier === 'enterprise'
-                ? $def['description']
-                : "{$price} — {$def['description']}";
-
-            return [$tier => $line];
-        })->toArray();
-    }
-
     public static function rankOf(string $tier): int
     {
         return self::get($tier)['rank'] ?? -1;

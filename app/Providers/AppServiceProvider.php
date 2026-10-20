@@ -14,7 +14,6 @@ use App\Services\AI\AIService;
 use App\Services\AI\Providers\OllamaProvider;
 use App\Services\AI\Providers\OpenRouterProvider;
 // use App\Services\AI\Providers\ClaudeProvider; // ← uncomment when you build this
-use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {

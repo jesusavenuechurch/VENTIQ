@@ -46,11 +46,20 @@ page has moved; then Filament, Livewire and Alpine are removed.
 | 3. Organizer area | Site and organizer layouts, events home, payments to confirm and the review page, payment accounts, settings (organization, payouts, team), setup, the event form with Ventiq Assist (`/assist/event-content`), attendees and money, issue a ticket, guest-list import, event day (live with `usePoll`), Browse events | Done |
 | 4. VENTIQ admin | `/ventiq/*` (AdminLayout, DataTable + AdminTable): money, payouts, organizations, events, tickets, users, agents, inbox, session plans, ticket types, clients, tier templates, scanner app. Agents' own pages at `/agent` (home, certification). Dropped: packages, organizational records, the Filament dashboard widgets and event dashboard (event day replaces it) | Done |
 | 5. The rest | Sign in and sign-up pages, account, team invite, certificates, home, about, pricing, terms, privacy, an organization's own events page. Sessions (SessionsLayout, shared props from `EnsureSessionsAccess`): desk, schedule, live console, report, reports, check-in list and pass, programmes, the plan page and its payment (replacing Filament's Session Plan), and the public join and self check-in pages | Done |
-| 6. Removal | Filament, Livewire, Alpine | |
+| 6. Removal | Filament (and `/admin`, which now sends people to their own home), Livewire, Alpine, the old Blade layout, the package purchase and approval flows, organizational records | Done |
 
 Stays Blade: emails and PDFs (the ticket pass `tickets/avatar.blade.php`, certificates, and the Sessions report, attendance and check-in pass PDFs).
 
 Terms and privacy are drawn in the browser like every other page (no SSR service runs); their title and description are in the HTML the server sends.
+
+Left on purpose: the package and organizational-record models and tables.
+Packages still give each new organization its free trial row and set the
+team size limit (`TeamController`), and both tables hold past data. Removing
+them is its own cleanup, with a decision on the team limit first.
+
+`lib/react-pages.ts` (`REACT_ROUTES`) can go too: every page is React now, so
+`AppLink` could always use Inertia's `Link`, except for downloads (PDFs, QR
+images, the scanner app), which need a normal page load.
 
 ## Open questions (decide before building)
 
@@ -72,3 +81,12 @@ Terms and privacy are drawn in the browser like every other page (no SSR service
   organization that runs an event, ...), then build it in. The certification
   quiz (`App\Support\AgentCertificationQuiz`) still teaches the package rules
   in modules 1 and 3 and questions 1 and 5 to 8; rewrite those with it.
+
+## UX bugs to go through after the migration
+
+- **Admin tabs jump back.** In `/ventiq/*` the row of section tabs is wider
+  than the screen and scrolls sideways. Clicking a tab near the far end
+  reloads the page with the row scrolled back to the start, so the tab you're
+  on is out of view (and it looks like you were sent back). The row should
+  keep the current tab in view, and moving between sections should feel like
+  staying in place.

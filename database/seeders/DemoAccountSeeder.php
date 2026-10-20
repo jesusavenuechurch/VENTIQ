@@ -31,9 +31,8 @@ class DemoAccountSeeder extends Seeder
             ]
         );
 
-        // Without this the account has zero Spatie permissions — Filament
-        // resources gated on them (Events, Tickets, etc.) just vanish from
-        // nav with no visible error, which is exactly what happened here.
+        // Without this the account has zero Spatie permissions, and the
+        // organizer pages gated on them (events, payments, team) refuse it.
         if (!$user->hasRole('org_admin')) {
             $user->assignRole('org_admin');
         }

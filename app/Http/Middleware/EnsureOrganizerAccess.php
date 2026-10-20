@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 /**
  * The organizer area needs an organization to show. A super admin who
- * hasn't picked one goes back to Filament to choose; anyone else without
+ * hasn't picked one goes to the organizations list to choose; anyone else without
  * an organization has no business here.
  */
 class EnsureOrganizerAccess

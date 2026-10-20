@@ -63,16 +63,13 @@ describe('getting into the organizer area', function () {
             ->assertJsonPath('redirect', route('organizer.home'));
     });
 
-    it('moves org users off the Filament dashboard', function () {
+    it('sends old admin links to the right home', function () {
         $this->actingAs($this->admin)->get('/admin')->assertRedirect(route('organizer.home'));
-        $this->get(route('filament.admin.events.resources.events.create'))->assertRedirect(route('organizer.events.create'));
-    });
+        $this->get('/admin/events/events/create')->assertRedirect(route('organizer.home'));
 
-    it('keeps super admins on the Filament dashboard', function () {
         $super = User::factory()->create(['organization_id' => null]);
         $super->assignRole('super_admin');
-
-        $this->actingAs($super)->get('/admin')->assertOk();
+        $this->actingAs($super)->get('/admin')->assertRedirect(route('ventiq.money.index'));
     });
 
     it('points the home page Host link at the organizer area', function () {

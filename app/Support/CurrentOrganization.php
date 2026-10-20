@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * The organization the organizer area is showing. An org user always sees
  * their own. A super admin has no organization of their own; they pick
- * one from Filament ("Open organizer view") to act on its behalf, kept in
+ * one from the VENTIQ admin ("Open organizer view") to act on its behalf, kept in
  * the session until they exit.
  */
 class CurrentOrganization

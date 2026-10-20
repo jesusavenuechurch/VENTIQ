@@ -255,24 +255,7 @@ describe('payment accounts', function () {
     });
 });
 
-describe('leaving Filament behind', function () {
-    it('sends org users from the Filament event and account screens to the organizer area', function () {
-        $event = Event::create(['organization_id' => $this->org->id, 'name' => 'E', 'slug' => 'e-' . Str::random(5), 'event_date' => now()->addWeek()]);
-
-        $this->actingAs($this->admin);
-        $this->get(route('filament.admin.events.resources.events.create'))->assertRedirect(route('organizer.events.create'));
-        $this->get(route('filament.admin.events.resources.events.edit', $event))->assertRedirect(route('organizer.events.edit', $event));
-        $this->get(route('filament.admin.events.resources.events.index'))->assertRedirect(route('organizer.home'));
-        $this->get(route('filament.admin.organization.resources.organization-payment-methods.index'))->assertRedirect(route('organizer.accounts.index'));
-    });
-
-    it('leaves super admins in Filament', function () {
-        $super = User::factory()->create(['organization_id' => null]);
-        $super->assignRole('super_admin');
-
-        $this->actingAs($super)->get(route('filament.admin.events.resources.events.create'))->assertOk();
-    });
-
+describe('the organizer pages', function () {
     it('links the organizer pages to each other, with Home instead of Sessions', function () {
         // Create event and the Accounts tab show for an admin (links are built by the React pages).
         $this->actingAs($this->admin)->get(route('organizer.home'))->assertInertia(fn ($page) => $page->component('Organizer/Home')

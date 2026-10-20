@@ -214,13 +214,6 @@ Route::post('/become-agent', [AgentApplicationController::class, 'submit'])->nam
 Route::get('/reset-password/{token}', [AgentApplicationController::class, 'showResetForm'])->name('password.reset');
 Route::post('/reset-password', [AgentApplicationController::class, 'resetPassword'])->name('password.update');
 
-Route::middleware(['auth'])->group(function () {
-    Route::get(
-        '/organizational-records/{organizationalRecord}/pdf',
-        [\App\Http\Controllers\OrganizationalRecordPdfController::class, 'download']
-    )->name('organizational-records.pdf');
-});
-
 // Event PDF reports: the controller limits each to the event's own
 // organization (or a super admin).
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
@@ -243,17 +236,9 @@ Route::middleware(['auth'])->prefix('payment/paylesotho')->name('paylesotho.')->
         ->name('session-package.initiate');
 });
 
-// ── FALLBACK GATEWAY: MoPay (kept, not removed) ──────────────────
-Route::middleware(['auth'])->prefix('payment')->name('online-payment.')->group(function () {
-    Route::get('/package/initiate', [MopayController::class, 'initiatePackagePayment'])
-        ->name('package.initiate');
-});
-
+// ── FALLBACK GATEWAY: MoPay (tickets only) ──────────────────────
 Route::get('/payment/ticket/initiate', [MopayController::class, 'initiateTicketPayment'])
     ->name('online-payment.ticket.initiate');
-
-Route::get('/payment/package/callback', [MopayController::class, 'packageCallback'])
-    ->name('online-payment.package.callback');
 
 Route::get('/payment/ticket/callback', [MopayController::class, 'ticketCallback'])
     ->name('online-payment.ticket.callback');
@@ -318,6 +303,17 @@ Route::post('/invite/{token}', [OrganizationInviteAcceptController::class, 'subm
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])->name('login');
+
+// The old Filament admin lived at /admin. Bookmarks and links in emails
+// already sent go to the right home instead.
+Route::get('/admin/{path?}', function () {
+    $user = auth()->user();
+    if (!$user) {
+        return redirect()->route('login');
+    }
+
+    return redirect($user->organization_id ? \App\Support\IntentRedirect::resolve(null) : \App\Support\IntentRedirect::home($user));
+})->where('path', '.*');
 Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->middleware('throttle:10,1')->name('login.submit');
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/login/start', [App\Http\Controllers\Auth\EmailLoginController::class, 'start'])->name('login.start');
@@ -347,7 +343,7 @@ Route::middleware('auth')->prefix('agent')->name('agent.')->group(function () {
     Route::post('/certification', [App\Http\Controllers\AgentAreaController::class, 'submitCertification'])->middleware('throttle:10,1')->name('certification.submit');
 });
 
-// VENTIQ's own admin (super admins), section by section as each leaves Filament.
+// VENTIQ's own admin (super admins).
 Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->group(function () {
     Route::resource('organizations', App\Http\Controllers\Ventiq\OrganizationsController::class)->except('show');
     Route::resource('users', App\Http\Controllers\Ventiq\UsersController::class)->except('show');
@@ -399,7 +395,7 @@ Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'dest
 
 // ── Organizer area ───────────────────────────────────────────────
 // Where org users land: their events and the payments waiting on them.
-// Super admins reach it by picking an organization in Filament.
+// Super admins reach it by opening an organization's organizer view from the admin.
 // The team is shared by VENTIQ Events and Sessions, so it needs an
 // organization but not the events setup (phone number) step.
 Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {

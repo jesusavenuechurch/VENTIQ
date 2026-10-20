@@ -99,7 +99,7 @@ class Event extends Model
             // Mirrors the pattern already used for tagline: if city is
             // left blank for any reason, default at the model level too,
             // not just in the form — protects data created outside the
-            // Filament form (seeders, imports, API).
+            // event form (seeders, imports, API).
             if (empty($event->city)) {
                 $event->city = 'Maseru';
             }

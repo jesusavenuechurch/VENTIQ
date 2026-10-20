@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { ArrowLeftRight, ArrowUpRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { AppLink } from '@/components/app-link';
 import { Alert } from '@/components/ui/alert';
@@ -13,7 +13,7 @@ interface Section {
     active: string[];
 }
 
-/** VENTIQ's own admin, section by section as each leaves Filament. */
+/** VENTIQ's own admin sections. */
 const SECTIONS: Section[] = [
     { route: 'ventiq.money.index', label: 'Money', icon: Banknote, active: ['ventiq.money.*'] },
     { route: 'ventiq.payouts.index', label: 'Payouts', icon: ArrowLeftRight, active: ['ventiq.payouts.*'] },
@@ -33,7 +33,6 @@ const SECTIONS: Section[] = [
 /**
  * Every VENTIQ admin page (super admins): its sections as a row of tabs
  * that scrolls sideways on a phone, the page's title, and its flashes.
- * Sections still in Filament are reached from "Old admin".
  */
 export default function AdminLayout({ title, subtitle, actions, children }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
     const { flash } = usePage().props;
@@ -58,9 +57,6 @@ export default function AdminLayout({ title, subtitle, actions, children }: { ti
                             <s.icon className="mr-1 inline size-3.5" />{s.label}
                         </AppLink>
                     ))}
-                    <a href="/admin" className="shrink-0 rounded-full border border-dashed border-gray-200 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand">
-                        Old admin <ArrowUpRight className="inline size-3" />
-                    </a>
                 </nav>
 
                 <div className="mb-6 flex flex-wrap items-end justify-between gap-4">

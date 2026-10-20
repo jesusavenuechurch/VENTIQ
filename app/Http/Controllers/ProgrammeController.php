@@ -15,7 +15,7 @@ class ProgrammeController extends Controller
 
     /**
      * A "Programme" isn't a new table — it's any Event with is_programme
-     * true. Ticketed events keep using the Filament wizard untouched; this
+     * true. Ticketed events have their own form in the organizer area; this
      * is purely the lightweight, internal grouping layer.
      */
     public function index()
