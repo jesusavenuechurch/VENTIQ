@@ -74,7 +74,12 @@ each question the app finds the relevant ones and sends them with it
    `sessions:top-up-series`), weekly, fortnightly, monthly by date or by
    weekday. A session now counts against the plan when it starts.
 2. **Action points**: extracted, confirmed, carried to the next meeting,
-   reminders.
+   reminders. *Done:* `ActionPoint`; `ExtractActionPoints` (after each
+   report, retried while the Mac mini is unreachable) proposes them;
+   keep/change/remove on the report, reviewing keeps the rest; "From last
+   time" on a series' next meeting; the Actions tab; reminder emails two
+   days before, on the day and weekly when overdue
+   (`sessions:action-reminders`). WhatsApp reminders wait for a template.
 3. **Minutes format** for meetings (and the "Next item" wording).
 4. **Participant list PDF** for procurement (per day for multi-day).
 5. **Programme enrolment and automatic certificates.**

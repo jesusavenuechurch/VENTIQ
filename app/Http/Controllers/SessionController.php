@@ -201,6 +201,7 @@ class SessionController extends Controller
                 'logs'       => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
                 'insights'   => $s->insights->map(fn ($i) => ['id' => $i->id, 'type' => $i->category, 'text' => $i->content])->values(),
             ])->values(),
+            'carried' => $this->carried($session),
             'roles' => collect(\App\Support\SessionType::roles($session->type))
                 ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
                 ->values(),
@@ -349,6 +350,7 @@ class SessionController extends Controller
                 'reviewed' => $session->reviewed_at?->format('d M Y, g:i A'),
                 'tracking' => (bool) $session->event_id,
                 'series'   => $session->series ? ['id' => $session->series->id, 'title' => $session->series->title] : null,
+                'findingActions' => ($session->meta['action_points'] ?? null) === 'finding',
                 'previous' => $session->parent_session_id && Session::whereKey($session->parent_session_id)->where('status', 'reported')->exists() ? $session->parent_session_id : null,
                 // The report is written in the background; this says if that failed.
                 'failed'   => $session->status === 'completed' && $session->report_job_id
@@ -361,6 +363,11 @@ class SessionController extends Controller
                 'summary' => $s->ai_summary['summary'] ?? null,
                 'logs'    => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
             ])->values(),
+            // What was agreed here, and what came in still open from the
+            // series' earlier meetings (and whether it was done here).
+            'actionPoints' => $session->actionPoints()->whereIn('status', ['proposed', 'open', 'done'])->with(['ownerUser', 'ownerClient'])->orderBy('id')->get()->map->toCard(),
+            'carried'      => $this->carried($session),
+            'owners'       => \App\Http\Controllers\ActionPointsController::owners($session),
             'meta' => ['title' => "{$session->resolved_title}: report | VENTIQ Sessions"],
         ])->withViewData(['noindex' => true]);
     }
@@ -371,6 +378,8 @@ class SessionController extends Controller
         abort_unless($session->status === 'reported', 400);
 
         $session->update(['reviewed_at' => now()]);
+        // Reviewing the report confirms the action points proposed for it.
+        $session->actionPoints()->where('status', 'proposed')->update(['status' => 'open']);
 
         $organization = $session->organization;
 
@@ -444,5 +453,26 @@ class SessionController extends Controller
         $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session])->setPaper('a4', 'portrait');
 
         return $pdf->download("ventiq-report-{$session->id}.pdf");
+    }
+
+    /**
+     * In a series: the action points from its earlier meetings still open,
+     * and the ones ticked off in this meeting.
+     */
+    private function carried(Session $session): array
+    {
+        if (!$session->series_id) {
+            return [];
+        }
+
+        return \App\Models\ActionPoint::where('series_id', $session->series_id)
+            ->where('session_id', '!=', $session->id)
+            ->whereHas('session', fn ($q) => $q->whereDate('date', '<=', $session->date))
+            ->where(fn ($q) => $q->where('status', 'open')->orWhere(fn ($d) => $d->where('status', 'done')->where('done_in_session_id', $session->id)))
+            ->with(['session', 'ownerUser', 'ownerClient'])
+            ->orderBy('due_date')
+            ->get()
+            ->map->toCard()
+            ->all();
     }
 }

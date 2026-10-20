@@ -75,6 +75,12 @@ class Session extends Model
         return $this->hasMany(Session::class, 'parent_session_id');
     }
 
+    /** What was agreed in this session. */
+    public function actionPoints(): HasMany
+    {
+        return $this->hasMany(ActionPoint::class, 'session_id');
+    }
+
     /** The repeating series this meeting is part of, if any. */
     public function series(): BelongsTo
     {

@@ -2,18 +2,23 @@ import { Link, router, usePage, usePoll } from '@inertiajs/react';
 import { Check, ChevronDown, Download, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
+import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
 
 interface Props {
-    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null };
+    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean };
     segments: { id: number; name: string; role: string | null; summary: string | null; logs: { time: string; text: string }[] }[];
+    actionPoints: ActionPointCard[];
+    carried: ActionPointCard[];
+    owners: Owner[];
 }
 
 /** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
-export default function Report({ session, segments }: Props) {
-    const generating = session.status === 'completed' && !session.failed;
+export default function Report({ session, segments, actionPoints, carried, owners }: Props) {
+    // Writing the report, then picking out its action points: checked every few seconds.
+    const generating = (session.status === 'completed' && !session.failed) || session.findingActions;
     // Viewers read the report; Admins and Staff edit and review it.
     const canRun = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea.can.run;
     const [editing, setEditing] = useState(false);
@@ -24,7 +29,7 @@ export default function Report({ session, segments }: Props) {
     const [error, setError] = useState('');
 
     // While the report is being written, check every few seconds.
-    const { start, stop } = usePoll(3000, { only: ['session', 'segments'] }, { autoStart: generating });
+    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints'] }, { autoStart: generating });
     useEffect(() => (generating ? start() : stop()), [generating, start, stop]);
     // The report arriving from the check above.
     useEffect(() => {
@@ -73,7 +78,8 @@ export default function Report({ session, segments }: Props) {
                 )
             ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8 lg:col-span-2">
+                    <div className="lg:col-span-2">
+                    <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8">
                         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                             <span className={cn('text-[10px] font-black uppercase tracking-widest', justSaved ? 'text-emerald-600' : 'text-gray-300')}>{justSaved ? 'Saved' : editing ? 'Editing' : ''}</span>
                             <div className="flex flex-wrap justify-end gap-2">
@@ -108,6 +114,9 @@ export default function Report({ session, segments }: Props) {
                                 </>
                             )}
                         </div>
+                    </div>
+                    {session.findingActions && <p className="mt-6 flex items-center gap-2 rounded-2xl bg-lilac/60 px-5 py-4 text-[12px] font-bold text-lilac-ink"><LoaderCircle className="size-4 animate-spin" />Ventiq Assist is picking out the action points…</p>}
+                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} />
                     </div>
 
                     <div className="rounded-2xl bg-[#F7F3EC] p-5">

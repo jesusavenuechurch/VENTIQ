@@ -67,7 +67,7 @@ class SessionsAccess
                 'sessions.checkin.qr', 'sessions.checkin.pass', 'sessions.checkin.pass.pdf', 'sessions.participants.count',
             ], true) => 'checkin',
             in_array($routeName, [
-                'sessions.reports', 'sessions.report', 'sessions.series.show', 'sessions.report.pdf', 'sessions.report.status',
+                'sessions.reports', 'sessions.report', 'sessions.series.show', 'sessions.actions.index', 'sessions.report.pdf', 'sessions.report.status',
                 'programmes.index', 'programmes.show', 'programmes.report', 'programmes.report.status', 'programmes.certificates.download',
             ], true) => 'view',
             in_array($routeName, ['sessions.plan', 'organization.session-plan.payment', 'paylesotho.session-package.initiate'], true) => 'plan',

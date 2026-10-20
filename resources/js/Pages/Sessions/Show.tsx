@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Link2, Plus, QrCode, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import type { ActionPointCard } from '@/components/sessions/action-points';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,8 @@ interface Props {
     session: { id: number; title: string; status: string; tracking: boolean; checkinUrl: string | null; expected: number | null; participants: number };
     segments: Segment[];
     roles: Role[];
+    /** In a series: action points still open from earlier meetings. */
+    carried: ActionPointCard[];
 }
 
 const PALETTE = ['#D4AF37', '#10b981', '#0f172a', '#64748b', '#94a3b8'];
@@ -76,7 +79,7 @@ async function call<T = Record<string, unknown>>(url: string, method = 'POST', b
  * background. Each line is saved as it's written; the last one can be
  * pulled back to fix a mistyped Enter.
  */
-export default function Show({ session, segments, roles }: Props) {
+export default function Show({ session, segments, roles, carried }: Props) {
     const base = `/sessions/${session.id}`;
     const [speakers, setSpeakers] = useState<Speaker[]>(() => segments.map((s) => ({ ...s, breaks: [0], page: 0 })));
     const active = segments.find((s) => s.status === 'active');
@@ -419,6 +422,39 @@ export default function Show({ session, segments, roles }: Props) {
         </>
     );
 
+    // Ticked off during the meeting: done in this session.
+    const [doneHere, setDoneHere] = useState<Set<number>>(() => new Set(carried.filter((p) => p.status === 'done').map((p) => p.id)));
+    const toggleCarried = async (p: ActionPointCard) => {
+        const done = doneHere.has(p.id);
+        const next = new Set(doneHere);
+        done ? next.delete(p.id) : next.add(p.id);
+        setDoneHere(next);
+        const ok = await call(route(done ? 'sessions.actions.reopen' : 'sessions.actions.done', p.id), 'POST', done ? {} : { session_id: session.id });
+        if (!ok) setDoneHere(doneHere);
+    };
+    const fromLastTime = carried.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">From last time</p>
+            <p className="mb-3 text-[10px] font-semibold text-slate-400">Still open. Tick what's done.</p>
+            <ul className="space-y-2.5">
+                {carried.map((p) => {
+                    const done = doneHere.has(p.id);
+                    return (
+                        <li key={p.id}>
+                            <label className="flex cursor-pointer items-start gap-2.5">
+                                <input type="checkbox" checked={done} onChange={() => toggleCarried(p)} className="mt-0.5 size-4 shrink-0 accent-emerald-600" />
+                                <span className="min-w-0">
+                                    <span className={cn('block text-[12px] font-semibold leading-snug text-slate-900', done && 'text-slate-400 line-through')}>{p.task}</span>
+                                    <span className={cn('block text-[10px] text-slate-400', p.overdue && !done && 'font-bold text-rose-600')}>{[p.owner, p.dueLabel && (p.overdue ? `overdue, ${p.dueLabel}` : `by ${p.dueLabel}`)].filter(Boolean).join(' · ')}</span>
+                                </span>
+                            </label>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+
     const assist = (
         <div className="space-y-6">
             {(!selected || selected.insights.length === 0) && <p className="px-1 text-[12px] italic text-slate-400">Sticky notes collect here as things come up.</p>}
@@ -572,7 +608,11 @@ export default function Show({ session, segments, roles }: Props) {
                             ))}
                         </span>
                     </button>
-                    <div className={cn('px-5 pb-6 pt-2 lg:block lg:flex-1 lg:overflow-y-auto', !notesOpen && 'hidden')}>{assist}</div>
+                    {fromLastTime && <div className="px-5 pt-2 lg:hidden">{fromLastTime}</div>}
+                    <div className={cn('px-5 pb-6 pt-2 lg:block lg:flex-1 lg:overflow-y-auto', !notesOpen && 'hidden')}>
+                        <div className="hidden lg:block">{fromLastTime}</div>
+                        {assist}
+                    </div>
                 </aside>
             </div>
 

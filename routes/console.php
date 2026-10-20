@@ -26,3 +26,6 @@ Artisan::command('inspire', function () {
 
 // Repeating sessions: each series keeps its next meetings on the desk.
 \Illuminate\Support\Facades\Schedule::command('sessions:top-up-series')->dailyAt('05:40')->withoutOverlapping();
+
+// Action points from sessions: reminders before and on the due date, weekly when overdue.
+\Illuminate\Support\Facades\Schedule::command('sessions:action-reminders')->dailyAt('07:05')->withoutOverlapping();

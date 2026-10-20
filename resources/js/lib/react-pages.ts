@@ -15,7 +15,7 @@ export const REACT_ROUTES = new Set<string>([
     'ventiq.tiers.index', 'ventiq.clients.index', 'ventiq.tier-templates.index', 'ventiq.tier-templates.create', 'ventiq.tier-templates.edit',
     'ventiq.payouts.index', 'ventiq.session-plans.index', 'ventiq.inbox.index', 'ventiq.app-releases.index', 'ventiq.agents.index',
     'agent.home', 'agent.certification',
-    'sessions.index', 'sessions.create', 'sessions.series.show', 'sessions.reports', 'sessions.plan', 'sessions.show', 'sessions.report', 'sessions.checkin', 'sessions.checkin.pass',
+    'sessions.index', 'sessions.create', 'sessions.series.show', 'sessions.actions.index', 'sessions.reports', 'sessions.plan', 'sessions.show', 'sessions.report', 'sessions.checkin', 'sessions.checkin.pass',
     'organization.session-plan.payment', 'public.session-join', 'public.session-checkin.form',
     'programmes.index', 'programmes.create', 'programmes.show', 'programmes.report',
     'organizer.home', 'organizer.payments.index', 'organizer.accounts.index',

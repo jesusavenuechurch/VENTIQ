@@ -153,6 +153,10 @@ class GenerateSessionReport implements ShouldQueue
             'status'         => 'reported',
         ]);
         AiGenerationResult::where('job_id', $this->jobId)->update(['status' => 'completed']);
+
+        // Then the action points, proposed for someone to confirm on the report.
+        $session->update(['meta' => array_merge($session->meta ?? [], ['action_points' => 'finding'])]);
+        ExtractActionPoints::dispatch($session->id);
     }
 
     // The dispatcher that never existed. Generic on purpose — see the

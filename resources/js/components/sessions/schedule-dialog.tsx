@@ -208,8 +208,8 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                             {form.errors.title && <p className="ml-1 mt-1 text-[11px] font-bold text-rose-600">{form.errors.title}</p>}
                         </div>
                         <div>
-                            <label htmlFor="type" className={fieldLabel}>Type</label>
-                            <NativeSelect id="type" value={form.data.type} onChange={(e) => form.setData('type', e.target.value)} className="border-gray-200 bg-white py-4 font-bold text-brand">
+                            <label htmlFor="type" className={cn(fieldLabel, 'text-lilac-ink')}>Type</label>
+                            <NativeSelect id="type" value={form.data.type} onChange={(e) => form.setData('type', e.target.value)} className="border-lilac-ink/25 bg-lilac py-4 font-black text-lilac-ink focus:border-lilac-ink focus:bg-lilac">
                                 {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
                             </NativeSelect>
                         </div>
@@ -239,8 +239,8 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                     {!programme && (
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <div className="sm:col-span-2">
-                                <label htmlFor="repeat" className={fieldLabel}>Repeats</label>
-                                <NativeSelect id="repeat" value={form.data.repeat} onChange={(e) => form.setData('repeat', e.target.value)} className="border-gray-200 bg-white py-4 font-bold text-brand">
+                                <label htmlFor="repeat" className={cn(fieldLabel, 'text-mint-ink')}>Repeats</label>
+                                <NativeSelect id="repeat" value={form.data.repeat} onChange={(e) => form.setData('repeat', e.target.value)} className={form.data.repeat ? 'border-mint-ink/30 bg-mint py-4 font-black text-mint-ink focus:border-mint-ink focus:bg-mint' : 'border-mint-ink/20 bg-white py-4 font-bold text-mint-ink focus:border-mint-ink'}>
                                     {repeatOptions(form.data.date).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                                 </NativeSelect>
                             </div>

@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, ChevronRight, FileText, FolderOpen, LayoutGrid, Ticket } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, FolderOpen, LayoutGrid, ListTodo, Ticket } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { type AreaTab, useAreaTabs } from '@/components/area-tabs';
 import { Alert } from '@/components/ui/alert';
@@ -16,6 +16,7 @@ function useTabs() {
         { route: 'sessions.index', label: 'Desk', icon: LayoutGrid, active: ['sessions.index', 'sessions.checkin', 'sessions.series.*'] },
         ...(can?.view ? [
             { route: 'sessions.reports', label: 'Reports', icon: FileText, active: ['sessions.reports', 'sessions.report'], badge: sessionsArea?.needsReview },
+            { route: 'sessions.actions.index', label: 'Actions', icon: ListTodo, active: ['sessions.actions.*'], badge: sessionsArea?.overdueActions },
             { route: 'programmes.index', label: 'Programmes', icon: FolderOpen, active: ['programmes.*'] },
         ] : []),
         ...(can?.plan ? [{ route: 'sessions.plan', label: 'Plan', icon: Ticket, active: ['sessions.plan', 'organization.session-plan.*'] }] : []),

@@ -52,5 +52,6 @@ export interface SessionsArea {
     organization: string;
     can: Record<'desk' | 'checkin' | 'view' | 'run' | 'plan', boolean>;
     needsReview: number;
+    overdueActions: number;
     quota: { used: number; included: number; remaining: number };
 }
