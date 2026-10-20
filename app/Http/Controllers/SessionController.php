@@ -44,8 +44,13 @@ class SessionController extends Controller
     {
         $organization = Auth::user()->organization;
 
+        // Each running series keeps its next meetings made (the daily
+        // top-up does it too; this covers a desk opened first).
+        $series = \App\Models\SessionSeries::where('organization_id', $organization->id)->whereNull('ended_at')->get();
+        $series->each(fn ($s) => app(\App\Services\Sessions\SeriesScheduler::class)->topUp($s, Auth::user()));
+
         $sessions = Session::forOrganization($organization->id)
-            ->with('segments')
+            ->with(['segments', 'series'])
             ->latest()
             ->get();
 
@@ -74,6 +79,7 @@ class SessionController extends Controller
                 'starts'     => $starts ? ($s->start_time ? $starts->format('D j M · H:i') : $starts->format('D j M')) : null,
                 'updated'    => $s->updated_at->diffForHumans(),
                 'tracking'   => (bool) $s->public_token,
+                'series'     => $s->series ? ['id' => $s->series->id, 'rule' => $s->series->describe()] : null,
             ];
         };
 
@@ -82,7 +88,9 @@ class SessionController extends Controller
         $columns = [
             'ready'    => $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->reviewed_at),
             'live'     => $sessions->filter(fn ($s) => $s->status === 'active'),
-            'upcoming' => $sessions->filter(fn ($s) => $s->status === 'draft')->sortBy(fn ($s) => $s->date?->toDateString() . ' ' . $s->start_time),
+            // A series shows only its next meeting here; the rest are on its page.
+            'upcoming' => $sessions->filter(fn ($s) => $s->status === 'draft')->sortBy(fn ($s) => $s->date?->toDateString() . ' ' . $s->start_time)
+                ->unique(fn ($s) => $s->series_id ? "series-{$s->series_id}" : "session-{$s->id}"),
             'recent'   => $sessions->filter(fn ($s) => $s->status === 'completed'),
         ];
 
@@ -91,6 +99,12 @@ class SessionController extends Controller
             'filter'         => in_array($request->query('filter'), array_keys($columns), true) ? $request->query('filter') : null,
             'members'        => $organization->members()->count(),
             'pendingInvites' => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->count(),
+            'series'         => $series->map(fn ($s) => [
+                'id'    => $s->id,
+                'title' => $s->title,
+                'rule'  => $s->describe(),
+                'next'  => $s->sessions()->where('status', 'draft')->whereDate('date', '>=', today())->first()?->date?->format('D j M'),
+            ])->values(),
             'types'          => \App\Support\SessionType::forForm(),
             'today'          => now()->toDateString(),
             'openSchedule'   => (bool) session('schedule'),
@@ -113,7 +127,7 @@ class SessionController extends Controller
             : redirect()->route('sessions.index'))->with('schedule', true);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, \App\Services\Sessions\SessionMaker $maker, \App\Services\Sessions\SeriesScheduler $scheduler)
     {
         $validated = $request->validate([
             'title'                 => 'required|string|max:255',
@@ -129,91 +143,29 @@ class SessionController extends Controller
             'expected_duration'     => 'nullable|integer|min:1',
             'track_participants'    => 'nullable|boolean',
             'expected_participants' => 'nullable|integer|min:1',
-        ]);
+            // Repeating: a series instead of one session (not inside a programme).
+            'repeat'                => 'nullable|in:' . implode(',', \App\Models\SessionSeries::FREQUENCIES),
+            'ends_on'               => 'nullable|date|after_or_equal:date',
+        ], ['ends_on.after_or_equal' => 'The series has to end on or after its first meeting.']);
 
         $organization = Auth::user()->organization;
+        $validated['date'] ??= now()->toDateString();
+        $validated['track_participants'] = $request->boolean('track_participants');
 
-        if (!$this->quota->hasSessionQuota($organization)) {
-            return back()->withErrors([
-                'quota' => "You've used this month's sessions. Add more under Plan, or move to a bigger plan.",
-            ])->withInput();
+        if (!empty($validated['repeat']) && empty($validated['programme_id'])) {
+            $series = $scheduler->create($organization, Auth::user(), $validated + ['frequency' => $validated['repeat']]);
+            $first = $series->sessions()->first();
+
+            return redirect()->route('sessions.series.show', $series)->with('status', $first
+                ? "\"{$series->title}\" repeats " . lcfirst($series->describe()) . ". The next " . $series->sessions()->whereDate('date', '>=', today())->count() . ' meetings are on the desk, from ' . $first->date->format('D j M') . '.'
+                : "\"{$series->title}\" is set up.");
         }
 
-        $trackParticipants = $request->boolean('track_participants');
+        // A one-off: today means "start now", so straight into the console.
+        $validated['start_time'] ??= $validated['date'] === now()->toDateString() ? now()->format('H:i') : null;
+        $session = $maker->make($organization, Auth::user(), $validated);
 
-        $sessionDate = $validated['date'] ?? now()->toDateString();
-        $sessionTime = $validated['start_time'] ?? now()->format('H:i');
-
-        $people = collect($validated['people'] ?? [])
-            ->map(fn ($p) => [
-                'name'       => trim($p['name'] ?? ''),
-                'role'       => $p['role'] ?? null,
-                'presenting' => filter_var($p['presenting'] ?? true, FILTER_VALIDATE_BOOLEAN),
-            ])
-            ->filter(fn ($p) => $p['name'] !== '')
-            ->values();
-
-        $session = Session::create([
-            'organization_id' => Auth::user()->organization_id,
-            'created_by'      => Auth::id(),
-            'type'            => $validated['type'],
-            'title'           => $validated['title'],
-            'date'            => $sessionDate,
-            'start_time'      => $sessionTime,
-            'status'          => 'draft',
-            'meta'            => [
-                'expected_duration_minutes' => $validated['expected_duration'] ?? null,
-                'expected_participants'     => $trackParticipants ? ($validated['expected_participants'] ?? null) : null,
-                'custom_type_label'         => $validated['type'] === 'custom' ? ($validated['custom_type_label'] ?? null) : null,
-            ],
-        ]);
-
-        $this->quota->consumeSession($organization);
-
-        if (!empty($validated['programme_id'])) {
-            // Attaching to an existing Programme — verify ownership,
-            // never trust the posted id blindly. No new Event, no new
-            // public_token logic here: check-in still happens per
-            // Session (see the open Participant/event_id question),
-            // this just links the session into the Programme's Event.
-            $programme = Event::where('id', $validated['programme_id'])
-                ->where('organization_id', Auth::user()->organization_id)
-                ->where('is_programme', true)
-                ->first();
-
-            if ($programme) {
-                $session->update(['event_id' => $programme->id]);
-                if ($trackParticipants) {
-                    $session->update(['public_token' => Str::random(32), 'session_code' => Session::generateSessionCode()]);
-                }
-            }
-        } elseif ($trackParticipants) {
-            $event = Event::create([
-                'organization_id' => Auth::user()->organization_id,
-                'kind'            => Event::KIND_SESSION,
-                'name'            => $validated['title'],
-                'event_date'      => "{$sessionDate} {$sessionTime}",
-                'is_public'       => false,
-            ]);
-            $session->update(['event_id' => $event->id, 'public_token' => Str::random(32), 'session_code' => Session::generateSessionCode()]);
-        }
-
-        foreach ($people as $i => $p) {
-            $session->segments()->create([
-                'presenter_name' => $p['name'],
-                'role'           => $p['role'],
-                'is_presenting'  => $p['presenting'],
-                'order'          => $i,
-                'status'         => 'upcoming',
-            ]);
-        }
-
-        // Scheduled for today (or left blank, which defaults to today) —
-        // the organizer almost certainly means "start now," so drop them
-        // straight into capture. Scheduled for a future date — there's
-        // nothing to capture yet, so send them back to the desk where
-        // it'll show up under "Coming Up" instead.
-        if ($sessionDate === now()->toDateString()) {
+        if ($session->date->isToday()) {
             return redirect()->route('sessions.show', $session);
         }
 
@@ -343,6 +295,19 @@ class SessionController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
+        // A session counts against the plan when it's held, once.
+        if (!$session->counted_at) {
+            $organization = $session->organization;
+            if (!$this->quota->hasSessionQuota($organization)) {
+                return response()->json([
+                    'status'  => 'quota',
+                    'message' => "You've used this month's sessions. Add more under Plan to start this one.",
+                ], 402);
+            }
+            $this->quota->consumeSession($organization);
+            $session->update(['counted_at' => now()]);
+        }
+
         $session->start();
 
         $first = $session->segments()->orderBy('order')->first();
@@ -383,6 +348,8 @@ class SessionController extends Controller
                 'report'   => $session->session_report,
                 'reviewed' => $session->reviewed_at?->format('d M Y, g:i A'),
                 'tracking' => (bool) $session->event_id,
+                'series'   => $session->series ? ['id' => $session->series->id, 'title' => $session->series->title] : null,
+                'previous' => $session->parent_session_id && Session::whereKey($session->parent_session_id)->where('status', 'reported')->exists() ? $session->parent_session_id : null,
                 // The report is written in the background; this says if that failed.
                 'failed'   => $session->status === 'completed' && $session->report_job_id
                     && AiGenerationResult::where('job_id', $session->report_job_id)->value('status') === 'failed',

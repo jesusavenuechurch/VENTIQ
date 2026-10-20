@@ -257,9 +257,13 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     // "reports" as a Session ID and 404s before this line is ever reached.
     Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
     Route::get('/plan', [SessionPlanController::class, 'show'])->name('plan');
+    Route::get('/series/{series}', [App\Http\Controllers\SessionSeriesController::class, 'show'])->name('series.show');
+    Route::put('/series/{series}', [App\Http\Controllers\SessionSeriesController::class, 'update'])->name('series.update');
+    Route::post('/series/{series}/end', [App\Http\Controllers\SessionSeriesController::class, 'end'])->name('series.end');
 
     Route::get('/{session}', [SessionController::class, 'show'])->name('show');
     Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
+    Route::post('/{session}/skip', [App\Http\Controllers\SessionSeriesController::class, 'skip'])->name('skip');
     Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
     Route::patch('/{session}/segments/{segment}', [SessionSegmentController::class, 'update'])->name('segments.update');
     Route::delete('/{session}/segments/{segment}', [SessionSegmentController::class, 'destroy'])->name('segments.destroy');

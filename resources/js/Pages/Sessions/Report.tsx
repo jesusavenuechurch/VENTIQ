@@ -1,4 +1,4 @@
-import { router, usePage, usePoll } from '@inertiajs/react';
+import { Link, router, usePage, usePoll } from '@inertiajs/react';
 import { Check, ChevronDown, Download, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
 
 interface Props {
-    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean };
+    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null };
     segments: { id: number; name: string; role: string | null; summary: string | null; logs: { time: string; text: string }[] }[];
 }
 
@@ -47,7 +47,14 @@ export default function Report({ session, segments }: Props) {
     }
 
     return (
-        <SessionsLayout title={session.title} subtitle={<>{session.date}{session.reviewed && <span className="text-emerald-600"> · Reviewed {session.reviewed}</span>}</>} crumbs={[['Reports', route('sessions.reports')], [session.title]]}>
+        <SessionsLayout title={session.title} subtitle={
+                <>
+                    {session.date}
+                    {session.reviewed && <span className="text-emerald-600"> · Reviewed {session.reviewed}</span>}
+                    {session.series && <> · <Link href={route('sessions.series.show', session.series.id)} className="font-bold text-brand hover:text-action">{session.series.title}</Link></>}
+                    {session.previous && <> · <Link href={route('sessions.report', session.previous)} className="font-bold text-brand hover:text-action">Previous meeting</Link></>}
+                </>
+            } crumbs={[['Reports', route('sessions.reports')], [session.title]]}>
             {session.status === 'draft' || session.status === 'active' ? (
                 <Empty>This session is still going. Its report is written when the last presenter finishes.</Empty>
             ) : session.status !== 'reported' ? (

@@ -25,6 +25,8 @@ class Session extends Model
         'public_token',
         'session_code',
         'parent_session_id',
+        'series_id',
+        'counted_at',
         'type',
         'title',
         'date',
@@ -43,6 +45,7 @@ class Session extends Model
         'meta'                   => 'array',
         'report_last_opened_at'  => 'datetime',
         'reviewed_at'            => 'datetime',
+        'counted_at'             => 'datetime',
     ];
 
     // ── Relationships ────────────────────────────────────────────────────
@@ -70,6 +73,12 @@ class Session extends Model
     public function childSessions(): HasMany
     {
         return $this->hasMany(Session::class, 'parent_session_id');
+    }
+
+    /** The repeating series this meeting is part of, if any. */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(SessionSeries::class, 'series_id');
     }
 
     public function segments(): HasMany

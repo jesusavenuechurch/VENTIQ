@@ -44,9 +44,27 @@ type Data = {
     track_participants: boolean;
     expected_participants: string;
     programme_id: number | null;
+    repeat: string;
+    ends_on: string;
 };
 
 const emptyPerson: Person = { name: '', role: '', presenting: true };
+
+const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+
+/** How the session can repeat, in words for its first date (as SessionSeries::describe()). */
+function repeatOptions(date: string): [string, string][] {
+    const d = date ? new Date(`${date}T12:00:00`) : new Date();
+    const day = d.toLocaleDateString('en', { weekday: 'long' });
+    const nth = Math.ceil(d.getDate() / 7);
+    return [
+        ['', "Doesn't repeat"],
+        ['weekly', `Every ${day}`],
+        ['fortnightly', `Every 2 weeks on ${day}`],
+        ['monthly_date', `Monthly on the ${ordinal(d.getDate())}`],
+        ['monthly_weekday', `Monthly on the ${nth >= 5 ? 'last' : ordinal(nth)} ${day}`],
+    ];
+}
 
 /**
  * Schedule a session, over the desk or a programme's page: what it is,
@@ -90,6 +108,8 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         track_participants: false,
         expected_participants: '',
         programme_id: programme?.id ?? null,
+        repeat: '',
+        ends_on: '',
     };
     const form = useForm<Data>(draft?.data ?? blank);
     const [step, setStep] = useState<1 | 2>(draft?.step ?? 1);
@@ -120,14 +140,14 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
     const submit = () => {
         // A name still in the box counts: it would be lost otherwise.
         const pending = person.name.trim() ? [{ ...person, name: person.name.trim() }] : [];
-        form.transform((d) => ({ ...d, people: [...d.people, ...pending], custom_type_label: d.type === 'custom' ? d.custom_type_label : '' }));
+        form.transform((d) => ({ ...d, people: [...d.people, ...pending], custom_type_label: d.type === 'custom' ? d.custom_type_label : '', repeat: programme ? '' : d.repeat, ends_on: d.repeat ? d.ends_on : '' }));
         form.post(route('sessions.store'), {
             preserveScroll: true,
             onSuccess: () => {
                 clearDraft();
                 onDone();
             },
-            onError: (errors) => errors.title && setStep(1),
+            onError: (errors) => (errors.title || (errors as Record<string, string>).ends_on) && setStep(1),
         });
     };
 
@@ -150,7 +170,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
 
             {sessionsArea.quota.remaining <= 0 && (
                 <p className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-[12px] font-bold text-amber-800">
-                    You've used this month's sessions. Add more first: what you type here is kept.
+                    You've used this month's sessions. You can still schedule; add more before the next one starts.
                     {sessionsArea.can.plan && <Link href={route('sessions.plan')} className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</Link>}
                 </p>
             )}
@@ -216,6 +236,25 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                         </div>
                     </div>
 
+                    {!programme && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div className="sm:col-span-2">
+                                <label htmlFor="repeat" className={fieldLabel}>Repeats</label>
+                                <NativeSelect id="repeat" value={form.data.repeat} onChange={(e) => form.setData('repeat', e.target.value)} className="border-gray-200 bg-white py-4 font-bold text-brand">
+                                    {repeatOptions(form.data.date).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                                </NativeSelect>
+                            </div>
+                            {form.data.repeat && (
+                                <div>
+                                    <label htmlFor="ends_on" className={fieldLabel}>Until (optional)</label>
+                                    <input id="ends_on" type="date" min={form.data.date} value={form.data.ends_on} onChange={(e) => form.setData('ends_on', e.target.value)} className={field} />
+                                </div>
+                            )}
+                            {form.data.repeat && <p className="-mt-2 ml-1 text-[11px] text-gray-400 sm:col-span-3">The next 4 meetings go on the desk, and more as the weeks go by. Each one picks up from the last.</p>}
+                            {(form.errors as Record<string, string>).ends_on && <p className="ml-1 text-[11px] font-bold text-rose-600 sm:col-span-3">{(form.errors as Record<string, string>).ends_on}</p>}
+                        </div>
+                    )}
+
                     <div>
                         <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4">
                             <span>
@@ -241,7 +280,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                 <div className="space-y-6">
                     <div className="rounded-2xl border border-gray-100 bg-white p-5">
                         <p className="text-[13px] font-black text-brand">{form.data.title}</p>
-                        <p className="text-[11px] font-bold text-gray-400">{types.find((t) => t.key === form.data.type)?.label}{form.data.date && ` · ${form.data.date}`}{form.data.start_time && ` · ${form.data.start_time}`}</p>
+                        <p className="text-[11px] font-bold text-gray-400">{types.find((t) => t.key === form.data.type)?.label}{form.data.date && ` · ${form.data.date}`}{form.data.start_time && ` · ${form.data.start_time}`}{form.data.repeat && ` · ${repeatOptions(form.data.date).find(([v]) => v === form.data.repeat)?.[1]}`}</p>
                     </div>
 
                     <div>
@@ -294,7 +333,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                     <div className="flex flex-col-reverse gap-3 sm:flex-row">
                         <button type="button" onClick={() => setStep(1)} className="flex items-center justify-center gap-2 rounded-2xl bg-gray-100 px-6 py-5 text-[11px] font-black uppercase tracking-widest text-gray-500"><ArrowLeft className="size-4" />Back</button>
                         <button type="button" disabled={form.processing} onClick={submit} className="flex flex-1 items-center justify-center rounded-2xl bg-action py-5 text-[11px] font-black uppercase tracking-[0.3em] text-white shadow-xl transition-all hover:shadow-2xl disabled:opacity-50">
-                            {form.processing ? <LoaderCircle className="size-5 animate-spin" /> : startsToday ? 'Schedule and open' : 'Schedule session'}
+                            {form.processing ? <LoaderCircle className="size-5 animate-spin" /> : form.data.repeat ? 'Schedule the meetings' : startsToday ? 'Schedule and open' : 'Schedule session'}
                         </button>
                     </div>
                 </div>

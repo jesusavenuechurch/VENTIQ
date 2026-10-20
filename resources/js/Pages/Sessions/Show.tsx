@@ -96,6 +96,7 @@ export default function Show({ session, segments, roles }: Props) {
     const [fill, setFill] = useState(0);
     const [finishing, setFinishing] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
+    const [startError, setStartError] = useState('');
 
     const notesRef = useRef<HTMLDivElement>(null);
     const draftRef = useRef<HTMLTextAreaElement>(null);
@@ -196,7 +197,14 @@ export default function Show({ session, segments, roles }: Props) {
     }, [liveId, update]);
 
     async function start() {
-        const data = await call<{ active_segment_id: number | null }>(`${base}/start`);
+        setStartError('');
+        const res = await json<{ active_segment_id?: number | null; message?: string }>(`${base}/start`, { method: 'POST' }).catch(() => null);
+        if (!res?.ok) {
+            // A used-up plan (402) says so; anything else is the connection.
+            setStartError(res?.data.message ?? "It didn't start. Check your connection and try again.");
+            return;
+        }
+        const data = res.data;
         setIsLive(true);
         const first = data?.active_segment_id ?? speakers[0]?.id ?? null;
         if (first) {
@@ -493,6 +501,11 @@ export default function Show({ session, segments, roles }: Props) {
                                 <div className="pt-12">
                                     <p className="text-[16px] italic text-slate-400">The page is empty. Start the session and write as they speak.</p>
                                     <button type="button" onClick={start} className={cn(pill, 'mt-5 bg-emerald-500 px-5 py-2.5 text-[10px]')}>Begin capturing</button>
+                                    {startError && (
+                                        <p role="alert" className="mt-4 max-w-md text-[13px] font-semibold text-rose-600">
+                                            {startError} <Link href={route('sessions.plan')} className="underline">Plan</Link>
+                                        </p>
+                                    )}
                                 </div>
                             )}
                             {!isLive && speakers.length > 0 && completed === speakers.length && (

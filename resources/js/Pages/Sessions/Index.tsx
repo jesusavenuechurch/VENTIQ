@@ -2,7 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
-import { ArrowLeft, CalendarPlus, Clock, Mic, Sparkles, Ticket, UsersRound } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ interface Tile {
     starts: string | null;
     updated: string;
     tracking: boolean;
+    series: { id: number; rule: string } | null;
 }
 
 interface Props {
@@ -29,6 +30,7 @@ interface Props {
     filter: Column | null;
     members: number;
     pendingInvites: number;
+    series: { id: number; title: string; rule: string; next: string | null }[];
     types: SessionType[];
     today: string;
     /** Opened from /sessions/create (old links). */
@@ -44,7 +46,7 @@ const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = 
 const ROTATIONS = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg'];
 
 /** The desk: sessions to review, live, coming up and just finished, as notes on a board. */
-export default function Index({ columns, filter, members, pendingInvites, types, today, openSchedule }: Props) {
+export default function Index({ columns, filter, members, pendingInvites, series, types, today, openSchedule }: Props) {
     const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -97,6 +99,23 @@ export default function Index({ columns, filter, members, pendingInvites, types,
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                     <p className="text-[12px] font-bold text-amber-800">You've used the sessions in your plan this month. Add more, or move to a bigger plan.</p>
                     <AppLink to="sessions.plan" className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</AppLink>
+                </div>
+            )}
+
+            {series.length > 0 && !filter && (
+                <div className="mb-6">
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Repeating</p>
+                    <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
+                        {series.map((s) => (
+                            <Link key={s.id} href={route('sessions.series.show', s.id)} className="flex min-w-[15rem] shrink-0 items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 transition-all hover:border-brand/30 hover:shadow-sm">
+                                <span className="min-w-0">
+                                    <span className="block truncate text-[13px] font-bold text-brand"><Repeat className="mr-1.5 inline size-3.5 text-action" />{s.title}</span>
+                                    <span className="block truncate text-[11px] text-gray-400">{s.rule}{s.next && ` · next ${s.next}`}</span>
+                                </span>
+                                <ChevronRight className="size-4 shrink-0 text-gray-300" />
+                            </Link>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -172,7 +191,7 @@ function Note({ tile, column, can }: { tile: Tile; column: Column; can: Sessions
         >
             <span className="absolute -top-2.5 left-1/2 h-[18px] w-[50px] -translate-x-1/2 -rotate-3 border border-white/80 bg-white/60 shadow-sm" />
             <p className="mb-1 line-clamp-2 text-[13px] font-black leading-snug text-brand">{tile.title}</p>
-            <p className="mb-2.5 text-[9px] font-black uppercase tracking-widest text-slate-900/40">{tile.type}</p>
+            <p className="mb-2.5 text-[9px] font-black uppercase tracking-widest text-slate-900/40">{tile.type}{tile.series && <span title={tile.series.rule}><Repeat className="ml-1.5 inline size-3" /></span>}</p>
             <div className="mb-2.5 flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-900/55">
                 <span className="inline-flex items-center gap-1"><UsersRound className="size-3" />{people}</span>
                 {column === 'live' && tile.speaker ? (

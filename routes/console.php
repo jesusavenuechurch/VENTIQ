@@ -23,3 +23,6 @@ Artisan::command('inspire', function () {
 
 // The day after an event: its Khoebo invoice for what the organizer owes.
 \Illuminate\Support\Facades\Schedule::command('khoebo:invoice')->dailyAt('07:20')->withoutOverlapping();
+
+// Repeating sessions: each series keeps its next meetings on the desk.
+\Illuminate\Support\Facades\Schedule::command('sessions:top-up-series')->dailyAt('05:40')->withoutOverlapping();

@@ -1,10 +1,22 @@
 # VENTIQ Sessions: what it's for, and the plan
 
 Sessions is an organization's memory: every meeting, workshop and training
-written down well, kept, and searchable, with the follow-ups chased. The AI
-that writes and searches it runs on VENTIQ's own server in Lesotho
-(`config/ai.php`: Ollama by default), so what's said in a meeting stays in
-the country.
+written down well, kept, and searchable, with the follow-ups chased.
+
+**Where the AI runs.** The app runs on its server (anywhere); the model runs
+on VENTIQ's Mac mini in Lesotho, reached over Tailscale (`OLLAMA_URL` in
+`config/ai.php`), so what's said in a meeting is processed in the country.
+The model holds nothing: the records stay in the app's database, and for
+each question the app finds the relevant ones and sends them with it
+(retrieval-augmented generation). So:
+
+- When the Mac mini is off or unreachable, AI work waits and retries
+  (queued jobs), and pages say the report is on its way; nothing is lost.
+- Search indexes (embeddings) are made by the Mac mini but stored in the
+  app's database, next to the records they point to.
+- Only one organization's records are ever sent with its own questions.
+- The OpenRouter provider in `config/ai.php` sends text abroad; it stays
+  off in production.
 
 ## The three settings it's built for
 
@@ -57,7 +69,10 @@ the country.
 
 ## Order to build
 
-1. **Recurring series**, and each meeting linked to the one before.
+1. **Recurring series**, and each meeting linked to the one before. *Done:*
+   `SessionSeries`, `SeriesScheduler` (4 ahead, topped up daily by
+   `sessions:top-up-series`), weekly, fortnightly, monthly by date or by
+   weekday. A session now counts against the plan when it starts.
 2. **Action points**: extracted, confirmed, carried to the next meeting,
    reminders.
 3. **Minutes format** for meetings (and the "Next item" wording).
