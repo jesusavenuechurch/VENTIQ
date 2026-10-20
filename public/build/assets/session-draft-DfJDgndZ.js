@@ -1,0 +1,1 @@
+const t="sessions:create-draft";function r(){try{return JSON.parse(window.sessionStorage.getItem(t)??"null")}catch{return null}}function s(e){try{window.sessionStorage.setItem(t,JSON.stringify(e))}catch{}}function n(){try{window.sessionStorage.removeItem(t)}catch{}}export{n as c,r,s};
