@@ -38,6 +38,8 @@ class EnsureOrganizerAccess
             'organization'      => ['id' => $organization->id, 'name' => $organization->name, 'slug' => $organization->slug],
             'actingAs'          => CurrentOrganization::isActingAs(),
             'paymentsToConfirm' => TicketPayment::awaitingDecisionFor($organization)->count(),
+            // Where settings send you back to when it isn't known where you came from.
+            'usesEvents'        => \App\Support\IntentRedirect::usesEvents($organization->id),
             // What this person may do here, for showing only the buttons that work.
             'can' => collect([
                 'approve_payment', 'create_event', 'edit_event', 'delete_event', 'edit_organization',

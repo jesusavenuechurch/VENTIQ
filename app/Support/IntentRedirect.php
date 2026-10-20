@@ -47,6 +47,19 @@ class IntentRedirect
     private static function usesOnlySessions(int $organizationId): bool
     {
         return \App\Models\Session::where('organization_id', $organizationId)->exists()
-            && !\App\Models\Event::where('organization_id', $organizationId)->exists();
+            && !static::usesEvents($organizationId);
+    }
+
+    /**
+     * Has the organization made an event with tickets? A session that
+     * tracks who comes, or a programme, makes an event row too, so a row
+     * alone doesn't count.
+     */
+    public static function usesEvents(int $organizationId): bool
+    {
+        return \App\Models\Event::where('organization_id', $organizationId)
+            ->where('is_programme', false)
+            ->whereHas('tiers')
+            ->exists();
     }
 }

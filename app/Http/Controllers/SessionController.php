@@ -139,7 +139,7 @@ class SessionController extends Controller
 
         if (!$this->quota->hasSessionQuota($organization)) {
             return back()->withErrors([
-                'quota' => "You've used your included sessions. Add more sessions with PAYG or upgrade your plan.",
+                'quota' => "You've used this month's sessions. Add more under Plan, or move to a bigger plan.",
             ])->withInput();
         }
 

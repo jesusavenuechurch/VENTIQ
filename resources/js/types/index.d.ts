@@ -38,6 +38,7 @@ export interface OrganizerProps {
     organization: { id: number; name: string; slug: string };
     actingAs: boolean;
     paymentsToConfirm: number;
+    usesEvents: boolean;
     can: Record<
         | 'approve_payment' | 'create_event' | 'edit_event' | 'delete_event' | 'edit_organization'
         | 'view_payment_method' | 'create_payment_method' | 'edit_payment_method' | 'delete_payment_method'

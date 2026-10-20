@@ -50,7 +50,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
             actions={
                 <>
                     <AppLink to="sessions.create" className={primaryButton}><Sparkles className="size-4" />Schedule a session</AppLink>
-                    <AppLink to="organizer.team.index" className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
+                    <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
                     <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>
                     <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>
                 </>

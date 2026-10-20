@@ -172,3 +172,10 @@ it("doesn't tell another organization how a plan payment went", function () {
     $this->actingAs(User::factory()->create(['organization_id' => Organization::factory()->create()->id]))
         ->getJson(route('paylesotho.status', $payment))->assertNotFound();
 });
+
+it('still treats an organization as Sessions-only when its sessions made event rows', function () {
+    trackedSession($this->org);   // tracking who comes makes a hidden event
+
+    expect(\App\Support\IntentRedirect::resolve(null))->toBe(route('sessions.index'));
+    $this->get(route('organizer.team.index'))->assertInertia(fn (Assert $page) => $page->where('organizer.usesEvents', false));
+});

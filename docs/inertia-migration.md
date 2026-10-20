@@ -84,9 +84,17 @@ images, the scanner app), which need a normal page load.
 
 ## UX bugs to go through after the migration
 
-- **Admin tabs jump back.** In `/ventiq/*` the row of section tabs is wider
-  than the screen and scrolls sideways. Clicking a tab near the far end
-  reloads the page with the row scrolled back to the start, so the tab you're
-  on is out of view (and it looks like you were sent back). The row should
-  keep the current tab in view, and moving between sections should feel like
-  staying in place.
+- **Fixed: tabs jumping.** Each area's shell (site header and tabs) now stays
+  mounted between its pages (`shellFor` in `resources/js/app.tsx`: Admin,
+  Sessions, Settings), the admin tab you're on is kept in view, and the page
+  keeps room for the scrollbar so it doesn't shift sideways. Sessions tabs
+  remember the page you left them on, like a phone's tab bar. The organizer
+  (Events) area still draws its layout per page; it can get the same shell.
+- **Fixed: settings felt like Events.** Organization, Payouts and Team are
+  their own "Organization settings" area with a way back to Events or
+  Sessions, whichever you came from.
+- **Decide: roles in Sessions.** Roles only limit Events. In Sessions every
+  member (Door and Viewer too) can schedule and run sessions, see reports
+  and buy a plan; the Team page says so. Proposal: Admin everything; Staff
+  runs sessions and reviews reports; Door checks people in only; Viewer reads
+  reports only; only Admins buy plans.

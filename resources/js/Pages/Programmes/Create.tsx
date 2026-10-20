@@ -33,7 +33,7 @@ export default function Create({ today }: { today: string }) {
                     <input id="venue" value={form.data.venue} onChange={(e) => form.setData('venue', e.target.value)} placeholder="e.g. Maseru Convention Centre" className={field} />
                 </div>
                 {toggles.map(([key, title, text]) => (
-                    <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-gray-50 px-5 py-4">
+                    <label key={key} className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4">
                         <span>
                             <span className="block text-[11px] font-black uppercase tracking-wide text-brand">{title}</span>
                             <span className="mt-0.5 block text-[11px] font-medium text-gray-400">{text}</span>

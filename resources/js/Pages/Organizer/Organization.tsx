@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Link2 } from 'lucide-react';
-import OrganizerLayout from '@/Layouts/OrganizerLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { Field } from '@/components/field';
 import { LogoField } from '@/components/organizer/logo-field';
 import { PhoneInput } from '@/components/phone-input';
@@ -41,7 +41,7 @@ export default function Organization({ organization, canEdit, eventsPage }: { or
     }
 
     return (
-        <OrganizerLayout title="Settings" settings subtitle="Who's hosting: the name, logo and contact details attendees see on your events and tickets.">
+        <SettingsLayout subtitle="Who's hosting: the name, logo and contact details attendees see on your events and tickets.">
             <Head title="Organization" />
             <div className="max-w-3xl">
                 {!canEdit && (
@@ -103,6 +103,6 @@ export default function Organization({ organization, canEdit, eventsPage }: { or
                     </fieldset>
                 </form>
             </div>
-        </OrganizerLayout>
+        </SettingsLayout>
     );
 }

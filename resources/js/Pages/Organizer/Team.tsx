@@ -1,7 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Send, UserMinus } from 'lucide-react';
 import { useState } from 'react';
-import OrganizerLayout from '@/Layouts/OrganizerLayout';
+import SettingsLayout, { useSettingsFrom } from '@/Layouts/SettingsLayout';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Field } from '@/components/field';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,23 @@ export default function Team({
     const [removing, setRemoving] = useState<Member | null>(null);
     const [busy, setBusy] = useState(false);
     const label = (role: string | null) => roles.find((r) => r.value === role)?.name ?? 'No role';
+    const from = useSettingsFrom();
+    // Roles only change what people can do in Events so far: say so, and
+    // first when they came from Sessions.
+    const sessionsNote = (
+        <div key="sessions" className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">In Sessions</p>
+            <p className="text-[11px] text-gray-500">Everyone on the team can schedule and run sessions, check people in and see reports, whatever their role.</p>
+        </div>
+    );
+    const eventsRoles = (
+        <div key="events" className="space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">In Events</p>
+            {roles.map((r) => (
+                <p key={r.value} className="text-[11px] text-gray-500"><strong className="text-brand">{r.name}:</strong> {r.description}</p>
+            ))}
+        </div>
+    );
 
     function sendInvite(e: React.FormEvent) {
         e.preventDefault();
@@ -83,7 +100,7 @@ export default function Team({
     const otherErrors = Object.entries(errors ?? {}).filter(([key]) => key !== 'email' && key !== 'role');
 
     return (
-        <OrganizerLayout title="Settings" settings subtitle="The people who make your events happen, and what each of them can do.">
+        <SettingsLayout subtitle="The people on your team, for Events and Sessions, and what each of them can do.">
             <Head title="Team" />
             <div className="max-w-4xl">
                 {otherErrors.length > 0 && (
@@ -170,7 +187,7 @@ export default function Team({
                                     <Input id="email" type="email" required value={invite.data.email} onChange={(e) => invite.setData('email', e.target.value)} className="rounded-2xl px-4 py-3 text-[14px] font-semibold" />
                                 </Field>
                                 <div>
-                                    <span className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">What they can do</span>
+                                    <span className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">What they can do in Events</span>
                                     <div className="space-y-2">
                                         {roles.map((r) => (
                                             <label key={r.value} className={cn('flex cursor-pointer gap-3 rounded-2xl border-2 p-3 transition-all', invite.data.role === r.value ? 'border-action bg-action-soft' : 'border-slate-50 bg-slate-50')}>
@@ -199,11 +216,9 @@ export default function Team({
                             </div>
                         )}
 
-                        <div className="space-y-2 rounded-[1.5rem] bg-slate-50 p-5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Roles</p>
-                            {roles.map((r) => (
-                                <p key={r.value} className="text-[11px] text-gray-500"><strong className="text-brand">{r.name}:</strong> {r.description}</p>
-                            ))}
+                        <div className="space-y-4 rounded-[1.5rem] border border-gray-100 bg-white p-5 shadow-sm">
+                            <p className="text-[12px] font-black text-brand">What the roles mean</p>
+                            {from === 'sessions' ? [sessionsNote, eventsRoles] : [eventsRoles, sessionsNote]}
                         </div>
                     </div>
                 </div>
@@ -219,6 +234,6 @@ export default function Team({
             >
                 They lose access straight away. Their VENTIQ account stays.
             </ConfirmDialog>
-        </OrganizerLayout>
+        </SettingsLayout>
     );
 }

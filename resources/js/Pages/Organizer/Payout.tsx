@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { CircleAlert, ShieldCheck } from 'lucide-react';
-import OrganizerLayout from '@/Layouts/OrganizerLayout';
+import SettingsLayout from '@/Layouts/SettingsLayout';
 import { AppLink } from '@/components/app-link';
 import { Field } from '@/components/field';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function Payout({
     }
 
     return (
-        <OrganizerLayout title="Settings" settings subtitle="Where VENTIQ pays you the money from tickets paid to VENTIQ, after our fees.">
+        <SettingsLayout subtitle="For Events: where VENTIQ pays you the money from tickets paid to VENTIQ, after our fees.">
             <Head title="Payouts" />
             <div className="max-w-3xl">
                 <div className={cn('mb-6 rounded-[1.5rem] border p-5', onFile ? 'border-mint bg-mint/40' : 'border-action-soft bg-action-soft')}>
@@ -108,6 +108,6 @@ export default function Payout({
                     </p>
                 </div>
             </div>
-        </OrganizerLayout>
+        </SettingsLayout>
     );
 }

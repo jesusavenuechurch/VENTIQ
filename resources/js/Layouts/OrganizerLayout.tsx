@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { AppLink } from '@/components/app-link';
-import { Building2, CalendarDays, ChevronRight, ArrowLeft, EyeOff, Receipt, Settings, ShieldUser, UsersRound, Wallet, ArrowLeftRight } from 'lucide-react';
+import { CalendarDays, ChevronRight, ArrowLeft, EyeOff, Receipt, Settings, ShieldUser, Wallet } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { PublishButton } from '@/components/organizer/publish-button';
 import { Alert } from '@/components/ui/alert';
@@ -14,6 +14,7 @@ interface Tab {
     icon: React.ComponentType<{ className?: string }>;
     active: string[];
     badge?: number;
+    params?: Record<string, string>;
 }
 
 /**
@@ -26,7 +27,6 @@ export default function OrganizerLayout({
     title,
     subtitle,
     crumbs,
-    settings = false,
     draftEventId,
     children,
 }: {
@@ -34,8 +34,6 @@ export default function OrganizerLayout({
     subtitle?: React.ReactNode;
     /** [[label, url], ..., [label]]: the last is this page. */
     crumbs?: Array<[string, string?]>;
-    /** Settings pages show their three sections under the title. */
-    settings?: boolean;
     /** On a draft event's pages: its id, for Publish. */
     draftEventId?: number | null;
     children: React.ReactNode;
@@ -46,7 +44,7 @@ export default function OrganizerLayout({
         { route: 'organizer.home', label: 'Events', short: 'Events', icon: CalendarDays, active: ['organizer.home', 'organizer.events.*'] },
         { route: 'organizer.payments.index', label: 'Payments to confirm', short: 'To confirm', icon: Receipt, active: ['organizer.payments.*'], badge: organizer.paymentsToConfirm },
         ...(organizer.can.view_payment_method ? [{ route: 'organizer.accounts.index', label: 'Payment accounts', short: 'Accounts', icon: Wallet, active: ['organizer.accounts.*'] }] : []),
-        { route: 'organizer.organization.edit', label: 'Settings', short: 'Settings', icon: Settings, active: ['organizer.organization.*', 'organizer.payout.*', 'organizer.team.*'] },
+        { route: 'organizer.organization.edit', label: 'Settings', short: 'Settings', icon: Settings, active: ['organizer.organization.*', 'organizer.payout.*', 'organizer.team.*'], params: { from: 'events' } },
     ];
     const isOn = (patterns: string[]) => patterns.some((p) => route().current(p));
 
@@ -56,7 +54,7 @@ export default function OrganizerLayout({
                 {tabs.map((tab) => {
                     const on = isOn(tab.active);
                     return (
-                        <AppLink key={tab.route} to={tab.route} aria-current={on ? 'page' : undefined} className={cn('relative flex flex-col items-center gap-1 py-2.5', on ? 'text-brand' : 'text-gray-400')}>
+                        <AppLink key={tab.route} to={tab.route} params={tab.params} aria-current={on ? 'page' : undefined} className={cn('relative flex flex-col items-center gap-1 py-2.5', on ? 'text-brand' : 'text-gray-400')}>
                             {on && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-brand" />}
                             <span className="relative">
                                 <tab.icon className="size-5" />
@@ -72,11 +70,6 @@ export default function OrganizerLayout({
         </nav>
     );
 
-    const sections = [
-        { route: 'organizer.organization.edit', label: 'Organization', icon: Building2, active: 'organizer.organization.*' },
-        { route: 'organizer.payout.edit', label: 'Payouts', icon: ArrowLeftRight, active: 'organizer.payout.*' },
-        { route: 'organizer.team.index', label: 'Team', icon: UsersRound, active: 'organizer.team.*' },
-    ];
 
     return (
         <SiteLayout bottomBar={bottomBar}>
@@ -101,6 +94,7 @@ export default function OrganizerLayout({
                             <AppLink
                                 key={tab.route}
                                 to={tab.route}
+                                params={tab.params}
                                 prefetch
                                 className={cn(
                                     'rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all',
@@ -130,20 +124,8 @@ export default function OrganizerLayout({
 
                     <h1 className={cn('text-2xl font-black tracking-tight text-brand', !crumbs && 'mt-4 sm:mt-0')}>{title}</h1>
 
-                    {settings && (
-                        <nav aria-label="Settings" className="mb-4 mt-4 flex w-full gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 sm:w-fit">
-                            {sections.map((s) => {
-                                const on = route().current(s.active);
-                                return (
-                                    <AppLink key={s.route} to={s.route} prefetch aria-current={on ? 'page' : undefined} className={cn('flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-center text-[11px] font-black uppercase tracking-widest transition-colors sm:flex-none', on ? 'bg-white text-brand shadow-sm' : 'text-gray-500 hover:text-brand')}>
-                                        <s.icon className="mr-1 inline size-3.5" />{s.label}
-                                    </AppLink>
-                                );
-                            })}
-                        </nav>
-                    )}
 
-                    {subtitle && <div className={cn('text-[13px] font-medium text-gray-500', !settings && 'mt-1')}>{subtitle}</div>}
+                    {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
 
                     {draftEventId && (
                         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">

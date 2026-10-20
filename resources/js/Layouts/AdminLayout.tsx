@@ -1,7 +1,7 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeftRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
-import { AppLink } from '@/components/app-link';
+import { useActiveInView, useAreaTabs } from '@/components/area-tabs';
 import { Alert } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -31,47 +31,60 @@ const SECTIONS: Section[] = [
 ];
 
 /**
- * Every VENTIQ admin page (super admins): its sections as a row of tabs
- * that scrolls sideways on a phone, the page's title, and its flashes.
+ * Around every VENTIQ admin page (super admins), kept mounted while moving
+ * between them (see app.tsx): its sections as a row of tabs that scrolls
+ * sideways, with the one you're on kept in view.
  */
-export default function AdminLayout({ title, subtitle, actions, children }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
-    const { flash } = usePage().props;
-    const isOn = (patterns: string[]) => patterns.some((p) => route().current(p));
+export function AdminShell({ children }: { children: React.ReactNode }) {
+    const { isOn } = useAreaTabs('admin', SECTIONS);
+    const row = useActiveInView<HTMLElement>();
 
     return (
         <SiteLayout>
             <div className="mx-auto max-w-6xl px-4 py-8">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Ventiq · Admin</p>
 
-                <nav aria-label="Admin" className="-mx-4 mb-6 mt-3 flex items-center gap-2 overflow-x-auto border-b border-gray-100 px-4 pb-5 [scrollbar-width:none]">
+                <nav ref={row} aria-label="Admin" className="-mx-4 mb-6 mt-3 flex items-center gap-2 overflow-x-auto scroll-px-4 border-b border-gray-100 px-4 pb-5 [scrollbar-width:none]">
                     {SECTIONS.map((s) => (
-                        <AppLink
+                        <Link
                             key={s.route}
-                            to={s.route}
-                            aria-current={isOn(s.active) ? 'page' : undefined}
+                            href={route(s.route)}
+                            prefetch
+                            aria-current={isOn(s) ? 'page' : undefined}
                             className={cn(
-                                'shrink-0 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all',
-                                isOn(s.active) ? 'border-brand bg-brand text-white' : 'border-gray-100 bg-white text-gray-500 hover:text-brand',
+                                'shrink-0 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors',
+                                isOn(s) ? 'border-brand bg-brand text-white' : 'border-gray-100 bg-white text-gray-500 hover:text-brand',
                             )}
                         >
                             <s.icon className="mr-1 inline size-3.5" />{s.label}
-                        </AppLink>
+                        </Link>
                     ))}
                 </nav>
-
-                <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tight text-brand">{title}</h1>
-                        {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
-                    </div>
-                    {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-                </div>
-
-                {flash.status && <Alert className="mb-6 rounded-2xl p-4 text-[12px]">{flash.status}</Alert>}
-                {flash.error && <Alert variant="destructive" className="mb-6 rounded-2xl p-4 text-[12px]">{flash.error}</Alert>}
 
                 {children}
             </div>
         </SiteLayout>
+    );
+}
+
+/** An admin page's own part: its title, actions and messages. */
+export default function AdminLayout({ title, subtitle, actions, children }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
+    const { flash } = usePage().props;
+
+    return (
+        <>
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight text-brand">{title}</h1>
+                    {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
+                </div>
+                {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+            </div>
+
+            {flash.status && <Alert className="mb-6 rounded-2xl p-4 text-[12px]">{flash.status}</Alert>}
+            {flash.error && <Alert variant="destructive" className="mb-6 rounded-2xl p-4 text-[12px]">{flash.error}</Alert>}
+
+            {children}
+        </>
     );
 }

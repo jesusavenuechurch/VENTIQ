@@ -85,6 +85,12 @@
 
 @layer base {
     * { @apply border-border outline-ring/50; }
+    /* Room for the scrollbar always, so pages don't shift sideways
+       between a short page and a long one. */
+    html {
+        scrollbar-gutter: stable;
+    }
+
     body {
         @apply bg-background text-foreground antialiased;
         -webkit-tap-highlight-color: transparent;
