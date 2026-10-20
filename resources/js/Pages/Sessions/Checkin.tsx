@@ -30,7 +30,7 @@ export default function Checkin({ session, participants }: { session: { id: numb
             title="Check-in"
             subtitle={`${session.title} · ${participants.length} checked in`}
             crumbs={[canRun ? ['Session', route('sessions.show', session.id)] : ['Desk', route('sessions.index')], ['Check-in']]}
-            actions={<a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>}
+            actions={<a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
             width="max-w-3xl"
         >
             <form

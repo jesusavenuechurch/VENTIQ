@@ -91,7 +91,14 @@ each question the app finds the relevant ones and sends them with it
    business, next meeting. Every part can be changed in place (kept on
    `capture_sessions.minutes`); confirming them is reviewing the report,
    signed off in the reviewer's name. The PDF is the minutes.
-4. **Participant list PDF** for procurement (per day for multi-day).
+4. **Participant list PDF** for procurement (per day for multi-day). *Done:*
+   `ParticipantList` makes it for a session (Check-in, Report) or a whole
+   programme (its page), landscape A4: one row per person (name,
+   organisation, position, district when given, phone, email, signature
+   drawn in the scanner app), a column per day with the time in and how it
+   was recorded (Self, Desk, Scanner), blank rows to fill in by hand
+   (`?blank=`, default 5), a note on how it was produced and a "certified
+   by" line. Self check-ins are now recorded as `self`, not `walk_in`.
 5. **Programme enrolment and automatic certificates.**
 6. **Certificate designer and stored signatures.**
 7. **Ask Ventiq over the organization's memory** (search, then answers with

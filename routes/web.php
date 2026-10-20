@@ -495,6 +495,7 @@ Route::middleware(['auth', 'sessions.area'])->prefix('programmes')->name('progra
     Route::post('/', [ProgrammeController::class, 'store'])->name('store');
     Route::get('/{programme}', [ProgrammeController::class, 'show'])->name('show');
     Route::post('/{programme}/certificates', [ProgrammeController::class, 'issueCertificates'])->name('certificates.issue');
+    Route::get('/{programme}/participants/pdf', [ProgrammeController::class, 'participantList'])->name('participants.pdf');
     Route::post('/{programme}/report/generate', [ProgrammeController::class, 'generateReport'])->name('report.generate');
     Route::get('/{programme}/report', [ProgrammeController::class, 'report'])->name('report');
     Route::get('/{programme}/report/status', [ProgrammeController::class, 'reportStatus'])->name('report.status');

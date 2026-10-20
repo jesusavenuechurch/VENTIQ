@@ -118,23 +118,23 @@ class SessionParticipantController extends Controller
         return redirect()->route('sessions.checkin', $session)->with('status', 'Saved.');
     }
 
-    public function exportPdf(Session $session)
+    /** The participant list for officials (see ParticipantList), with ?blank= rows to fill in by hand. */
+    public function exportPdf(Request $request, Session $session, \App\Services\Sessions\ParticipantList $lists)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
         abort_unless($session->event_id, 404);
 
-        $participants = Participant::with('client')
-            ->where('session_id', $session->id)
-            ->orderBy('attended_at')
-            ->get();
+        $list = $lists->forSession($session, Auth::user());
 
-        $pdf = \PDF::loadView('sessions.participants-pdf', [
-            'session'      => $session,
-            'participants' => $participants,
-            'orgName'      => $session->organization?->name ?? '',
-        ])->setPaper('a4', 'portrait');
+        return \PDF::loadView('sessions.participant-list-pdf', ['list' => $list, 'blank' => self::blankRows($request)])
+            ->setPaper('a4', 'landscape')
+            ->download('participant-list-' . \Illuminate\Support\Str::slug($session->resolved_title) . ($session->date ? '-' . $session->date->format('Y-m-d') : '') . '.pdf');
+    }
 
-        return $pdf->download("ventiq-participants-{$session->id}.pdf");
+    /** Empty rows at the end of a participant list, for people who didn't check in. */
+    public static function blankRows(Request $request): int
+    {
+        return max(0, min(40, (int) $request->query('blank', 5)));
     }
 
     // The one card design — same PNG generated for the auto-sent thank-you

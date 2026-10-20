@@ -143,6 +143,18 @@ class ProgrammeController extends Controller
         ]);
     }
 
+    /** Every day of the programme on one participant list, a column per day. */
+    public function participantList(Request $request, Event $programme, \App\Services\Sessions\ParticipantList $lists)
+    {
+        abort_unless($programme->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($programme->is_programme, 404);
+
+        return \PDF::loadView('sessions.participant-list-pdf', [
+            'list'  => $lists->forProgramme($programme, Auth::user()),
+            'blank' => SessionParticipantController::blankRows($request),
+        ])->setPaper('a4', 'landscape')->download('participant-list-' . \Illuminate\Support\Str::slug($programme->name) . '.pdf');
+    }
+
     public function issueCertificates(Event $programme)
     {
         abort_unless($programme->organization_id === Auth::user()->organization_id, 403);

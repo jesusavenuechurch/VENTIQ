@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Award, ExternalLink, FileText, Plus } from 'lucide-react';
+import { Award, Download, ExternalLink, FileText, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
@@ -44,6 +44,7 @@ export default function Show({ programme, sessions, certificates, eligible, type
                 <>
                     {can.run && <button type="button" onClick={() => setScheduling(true)} className={primaryButton}><Plus className="size-4" />Add a session</button>}
                     <Link href={route('programmes.report', programme.id)} className={quietButton}><FileText className="size-3.5" />Programme report</Link>
+                    {can.checkin && <a href={route('programmes.participants.pdf', programme.id)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
                 </>
             }
         >

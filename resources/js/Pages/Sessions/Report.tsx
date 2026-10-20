@@ -98,7 +98,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                                     <button type="button" onClick={() => setEditing(true)} className={quietButton}><Pencil className="size-3.5" />Edit</button>
                                 ) : null}
                                 <a href={route('sessions.report.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>
-                                {session.tracking && <a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Attendance</a>}
+                                {session.tracking && <a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
                             </div>
                         </div>
                         {error && <p className="mb-3 text-[12px] font-bold text-rose-600">{error}</p>}

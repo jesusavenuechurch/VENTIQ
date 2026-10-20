@@ -68,7 +68,8 @@ class PublicSessionCheckinController extends Controller
             'phone'       => $validated['phone'] ?? null,
             'institution' => $validated['institution'] ?? null,
             'position'    => $validated['position'] ?? null,
-            'source'      => 'walk_in',
+            // They checked themselves in (QR or code): the participant list says so.
+            'source'      => 'self',
         ]);
 
         // Optional — skippable at check-in. A new upload replaces the old

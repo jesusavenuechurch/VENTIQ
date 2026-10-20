@@ -64,7 +64,7 @@ class SessionsAccess
             in_array($routeName, ['sessions.index'], true) => 'desk',
             in_array($routeName, [
                 'sessions.checkin', 'sessions.checkin.store', 'sessions.checkin.update', 'sessions.checkin.pdf', 'sessions.checkin.card',
-                'sessions.checkin.qr', 'sessions.checkin.pass', 'sessions.checkin.pass.pdf', 'sessions.participants.count',
+                'sessions.checkin.qr', 'sessions.checkin.pass', 'sessions.checkin.pass.pdf', 'sessions.participants.count', 'programmes.participants.pdf',
             ], true) => 'checkin',
             in_array($routeName, [
                 'sessions.reports', 'sessions.report', 'sessions.series.show', 'sessions.actions.index', 'sessions.report.pdf', 'sessions.report.status',

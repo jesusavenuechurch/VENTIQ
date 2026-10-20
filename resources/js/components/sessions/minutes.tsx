@@ -46,7 +46,7 @@ export function Minutes({ sessionId, minutes, canEdit, tracking }: { sessionId: 
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <a href={route('sessions.report.pdf', sessionId)} className={quietButton}><Download className="size-3.5" />PDF</a>
-                    {tracking && <a href={route('sessions.checkin.pdf', sessionId)} className={quietButton}><Download className="size-3.5" />Attendance</a>}
+                    {tracking && <a href={route('sessions.checkin.pdf', sessionId)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
                 </div>
             </div>
 
