@@ -1,10 +1,10 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CornerDownLeft, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import SessionsLayout, { field, fieldLabel } from '@/Layouts/SessionsLayout';
-import SiteLayout from '@/Layouts/SiteLayout';
-import { clearDraft, readDraft, saveDraft } from '@/lib/session-draft';
+import { field, fieldLabel } from '@/Layouts/SessionsLayout';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { NativeSelect } from '@/components/ui/native-select';
+import { clearDraft, readDraft, saveDraft } from '@/lib/session-draft';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
 
@@ -14,8 +14,15 @@ interface Role {
     presenting: boolean;
 }
 
+export interface SessionType {
+    key: string;
+    label: string;
+    roles: Role[];
+}
+
 interface Props {
-    types: { key: string; label: string; roles: Role[] }[];
+    types: SessionType[];
+    /** Scheduling into a programme (from its page). */
     programme: { id: number; name: string } | null;
     today: string;
 }
@@ -41,8 +48,31 @@ type Data = {
 
 const emptyPerson: Person = { name: '', role: '', presenting: true };
 
-/** Schedule a session in two steps: what it is, then who's leading it. */
-export default function Create({ types, programme, today }: Props) {
+/**
+ * Schedule a session, over the desk or a programme's page: what it is,
+ * then who's leading it. Closing it keeps what's been typed (the desk
+ * offers to finish it); it's cleared once the session is made.
+ */
+export function ScheduleSessionDialog({ open, onOpenChange, ...props }: Props & { open: boolean; onOpenChange: (open: boolean) => void }) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent
+                aria-describedby="schedule-session-help"
+                className="max-h-[92dvh] max-w-2xl overflow-y-auto max-sm:bottom-0 max-sm:top-auto max-sm:w-full max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-[2rem]"
+            >
+                <div className="p-6 sm:p-8">
+                    <DialogTitle className="pr-10 text-2xl normal-case not-italic tracking-tight">Schedule a session</DialogTitle>
+                    <DialogDescription id="schedule-session-help" className="mt-1 text-[13px] font-medium normal-case tracking-normal text-gray-500">Start it live today, or line it up for later.</DialogDescription>
+                    <div className="mt-6">
+                        <ScheduleForm {...props} onDone={() => onOpenChange(false)} />
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () => void }) {
     // A draft for this same programme (or none) comes back as it was left.
     const draft = useRef((() => {
         const d = readDraft<Data>();
@@ -92,14 +122,16 @@ export default function Create({ types, programme, today }: Props) {
         const pending = person.name.trim() ? [{ ...person, name: person.name.trim() }] : [];
         form.transform((d) => ({ ...d, people: [...d.people, ...pending], custom_type_label: d.type === 'custom' ? d.custom_type_label : '' }));
         form.post(route('sessions.store'), {
+            preserveScroll: true,
             onSuccess: () => {
                 clearDraft();
+                onDone();
             },
             onError: (errors) => errors.title && setStep(1),
         });
     };
 
-    const steps = ['The session', "Who's leading it"];
+    const steps = ['Details', 'People'];
     const [restored, setRestored] = useState(!!draft && !!draft.data.title);
     const startAgain = () => {
         form.setData(blank);
@@ -111,21 +143,19 @@ export default function Create({ types, programme, today }: Props) {
     };
 
     return (
-        // A page of its own, without the area's tabs: nothing to do here but
-        // schedule. Back to the desk keeps the draft.
-        <SiteLayout>
-        <div className="mx-auto w-full max-w-3xl px-4 py-8">
-        <SessionsLayout title="Schedule a session" subtitle="Start it live today, or line it up for later." crumbs={[['Back to the desk', route('sessions.index')]]} width="">
+        <>
             {programme && (
                 <p className="mb-6 flex items-center gap-2 rounded-2xl bg-mint/40 p-4 text-[12px] font-bold text-mint-ink"><FolderOpen className="size-4" />Part of {programme.name}</p>
             )}
 
             {sessionsArea.quota.remaining <= 0 && (
                 <p className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-[12px] font-bold text-amber-800">
-                    You've used this month's sessions. Add more first, then come back: this form keeps what you've typed.
-                    <Link href={route('sessions.plan')} className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</Link>
+                    You've used this month's sessions. Add more first: what you type here is kept.
+                    {sessionsArea.can.plan && <Link href={route('sessions.plan')} className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</Link>}
                 </p>
             )}
+
+            {(form.errors as Record<string, string>).quota && <p role="alert" className="mb-6 rounded-2xl bg-rose-50 p-4 text-[12px] font-bold text-rose-700">{(form.errors as Record<string, string>).quota}</p>}
 
             {restored && (
                 <p className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-gray-50 px-4 py-3 text-[12px] font-medium text-gray-500">
@@ -269,8 +299,6 @@ export default function Create({ types, programme, today }: Props) {
                     </div>
                 </div>
             )}
-        </SessionsLayout>
-        </div>
-        </SiteLayout>
+        </>
     );
 }

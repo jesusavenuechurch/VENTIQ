@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { Award, ExternalLink, FileText, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
@@ -10,6 +11,10 @@ interface Props {
     sessions: { id: number; title: string; when: string; status: string }[];
     certificates: { id: number; name: string; issued: string | null; url: string }[];
     eligible: number;
+    types: SessionType[];
+    today: string;
+    /** Opened from /sessions/create (old links). */
+    openSchedule: boolean;
 }
 
 const STATUS: Record<string, [string, string]> = {
@@ -20,8 +25,12 @@ const STATUS: Record<string, [string, string]> = {
 };
 
 /** One programme: its sessions, its certificates and its report. */
-export default function Show({ programme, sessions, certificates, eligible }: Props) {
+export default function Show({ programme, sessions, certificates, eligible, types, today, openSchedule }: Props) {
     const [issuing, setIssuing] = useState(false);
+    const [scheduling, setScheduling] = useState(false);
+    useEffect(() => {
+        if (openSchedule) setScheduling(true);
+    }, [openSchedule]);
     const { can } = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea;
     const sessionHref = (s: { id: number; status: string }) => (s.status === 'reported' ? route('sessions.report', s.id) : can.run ? route('sessions.show', s.id) : null);
 
@@ -33,7 +42,7 @@ export default function Show({ programme, sessions, certificates, eligible }: Pr
             width="max-w-4xl"
             actions={
                 <>
-                    {can.run && <Link href={route('sessions.create', { event: programme.id })} className={primaryButton}><Plus className="size-4" />Add a session</Link>}
+                    {can.run && <button type="button" onClick={() => setScheduling(true)} className={primaryButton}><Plus className="size-4" />Add a session</button>}
                     <Link href={route('programmes.report', programme.id)} className={quietButton}><FileText className="size-3.5" />Programme report</Link>
                 </>
             }
@@ -88,6 +97,7 @@ export default function Show({ programme, sessions, certificates, eligible }: Pr
                 })}
                 {sessions.length === 0 && <p className="py-12 text-center text-[12px] italic text-gray-400">No sessions yet. Add the first one above.</p>}
             </div>
+            {can.run && <ScheduleSessionDialog open={scheduling} onOpenChange={setScheduling} types={types} programme={{ id: programme.id, name: programme.name }} today={today} />}
         </SessionsLayout>
     );
 }

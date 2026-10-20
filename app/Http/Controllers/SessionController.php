@@ -91,10 +91,14 @@ class SessionController extends Controller
             'filter'         => in_array($request->query('filter'), array_keys($columns), true) ? $request->query('filter') : null,
             'members'        => $organization->members()->count(),
             'pendingInvites' => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->count(),
+            'types'          => \App\Support\SessionType::forForm(),
+            'today'          => now()->toDateString(),
+            'openSchedule'   => (bool) session('schedule'),
             'meta'           => ['title' => 'Sessions | VENTIQ'],
         ]);
     }
 
+    // Scheduling is a dialog over the desk, or over the programme it's for.
     public function create(Request $request)
     {
         $programme = $request->query('event')
@@ -104,18 +108,9 @@ class SessionController extends Controller
                 ->first()
             : null;
 
-        return Inertia::render('Sessions/Create', [
-            'types' => collect(\App\Support\SessionType::keys())->map(fn ($key) => [
-                'key'   => $key,
-                'label' => \App\Support\SessionType::label($key),
-                'roles' => collect(\App\Support\SessionType::roles($key))
-                    ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
-                    ->values(),
-            ]),
-            'programme' => $programme ? ['id' => $programme->id, 'name' => $programme->name] : null,
-            'today'     => now()->toDateString(),
-            'meta'      => ['title' => 'Schedule a session | VENTIQ'],
-        ]);
+        return ($programme
+            ? redirect()->route('programmes.show', $programme)
+            : redirect()->route('sessions.index'))->with('schedule', true);
     }
 
     public function store(Request $request)
@@ -222,7 +217,7 @@ class SessionController extends Controller
             return redirect()->route('sessions.show', $session);
         }
 
-        return redirect()->route('sessions.index')
+        return redirect()->route($session->event?->is_programme ? 'programmes.show' : 'sessions.index', $session->event?->is_programme ? $session->event : [])
             ->with('status', "\"{$session->title}\" scheduled for {$session->date->format('d M Y')}.");
     }
 

@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
+import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
 import { ArrowLeft, CalendarPlus, Clock, Mic, Sparkles, Ticket, UsersRound } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
@@ -28,6 +29,10 @@ interface Props {
     filter: Column | null;
     members: number;
     pendingInvites: number;
+    types: SessionType[];
+    today: string;
+    /** Opened from /sessions/create (old links). */
+    openSchedule: boolean;
 }
 
 const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = {
@@ -39,17 +44,27 @@ const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = 
 const ROTATIONS = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg'];
 
 /** The desk: sessions to review, live, coming up and just finished, as notes on a board. */
-export default function Index({ columns, filter, members, pendingInvites }: Props) {
+export default function Index({ columns, filter, members, pendingInvites, types, today, openSchedule }: Props) {
     const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     const can = sessionsArea.can;
     // A session half scheduled earlier in this visit: offer to finish it.
     const [draft, setDraft] = useState<{ title: string; programme: number | null } | null>(null);
-    useEffect(() => {
+    const [scheduling, setScheduling] = useState(false);
+    const checkDraft = () => {
         const d = readDraft();
-        if (d?.data.title?.trim()) setDraft({ title: d.data.title.trim(), programme: d.data.programme_id ?? null });
+        setDraft(d?.data.title?.trim() && !d.data.programme_id ? { title: d.data.title.trim(), programme: null } : null);
+    };
+    useEffect(() => {
+        checkDraft();
+        if (openSchedule) setScheduling(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    const schedule = (open: boolean) => {
+        setScheduling(open);
+        if (!open) checkDraft();
+    };
     const outOfSessions = sessionsArea.quota.remaining <= 0;
     const anything = (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
 
@@ -59,7 +74,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
             subtitle="What's happening today?"
             actions={
                 <>
-                    {can.run && <AppLink to="sessions.create" className={primaryButton}><Sparkles className="size-4" />Schedule a session</AppLink>}
+                    {can.run && <button type="button" onClick={() => schedule(true)} className={primaryButton}><Sparkles className="size-4" />Schedule a session</button>}
                     <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
                     {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>}
                     {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}
@@ -73,7 +88,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
                     </p>
                     <span className="flex shrink-0 items-center gap-3">
                         <button type="button" onClick={() => { clearDraft(); setDraft(null); }} className="text-[11px] font-bold text-gray-400 hover:text-brand">Discard</button>
-                        <Link href={route('sessions.create', draft.programme ? { event: draft.programme } : {})} className={primaryButton}>Finish scheduling</Link>
+                        <button type="button" onClick={() => schedule(true)} className={primaryButton}>Finish scheduling</button>
                     </span>
                 </div>
             )}
@@ -116,9 +131,10 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
             ) : (
                 <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
                     <p className="text-sm font-bold text-gray-400">Your sessions will show up here.</p>
-                    {can.run && <AppLink to="sessions.create" className={cn(primaryButton, 'mt-6')}><Sparkles className="size-4" />Schedule your first session</AppLink>}
+                    {can.run && <button type="button" onClick={() => schedule(true)} className={cn(primaryButton, 'mt-6')}><Sparkles className="size-4" />Schedule your first session</button>}
                 </div>
             )}
+            {can.run && <ScheduleSessionDialog open={scheduling} onOpenChange={schedule} types={types} programme={null} today={today} />}
         </SessionsLayout>
     );
 }

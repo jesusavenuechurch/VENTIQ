@@ -54,7 +54,7 @@ it('lets a viewer read reports but not change them or check people in', function
 it('lets staff run sessions but keeps buying a plan to admins', function () {
     $this->actingAs(($this->member)('staff'));
 
-    $this->get(route('sessions.create'))->assertOk();
+    $this->get(route('sessions.create'))->assertRedirect(route('sessions.index'))->assertSessionHas('schedule');
     $this->post(route('sessions.report.review', $this->session))->assertRedirect();
     $this->get(route('sessions.plan'))->assertRedirect(route('sessions.index'));
     $this->postJson(route('paylesotho.session-package.initiate'), ['type' => 'payg', 'quantity' => 1, 'method' => 'ecocash', 'mobile_number' => '+26658000000'])
@@ -67,5 +67,5 @@ it('treats someone without a role as a viewer, unless the organization has no ad
     $this->actingAs(($this->member)(null))->get(route('sessions.create'))->assertRedirect(route('sessions.index'));
 
     $this->admin->syncRoles([]);
-    $this->get(route('sessions.create'))->assertOk();
+    $this->get(route('sessions.create'))->assertRedirect(route('sessions.index'))->assertSessionHas('schedule');
 });

@@ -31,6 +31,8 @@ it('shows the desk with sessions sorted into their columns', function () {
 
     $this->get(route('sessions.index'))->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('Sessions/Index')
+        ->has('types')
+        ->where('today', now()->toDateString())
         ->has('columns.upcoming', 1)
         ->has('columns.ready', 1)
         ->where('columns.upcoming.0.starts', fn ($s) => str_contains($s, '09:00'))
@@ -49,13 +51,15 @@ it('sends people without an organization to their own home', function () {
 it('adds a session scheduled from a programme to that programme', function () {
     $programme = Event::create(['organization_id' => $this->org->id, 'name' => 'Leadership course', 'event_date' => now(), 'is_public' => false, 'is_programme' => true]);
 
-    $this->get(route('sessions.create', ['event' => $programme->id]))
-        ->assertInertia(fn (Assert $page) => $page->component('Sessions/Create')->where('programme.id', $programme->id));
+    // Scheduling is a dialog over the programme's page.
+    $this->get(route('sessions.create', ['event' => $programme->id]))->assertRedirect(route('programmes.show', $programme));
+    $this->get(route('programmes.show', $programme))->assertInertia(fn (Assert $page) => $page->where('openSchedule', true));
+    $this->get(route('sessions.create'))->assertRedirect(route('sessions.index'));
 
     $this->post(route('sessions.store'), [
         'title' => 'Day one', 'type' => 'training', 'date' => now()->addDay()->toDateString(), 'start_time' => '10:30',
         'programme_id' => $programme->id, 'people' => [['name' => 'Thabo Lebona', 'role' => 'facilitator', 'presenting' => true]],
-    ])->assertRedirect(route('sessions.index'));
+    ])->assertRedirect(route('programmes.show', $programme));
 
     $session = Session::where('title', 'Day one')->firstOrFail();
     expect($session->event_id)->toBe($programme->id)

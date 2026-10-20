@@ -136,6 +136,9 @@ class ProgrammeController extends Controller
                 'url'    => route('certificates.verify', $c->token),
             ]),
             'eligible' => $eligibleCount,
+            'types'    => \App\Support\SessionType::forForm(),
+            'today'    => now()->toDateString(),
+            'openSchedule' => (bool) session('schedule'),
             'meta'     => ['title' => "{$programme->name} | VENTIQ Sessions"],
         ]);
     }

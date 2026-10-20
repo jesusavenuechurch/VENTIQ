@@ -165,4 +165,16 @@ class SessionType
     {
         return array_keys(static::$types);
     }
+
+    /** The types and their roles, for the schedule-a-session form. */
+    public static function forForm(): array
+    {
+        return collect(self::keys())->map(fn ($key) => [
+            'key'   => $key,
+            'label' => self::label($key),
+            'roles' => collect(self::roles($key))
+                ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
+                ->values(),
+        ])->all();
+    }
 }
