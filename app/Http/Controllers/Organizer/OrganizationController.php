@@ -32,7 +32,7 @@ class OrganizationController extends Controller
             // The organization's own events page: super admins only until it's sold.
             'eventsPage'   => $request->user()->isSuperAdmin() ? [
                 'url'   => route('public.events', $organization->slug),
-                'fixed' => $organization->events()->exists(),
+                'fixed' => $organization->events()->ticketed()->exists(),
             ] : null,
             'meta'         => ['title' => 'Organization | VENTIQ'],
         ]);

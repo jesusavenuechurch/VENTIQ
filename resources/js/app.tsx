@@ -2,6 +2,7 @@ import '../css/inertia.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 import { AdminShell } from '@/Layouts/AdminLayout';
+import { OrganizerShell } from '@/Layouts/OrganizerLayout';
 import { SessionsShell } from '@/Layouts/SessionsLayout';
 import { SettingsShell } from '@/Layouts/SettingsLayout';
 import { CookieNotice } from '@/components/site/cookie-notice';
@@ -20,6 +21,8 @@ type Page = { default: { layout?: unknown } };
 function shellFor(name: string) {
     if (name.startsWith('Ventiq/')) return AdminShell;
     if (['Organizer/Organization', 'Organizer/Payout', 'Organizer/Team'].includes(name)) return SettingsShell;
+    if (['Organizer/Setup'].includes(name)) return null;
+    if (name.startsWith('Organizer/')) return OrganizerShell;
     if (name.startsWith('Programmes/')) return SessionsShell;
     if (name.startsWith('Sessions/') && !['Sessions/Show', 'Sessions/CheckinPass'].includes(name)) return SessionsShell;
     return null;

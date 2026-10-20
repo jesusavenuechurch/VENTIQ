@@ -13,7 +13,7 @@ class EventDayController extends Controller
 {
     public function show(Request $request, Event $event)
     {
-        abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);
+        abort_unless($event->organization_id === $request->attributes->get('organization')->id && $event->kind === \App\Models\Event::KIND_EVENT, 404);
 
         $day = EventDay::for($event);
 

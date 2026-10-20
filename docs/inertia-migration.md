@@ -86,15 +86,17 @@ images, the scanner app), which need a normal page load.
 
 - **Fixed: tabs jumping.** Each area's shell (site header and tabs) now stays
   mounted between its pages (`shellFor` in `resources/js/app.tsx`: Admin,
-  Sessions, Settings), the admin tab you're on is kept in view, and the page
-  keeps room for the scrollbar so it doesn't shift sideways. Sessions tabs
-  remember the page you left them on, like a phone's tab bar. The organizer
-  (Events) area still draws its layout per page; it can get the same shell.
+  Events, Sessions, Settings), the admin tab you're on is kept in view, and
+  the page keeps room for the scrollbar so it doesn't shift sideways.
+  Sessions tabs remember the page you left them on, like a phone's tab bar.
 - **Fixed: settings felt like Events.** Organization, Payouts and Team are
   their own "Organization settings" area with a way back to Events or
   Sessions, whichever you came from.
-- **Decide: roles in Sessions.** Roles only limit Events. In Sessions every
-  member (Door and Viewer too) can schedule and run sessions, see reports
-  and buy a plan; the Team page says so. Proposal: Admin everything; Staff
-  runs sessions and reviews reports; Door checks people in only; Viewer reads
-  reports only; only Admins buy plans.
+- **Done: roles in Sessions** (`App\Support\SessionsAccess`): Admin
+  everything; Staff runs sessions, programmes and reports; Door checks people
+  in; Viewer reads reports and programmes; only Admins buy plans. Someone
+  without a role is a Viewer, unless the organization has no Admin.
+- **Done: session events.** Events have a `kind`: `event` (tickets),
+  `session` (made to hold a tracked session's attendees) or `programme`. Only
+  `event` shows in the organizer's events and the admin's events (the others
+  are under Kind there), and organizer event pages refuse the other kinds.

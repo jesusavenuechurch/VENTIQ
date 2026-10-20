@@ -131,6 +131,6 @@ class GuestListController extends Controller
 
     private function authorizeEvent(Request $request, Event $event): void
     {
-        abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);
+        abort_unless($event->organization_id === $request->attributes->get('organization')->id && $event->kind === \App\Models\Event::KIND_EVENT, 404);
     }
 }

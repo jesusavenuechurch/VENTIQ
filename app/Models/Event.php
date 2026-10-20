@@ -33,6 +33,7 @@ class Event extends Model
         'banner_image',
         'organization_package_id',
         'is_programme',
+        'kind',
         'certificates_enabled',
         'signature_capture_enabled',
         'event_type',
@@ -65,9 +66,21 @@ class Event extends Model
      | Boot
      ------------------------------------------------------------ */
 
+    /** An event people get tickets for; the other kinds only hold a session's or a programme's attendees. */
+    public const KIND_EVENT = 'event';
+    public const KIND_SESSION = 'session';
+    public const KIND_PROGRAMME = 'programme';
+
     protected static function boot()
     {
         parent::boot();
+
+        // A programme is always that kind, however it was made.
+        static::saving(function (Event $event) {
+            if ($event->is_programme) {
+                $event->kind = self::KIND_PROGRAMME;
+            }
+        });
 
         // Never take tickets, payments and fees down with an event.
         static::deleting(fn (Event $event) => \App\Support\MoneyRecords::blockingDelete($event) === null);
@@ -161,6 +174,12 @@ class Event extends Model
     public const OPEN_STATUSES = ['published', 'ongoing'];
 
     /** Public events people can find: published or under way. */
+    /** Events people get tickets for: not the rows sessions and programmes make. */
+    public function scopeTicketed($query)
+    {
+        return $query->where('kind', self::KIND_EVENT);
+    }
+
     public function scopeListed($query)
     {
         return $query->where('is_public', true)->whereIn('status', self::OPEN_STATUSES);

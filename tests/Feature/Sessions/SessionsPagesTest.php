@@ -16,7 +16,7 @@ beforeEach(function () {
 
 function trackedSession(Organization $org, array $attributes = []): Session
 {
-    $event = Event::create(['organization_id' => $org->id, 'name' => 'Board meeting', 'event_date' => now(), 'is_public' => false]);
+    $event = Event::create(['organization_id' => $org->id, 'kind' => Event::KIND_SESSION, 'name' => 'Board meeting', 'event_date' => now(), 'is_public' => false]);
 
     return Session::create($attributes + [
         'organization_id' => $org->id, 'event_id' => $event->id, 'type' => 'meeting', 'title' => 'Board meeting',
@@ -178,4 +178,18 @@ it('still treats an organization as Sessions-only when its sessions made event r
 
     expect(\App\Support\IntentRedirect::resolve(null))->toBe(route('sessions.index'));
     $this->get(route('organizer.team.index'))->assertInertia(fn (Assert $page) => $page->where('organizer.usesEvents', false));
+});
+
+it("keeps a session's attendee list out of the organizer's events", function () {
+    $this->post(route('sessions.store'), ['title' => 'Staff meeting', 'type' => 'meeting', 'date' => now()->addDay()->toDateString(), 'track_participants' => true]);
+    $event = Session::where('title', 'Staff meeting')->firstOrFail()->event;
+
+    expect($event->kind)->toBe(Event::KIND_SESSION);
+    $this->get(route('organizer.home'))->assertInertia(fn (Assert $page) => $page->has('events', 0));
+    $this->get(route('organizer.events.edit', $event))->assertNotFound();
+
+    $super = User::factory()->create(['organization_id' => null]);
+    $super->assignRole('super_admin');
+    $this->actingAs($super)->get(route('ventiq.events.index'))->assertInertia(fn (Assert $page) => $page->has('rows.data', 0));
+    $this->get(route('ventiq.events.index', ['filter' => ['kind' => 'session']]))->assertInertia(fn (Assert $page) => $page->where('rows.data.0.kind', 'session'));
 });

@@ -117,7 +117,7 @@ class PayLesothoController extends Controller
         ]);
 
         $organization = Auth::user()->organization;
-        abort_unless($organization, 403);
+        abort_unless($organization && \App\Support\SessionsAccess::can(Auth::user(), 'plan'), 403);
 
         if ($data['type'] === 'plan') {
             $def = SessionPackageDefinition::get($data['tier']);

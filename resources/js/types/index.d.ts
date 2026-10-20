@@ -50,6 +50,7 @@ export interface OrganizerProps {
 /** The Sessions area's shared props (App\Http\Middleware\EnsureSessionsAccess). */
 export interface SessionsArea {
     organization: string;
+    can: Record<'desk' | 'checkin' | 'view' | 'run' | 'plan', boolean>;
     needsReview: number;
     quota: { used: number; included: number; remaining: number };
 }

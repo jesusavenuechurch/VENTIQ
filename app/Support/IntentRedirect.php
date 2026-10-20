@@ -50,16 +50,9 @@ class IntentRedirect
             && !static::usesEvents($organizationId);
     }
 
-    /**
-     * Has the organization made an event with tickets? A session that
-     * tracks who comes, or a programme, makes an event row too, so a row
-     * alone doesn't count.
-     */
+    /** Has the organization made an event people get tickets for (not a session's or programme's)? */
     public static function usesEvents(int $organizationId): bool
     {
-        return \App\Models\Event::where('organization_id', $organizationId)
-            ->where('is_programme', false)
-            ->whereHas('tiers')
-            ->exists();
+        return \App\Models\Event::where('organization_id', $organizationId)->ticketed()->exists();
     }
 }

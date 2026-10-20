@@ -73,6 +73,7 @@ class SessionController extends Controller
                 'speaker'    => $activeIndex === false ? null : $activeIndex + 1,
                 'starts'     => $starts ? ($s->start_time ? $starts->format('D j M · H:i') : $starts->format('D j M')) : null,
                 'updated'    => $s->updated_at->diffForHumans(),
+                'tracking'   => (bool) $s->public_token,
             ];
         };
 
@@ -194,6 +195,7 @@ class SessionController extends Controller
         } elseif ($trackParticipants) {
             $event = Event::create([
                 'organization_id' => Auth::user()->organization_id,
+                'kind'            => Event::KIND_SESSION,
                 'name'            => $validated['title'],
                 'event_date'      => "{$sessionDate} {$sessionTime}",
                 'is_public'       => false,

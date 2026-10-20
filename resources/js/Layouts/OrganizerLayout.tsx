@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { AppLink } from '@/components/app-link';
 import { CalendarDays, ChevronRight, ArrowLeft, EyeOff, Receipt, Settings, ShieldUser, Wallet } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
@@ -18,27 +18,13 @@ interface Tab {
 }
 
 /**
- * Every organizer page: who we're looking at, the area's tabs, where this
- * page sits (Events › Summit › Edit), its title, and on a draft event's
- * pages, that it isn't live yet with Publish right there. On phones the
- * tabs are an icon bar at the bottom, in thumb reach.
+ * Around every Events (organizer) page, kept mounted while moving between
+ * them (see app.tsx) so the header and tabs stay put: who we're looking
+ * at and the area's tabs. On phones the tabs are an icon bar at the
+ * bottom, in thumb reach.
  */
-export default function OrganizerLayout({
-    title,
-    subtitle,
-    crumbs,
-    draftEventId,
-    children,
-}: {
-    title: string;
-    subtitle?: React.ReactNode;
-    /** [[label, url], ..., [label]]: the last is this page. */
-    crumbs?: Array<[string, string?]>;
-    /** On a draft event's pages: its id, for Publish. */
-    draftEventId?: number | null;
-    children: React.ReactNode;
-}) {
-    const { organizer, flash } = usePage<{ organizer: OrganizerProps }>().props;
+export function OrganizerShell({ children }: { children: React.ReactNode }) {
+    const { organizer } = usePage<{ organizer: OrganizerProps }>().props;
 
     const tabs: Tab[] = [
         { route: 'organizer.home', label: 'Events', short: 'Events', icon: CalendarDays, active: ['organizer.home', 'organizer.events.*'] },
@@ -70,7 +56,6 @@ export default function OrganizerLayout({
         </nav>
     );
 
-
     return (
         <SiteLayout bottomBar={bottomBar}>
             <div className="mx-auto max-w-5xl px-4 py-8">
@@ -86,60 +71,89 @@ export default function OrganizerLayout({
                     </div>
                 )}
 
-                <div className="mb-8">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Ventiq · {organizer.organization.name}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Ventiq · {organizer.organization.name}</p>
 
-                    <nav className="mb-6 mt-3 hidden flex-wrap items-center gap-2 border-b border-gray-100 pb-5 sm:flex">
-                        {tabs.map((tab) => (
-                            <AppLink
-                                key={tab.route}
-                                to={tab.route}
-                                params={tab.params}
-                                prefetch
-                                className={cn(
-                                    'rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all',
-                                    isOn(tab.active) ? 'border-brand bg-brand text-white' : 'border-gray-100 bg-white text-gray-500 hover:text-brand',
-                                )}
-                            >
-                                <tab.icon className="mr-1 inline size-3.5" />{tab.label}
-                                {!!tab.badge && <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-action px-1.5 text-[10px] tracking-normal text-white">{tab.badge}</span>}
-                            </AppLink>
-                        ))}
-                    </nav>
-
-                    {crumbs && (
-                        <nav aria-label="Breadcrumb" className="mb-2 mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-bold text-gray-400 sm:mt-0">
-                            {crumbs.map(([label, url], i) => (
-                                <span key={i} className="flex items-center gap-1.5">
-                                    {i > 0 && <ChevronRight className="size-3 text-gray-300" aria-hidden />}
-                                    {url ? (
-                                        <a href={url} className="max-w-[14rem] truncate hover:text-brand">{i === 0 && <ArrowLeft className="mr-1 inline size-3" />}{label}</a>
-                                    ) : (
-                                        <span className="max-w-[14rem] truncate text-gray-500" aria-current="page">{label}</span>
-                                    )}
-                                </span>
-                            ))}
-                        </nav>
-                    )}
-
-                    <h1 className={cn('text-2xl font-black tracking-tight text-brand', !crumbs && 'mt-4 sm:mt-0')}>{title}</h1>
-
-
-                    {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
-
-                    {draftEventId && (
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                            <p className="text-[12px] font-bold text-amber-800"><EyeOff className="mr-1 inline size-4" />Draft: attendees can't see this event or register yet.</p>
-                            {organizer.can.edit_event && <PublishButton eventId={draftEventId} />}
-                        </div>
-                    )}
-
-                    {flash.status && <Alert className="mt-6 rounded-2xl p-4 text-[12px]">{flash.status}</Alert>}
-                    {flash.error && <Alert variant="destructive" className="mt-6 rounded-2xl p-4 text-[12px]">{flash.error}</Alert>}
-                </div>
+                <nav className="mb-6 mt-3 hidden flex-wrap items-center gap-2 border-b border-gray-100 pb-5 sm:flex">
+                    {tabs.map((tab) => (
+                        <AppLink
+                            key={tab.route}
+                            to={tab.route}
+                            params={tab.params}
+                            prefetch
+                            className={cn(
+                                'rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all',
+                                isOn(tab.active) ? 'border-brand bg-brand text-white' : 'border-gray-100 bg-white text-gray-500 hover:text-brand',
+                            )}
+                        >
+                            <tab.icon className="mr-1 inline size-3.5" />{tab.label}
+                            {!!tab.badge && <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-action px-1.5 text-[10px] tracking-normal text-white">{tab.badge}</span>}
+                        </AppLink>
+                    ))}
+                </nav>
 
                 {children}
             </div>
         </SiteLayout>
+    );
+}
+
+/**
+ * An Events page's own part: where it sits (Events › Summit › Edit), its
+ * title, and on a draft event's pages, that it isn't live yet with
+ * Publish right there.
+ */
+export default function OrganizerLayout({
+    title,
+    subtitle,
+    crumbs,
+    draftEventId,
+    children,
+}: {
+    title: string;
+    subtitle?: React.ReactNode;
+    /** [[label, url], ..., [label]]: the last is this page. */
+    crumbs?: Array<[string, string?]>;
+    /** On a draft event's pages: its id, for Publish. */
+    draftEventId?: number | null;
+    children: React.ReactNode;
+}) {
+    const { organizer, flash } = usePage<{ organizer: OrganizerProps }>().props;
+
+    return (
+        <>
+            <div className="mb-8">
+                {crumbs && (
+                    <nav aria-label="Breadcrumb" className="mb-2 mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-bold text-gray-400 sm:mt-0">
+                        {crumbs.map(([label, url], i) => (
+                            <span key={i} className="flex items-center gap-1.5">
+                                {i > 0 && <ChevronRight className="size-3 text-gray-300" aria-hidden />}
+                                {url ? (
+                                    <Link href={url} className="max-w-[14rem] truncate hover:text-brand">{i === 0 && <ArrowLeft className="mr-1 inline size-3" />}{label}</Link>
+                                ) : (
+                                    <span className="max-w-[14rem] truncate text-gray-500" aria-current="page">{label}</span>
+                                )}
+                            </span>
+                        ))}
+                    </nav>
+                )}
+
+                <h1 className={cn('text-2xl font-black tracking-tight text-brand', !crumbs && 'mt-4 sm:mt-0')}>{title}</h1>
+
+
+                {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
+
+                {draftEventId && (
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-[12px] font-bold text-amber-800"><EyeOff className="mr-1 inline size-4" />Draft: attendees can't see this event or register yet.</p>
+                        {organizer.can.edit_event && <PublishButton eventId={draftEventId} />}
+                    </div>
+                )}
+
+                {flash.status && <Alert className="mt-6 rounded-2xl p-4 text-[12px]">{flash.status}</Alert>}
+                {flash.error && <Alert variant="destructive" className="mt-6 rounded-2xl p-4 text-[12px]">{flash.error}</Alert>}
+            </div>
+
+            {children}
+        </>
     );
 }

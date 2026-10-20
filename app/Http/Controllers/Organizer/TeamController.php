@@ -39,7 +39,7 @@ class TeamController extends Controller
                 'roleLabel' => TeamRoles::label($i->role),
                 'expires'   => $i->expires_at->format('d M'),
             ]),
-            'roles'     => collect(TeamRoles::ROLES)->map(fn ($r, $value) => ['value' => $value, 'name' => $r[0], 'description' => $r[1]])->values(),
+            'roles'     => collect(TeamRoles::ROLES)->map(fn ($r, $value) => ['value' => $value, 'name' => $r[0], 'description' => $r[1], 'inSessions' => TeamRoles::IN_SESSIONS[$value] ?? null])->values(),
             'canManage' => $you->can('manage_staff'),
             'seatsLeft' => $this->seatsLeft($organization),
             'meta'      => ['title' => 'Team | VENTIQ'],

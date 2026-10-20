@@ -18,6 +18,7 @@ interface Tile {
     speaker: number | null;
     starts: string | null;
     updated: string;
+    tracking: boolean;
 }
 
 interface Props {
@@ -40,6 +41,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
     const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    const can = sessionsArea.can;
     const outOfSessions = sessionsArea.quota.remaining <= 0;
     const anything = (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
 
@@ -49,14 +51,14 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
             subtitle="What's happening today?"
             actions={
                 <>
-                    <AppLink to="sessions.create" className={primaryButton}><Sparkles className="size-4" />Schedule a session</AppLink>
+                    {can.run && <AppLink to="sessions.create" className={primaryButton}><Sparkles className="size-4" />Schedule a session</AppLink>}
                     <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
-                    <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>
-                    <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>
+                    {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>}
+                    {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}
                 </>
             }
         >
-            {outOfSessions && (
+            {outOfSessions && can.plan && (
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                     <p className="text-[12px] font-bold text-amber-800">You've used the sessions in your plan this month. Add more, or move to a bigger plan.</p>
                     <AppLink to="sessions.plan" className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add sessions</AppLink>
@@ -69,7 +71,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
                     <Board>
                         <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{COLUMNS[filter].label} · {columns[filter].length}</p>
                         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                            {columns[filter].map((t) => <Note key={t.id} tile={t} column={filter} />)}
+                            {columns[filter].map((t) => <Note key={t.id} tile={t} column={filter} can={can} />)}
                             {columns[filter].length === 0 && <p className="text-[11px] italic text-gray-400">{COLUMNS[filter].empty}</p>}
                         </div>
                     </Board>
@@ -81,7 +83,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
                             <div key={c} className={cn(i > 0 && 'lg:border-l lg:border-dashed lg:border-slate-900/10 lg:pl-6', i < 3 && 'lg:pr-6')}>
                                 <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{COLUMNS[c].label}</p>
                                 <div className="space-y-5">
-                                    {columns[c].slice(0, 4).map((t) => <Note key={t.id} tile={t} column={c} />)}
+                                    {columns[c].slice(0, 4).map((t) => <Note key={t.id} tile={t} column={c} can={can} />)}
                                     {columns[c].length === 0 && <p className="text-[11px] italic text-gray-400">{COLUMNS[c].empty}</p>}
                                 </div>
                                 {columns[c].length > 4 && (
@@ -94,7 +96,7 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
             ) : (
                 <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
                     <p className="text-sm font-bold text-gray-400">Your sessions will show up here.</p>
-                    <AppLink to="sessions.create" className={cn(primaryButton, 'mt-6')}><Sparkles className="size-4" />Schedule your first session</AppLink>
+                    {can.run && <AppLink to="sessions.create" className={cn(primaryButton, 'mt-6')}><Sparkles className="size-4" />Schedule your first session</AppLink>}
                 </div>
             )}
         </SessionsLayout>
@@ -106,8 +108,17 @@ function Board({ children }: { children: React.ReactNode }) {
 }
 
 /** A session as a taped-on sticky note. */
-function Note({ tile, column }: { tile: Tile; column: Column }) {
-    const href = tile.status === 'reported' ? route('sessions.report', tile.id) : route('sessions.show', tile.id);
+function Note({ tile, column, can }: { tile: Tile; column: Column; can: SessionsArea['can'] }) {
+    // Where it opens depends on the role: the console to run it, the report
+    // to read it, or the check-in list at the door. Otherwise just a note.
+    const href = can.run
+        ? (tile.status === 'reported' ? route('sessions.report', tile.id) : route('sessions.show', tile.id))
+        : can.view && tile.status === 'reported'
+          ? route('sessions.report', tile.id)
+          : can.checkin && tile.tracking
+            ? route('sessions.checkin', tile.id)
+            : null;
+    const Tag = href ? Link : 'div';
     const people =
         column === 'live' ? `${tile.attendees} checked in` : column === 'upcoming' ? `${tile.attendees || tile.expected || '—'} expected` : `${tile.attendees} attended`;
     const status = {
@@ -118,8 +129,8 @@ function Note({ tile, column }: { tile: Tile; column: Column }) {
     }[column];
 
     return (
-        <Link
-            href={href}
+        <Tag
+            href={href ?? ''}
             className="group relative block rounded-b-[10px] rounded-t px-3.5 pb-3.5 pt-[18px] shadow-[0_10px_20px_rgba(15,23,42,0.12)] transition-all hover:!rotate-0 hover:-translate-y-1 hover:shadow-[0_16px_28px_rgba(15,23,42,0.18)]"
             style={{ background: COLUMNS[column].tint, transform: `rotate(${ROTATIONS[tile.id % ROTATIONS.length]})` }}
         >
@@ -138,6 +149,6 @@ function Note({ tile, column }: { tile: Tile; column: Column }) {
                 {column === 'live' ? <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> : column === 'upcoming' && <Clock className="size-3" />}
                 {status}
             </p>
-        </Link>
+        </Tag>
     );
 }

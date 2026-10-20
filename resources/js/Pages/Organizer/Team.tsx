@@ -14,6 +14,7 @@ interface Role {
     value: string;
     name: string;
     description: string;
+    inSessions: string | null;
 }
 
 interface Member {
@@ -58,12 +59,14 @@ export default function Team({
     const [busy, setBusy] = useState(false);
     const label = (role: string | null) => roles.find((r) => r.value === role)?.name ?? 'No role';
     const from = useSettingsFrom();
-    // Roles only change what people can do in Events so far: say so, and
-    // first when they came from Sessions.
+    // What each role means in Events and in Sessions, the one they came
+    // from first.
     const sessionsNote = (
-        <div key="sessions" className="space-y-1">
+        <div key="sessions" className="space-y-2">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">In Sessions</p>
-            <p className="text-[11px] text-gray-500">Everyone on the team can schedule and run sessions, check people in and see reports, whatever their role.</p>
+            {roles.map((r) => (
+                <p key={r.value} className="text-[11px] text-gray-500"><strong className="text-brand">{r.name}:</strong> {r.inSessions}</p>
+            ))}
         </div>
     );
     const eventsRoles = (
@@ -187,14 +190,14 @@ export default function Team({
                                     <Input id="email" type="email" required value={invite.data.email} onChange={(e) => invite.setData('email', e.target.value)} className="rounded-2xl px-4 py-3 text-[14px] font-semibold" />
                                 </Field>
                                 <div>
-                                    <span className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">What they can do in Events</span>
+                                    <span className="mb-2 ml-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">What they can do</span>
                                     <div className="space-y-2">
                                         {roles.map((r) => (
                                             <label key={r.value} className={cn('flex cursor-pointer gap-3 rounded-2xl border-2 p-3 transition-all', invite.data.role === r.value ? 'border-action bg-action-soft' : 'border-slate-50 bg-slate-50')}>
                                                 <input type="radio" name="role" value={r.value} checked={invite.data.role === r.value} onChange={() => invite.setData('role', r.value)} className="mt-0.5 accent-action" />
                                                 <span>
                                                     <span className="block text-[12px] font-black text-brand">{r.name}</span>
-                                                    <span className="block text-[11px] font-medium text-gray-500">{r.description}</span>
+                                                    <span className="block text-[11px] font-medium text-gray-500">{from === 'sessions' ? `In Sessions: ${r.inSessions}` : `In Events: ${r.description}`}</span>
                                                 </span>
                                             </label>
                                         ))}

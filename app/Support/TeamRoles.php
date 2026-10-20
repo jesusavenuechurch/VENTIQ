@@ -12,6 +12,14 @@ class TeamRoles
         'viewer'    => ['Viewer', 'Sees events, attendees and reports, but can\'t change anything.'],
     ];
 
+    /** The same roles in Sessions (enforced by SessionsAccess). */
+    public const IN_SESSIONS = [
+        'org_admin' => 'Everything, including buying a plan.',
+        'staff'     => 'Schedules and runs sessions, sets up programmes and reviews reports.',
+        'scanner'   => 'Checks people in. Nothing else.',
+        'viewer'    => 'Reads reports and programmes.',
+    ];
+
     public static function valid(?string $role): bool
     {
         return array_key_exists((string) $role, self::ROLES);

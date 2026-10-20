@@ -1,8 +1,9 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { Check, Download, IdCard, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import SessionsLayout, { field, quietButton } from '@/Layouts/SessionsLayout';
 import { cn } from '@/lib/utils';
+import type { SessionsArea } from '@/types';
 
 interface Participant {
     id: number;
@@ -21,12 +22,14 @@ const small = 'rounded-xl border-none bg-gray-50 px-4 py-3 text-sm font-bold tex
 /** Who's checked in to a session, and checking someone in by hand. */
 export default function Checkin({ session, participants }: { session: { id: number; title: string }; participants: Participant[] }) {
     const form = useForm({ full_name: '', phone: '', email: '', institution: '', position: '' });
+    // At the door (Door role) there's no session console to go back to.
+    const canRun = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea.can.run;
 
     return (
         <SessionsLayout
             title="Check-in"
             subtitle={`${session.title} · ${participants.length} checked in`}
-            crumbs={[['Session', route('sessions.show', session.id)], ['Check-in']]}
+            crumbs={[canRun ? ['Session', route('sessions.show', session.id)] : ['Desk', route('sessions.index')], ['Check-in']]}
             actions={<a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>}
             width="max-w-3xl"
         >

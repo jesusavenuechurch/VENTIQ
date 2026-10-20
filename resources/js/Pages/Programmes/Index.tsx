@@ -1,7 +1,8 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChevronRight, Lock, Plus } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
+import type { SessionsArea } from '@/types';
 
 interface Programme {
     id: number;
@@ -12,20 +13,22 @@ interface Programme {
 
 /** Programmes: anything with more than one session, like a training over several days. */
 export default function Index({ programmes, canCreate }: { programmes: Programme[]; canCreate: boolean }) {
+    const { can } = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea;
+
     return (
         <SessionsLayout
             title="Programmes"
             subtitle="For anything with more than one session: trainings, conferences, events over several days."
             width="max-w-4xl"
             actions={
-                canCreate ? (
+                !can.run ? null : canCreate ? (
                     <AppLink to="programmes.create" className={primaryButton}><Plus className="size-4" />New programme</AppLink>
                 ) : (
-                    <AppLink to="sessions.plan" className={quietButton}><Lock className="size-3.5" />Business plan</AppLink>
+                    can.plan && <AppLink to="sessions.plan" className={quietButton}><Lock className="size-3.5" />Business plan</AppLink>
                 )
             }
         >
-            {!canCreate && (
+            {!canCreate && can.run && (
                 <p className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-[12px] font-bold text-amber-800">Programmes come with the Business plan and above.</p>
             )}
             <div className="space-y-3">

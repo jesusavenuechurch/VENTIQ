@@ -5,14 +5,16 @@ namespace App\Http\Middleware;
 use App\Models\Session;
 use App\Services\SessionQuotaService;
 use App\Support\IntentRedirect;
+use App\Support\SessionsAccess;
 use Closure;
 use Illuminate\Http\Request;
 
 /**
  * Sessions and Programmes belong to an organization. Super admins and
- * agents have none, so they go to their own home. For everyone else the
- * area's tabs get what they show: the organization, reports waiting for
- * review and this month's sessions.
+ * agents have none, so they go to their own home. Everyone else may do
+ * what their role allows (SessionsAccess), and the area's tabs get what
+ * they show: the organization, reports waiting for review, this month's
+ * sessions and what this person can do.
  */
 class EnsureSessionsAccess
 {
@@ -31,7 +33,17 @@ class EnsureSessionsAccess
             return redirect(IntentRedirect::home($user));
         }
 
+        // What their role lets them do here (App\Support\SessionsAccess).
+        $ability = SessionsAccess::abilityFor($request->route()?->getName());
+        if (!SessionsAccess::can($user, $ability)) {
+            if ($request->isMethod('GET') && !$request->expectsJson()) {
+                return redirect()->route('sessions.index')->with('error', "Your role on the team doesn't include that. Ask an Admin if you need it.");
+            }
+            abort(403);
+        }
+
         \Inertia\Inertia::share('sessionsArea', fn () => [
+            'can'          => SessionsAccess::all($user),
             'organization' => $organization->name,
             'needsReview'  => Session::forOrganization($organization->id)->where('status', 'reported')->whereNull('reviewed_at')->count(),
             'quota'        => [

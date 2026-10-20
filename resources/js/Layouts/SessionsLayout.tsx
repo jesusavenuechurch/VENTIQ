@@ -10,11 +10,15 @@ const AREA = 'sessions';
 
 function useTabs() {
     const { sessionsArea } = usePage<{ sessionsArea: SessionsArea }>().props;
+    const can = sessionsArea?.can;
+    // Only the tabs this person's role opens (App\Support\SessionsAccess).
     const tabs: AreaTab[] = [
         { route: 'sessions.index', label: 'Desk', icon: LayoutGrid, active: ['sessions.index', 'sessions.create', 'sessions.checkin'] },
-        { route: 'sessions.reports', label: 'Reports', icon: FileText, active: ['sessions.reports', 'sessions.report'], badge: sessionsArea?.needsReview },
-        { route: 'programmes.index', label: 'Programmes', icon: FolderOpen, active: ['programmes.*'] },
-        { route: 'sessions.plan', label: 'Plan', icon: Ticket, active: ['sessions.plan', 'organization.session-plan.*'] },
+        ...(can?.view ? [
+            { route: 'sessions.reports', label: 'Reports', icon: FileText, active: ['sessions.reports', 'sessions.report'], badge: sessionsArea?.needsReview },
+            { route: 'programmes.index', label: 'Programmes', icon: FolderOpen, active: ['programmes.*'] },
+        ] : []),
+        ...(can?.plan ? [{ route: 'sessions.plan', label: 'Plan', icon: Ticket, active: ['sessions.plan', 'organization.session-plan.*'] }] : []),
     ];
     return { tabs, ...useAreaTabs(AREA, tabs, true) };
 }
@@ -30,7 +34,7 @@ export function SessionsShell({ children }: { children: React.ReactNode }) {
 
     const bottomBar = (
         <nav className="border-t border-gray-100 bg-white pb-[env(safe-area-inset-bottom)]">
-            <div className="grid grid-cols-4">
+            <div className="grid" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
                 {tabs.map((tab) => {
                     const on = isOn(tab);
                     return (

@@ -17,6 +17,7 @@ class HomeController extends Controller
         $organization = $request->attributes->get('organization');
 
         $events = Event::where('organization_id', $organization->id)
+            ->ticketed()
             ->withCount([
                 'tickets as active_count'   => fn ($q) => $q->whereIn('status', ['active', 'checked_in']),
                 'tickets as awaiting_count' => fn ($q) => $q->where('status', 'pending')

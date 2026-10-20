@@ -1,9 +1,10 @@
-import { router, usePoll } from '@inertiajs/react';
+import { router, usePage, usePoll } from '@inertiajs/react';
 import { Check, ChevronDown, Download, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
+import type { SessionsArea } from '@/types';
 
 interface Props {
     session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean };
@@ -13,6 +14,8 @@ interface Props {
 /** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
 export default function Report({ session, segments }: Props) {
     const generating = session.status === 'completed' && !session.failed;
+    // Viewers read the report; Admins and Staff edit and review it.
+    const canRun = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea.can.run;
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(session.report ?? '');
     const [saved, setSaved] = useState(session.report ?? '');
@@ -52,7 +55,7 @@ export default function Report({ session, segments }: Props) {
                     <div className="rounded-[2rem] border border-dashed border-rose-200 bg-rose-50/40 py-16 text-center">
                         <p className="text-sm font-bold text-rose-600">The report couldn't be written</p>
                         <p className="mx-auto mt-1 max-w-md text-[12px] font-medium text-gray-500">The notes are safe, nothing was lost. Try again.</p>
-                        <button type="button" onClick={() => router.post(route('sessions.report.generate', session.id))} className={cn(quietButton, 'mt-6')}><RotateCw className="size-3.5" />Try again</button>
+                        {canRun && <button type="button" onClick={() => router.post(route('sessions.report.generate', session.id))} className={cn(quietButton, 'mt-6')}><RotateCw className="size-3.5" />Try again</button>}
                     </div>
                 ) : (
                     <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
@@ -72,9 +75,9 @@ export default function Report({ session, segments }: Props) {
                                         <button type="button" onClick={() => { setText(saved); setEditing(false); }} className={quietButton}>Cancel</button>
                                         <button type="button" disabled={saving} onClick={save} className={cn(quietButton, 'border-brand bg-brand text-white hover:bg-action')}>{saving ? 'Saving…' : 'Save'}</button>
                                     </>
-                                ) : (
+                                ) : canRun ? (
                                     <button type="button" onClick={() => setEditing(true)} className={quietButton}><Pencil className="size-3.5" />Edit</button>
-                                )}
+                                ) : null}
                                 <a href={route('sessions.report.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>
                                 {session.tracking && <a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Attendance</a>}
                             </div>
@@ -89,6 +92,8 @@ export default function Report({ session, segments }: Props) {
                         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6">
                             {session.reviewed ? (
                                 <span className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-emerald-600"><Check className="size-4" />Reviewed {session.reviewed}</span>
+                            ) : !canRun ? (
+                                <span className="text-[12px] font-medium text-gray-400">Not reviewed yet.</span>
                             ) : (
                                 <>
                                     <span className="text-[12px] font-medium text-gray-400">Marking it reviewed lets attendees know the notes are ready.</span>
