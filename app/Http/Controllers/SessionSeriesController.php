@@ -43,6 +43,9 @@ class SessionSeriesController extends Controller
                 'endsLabel'             => $series->ends_on?->format('j M Y'),
                 'ended'                 => $series->isEnded(),
                 'people'                => $series->people ?? [],
+                'chair'                 => $series->meta['chair'] ?? '',
+                'secretary'             => $series->meta['secretary'] ?? '',
+                'location'              => $series->meta['location'] ?? '',
             ],
             // Ahead: not started, today or later. Everything else has happened (or was missed).
             'upcoming' => $sessions->filter($ahead = fn ($s) => $s->status === 'draft' && $s->date->gte(today()))->values()->map($row),
@@ -66,8 +69,13 @@ class SessionSeriesController extends Controller
             'expected_participants' => 'nullable|integer|min:1',
             'people'                => 'nullable|array',
             'people.*.name'         => 'nullable|string|max:255',
+            'people.*.title'        => 'nullable|string|max:255',
             'people.*.role'         => 'nullable|string|max:255',
             'people.*.presenting'   => 'nullable|boolean',
+            // A meeting's chair, secretary and venue.
+            'chair'                 => 'nullable|string|max:255',
+            'secretary'             => 'nullable|string|max:255',
+            'location'              => 'nullable|string|max:255',
             'ends_on'               => 'nullable|date|after_or_equal:today',
         ], ['ends_on.after_or_equal' => "The end date can't be in the past."]);
 

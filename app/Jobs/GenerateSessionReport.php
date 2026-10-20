@@ -32,6 +32,7 @@ class GenerateSessionReport implements ShouldQueue
         if (!$session) { $this->markFailed('Session no longer exists.'); return; }
 
         $sectionsConfig = SessionType::sections($session->type);
+        $agenda = SessionType::takesMinutes($session->type);
 
         // ── PASS 1 — per-segment summaries ──────────────────────────────
         $attempted = 0;
@@ -52,6 +53,8 @@ class GenerateSessionReport implements ShouldQueue
                 'topic'     => $segment->title,
                 'raw_notes' => $rawText,
                 'sections'  => $sectionsConfig,
+                'agenda'    => $agenda,
+                'lead'      => $segment->lead(),
             ]);
 
             try {
@@ -104,7 +107,7 @@ class GenerateSessionReport implements ShouldQueue
                         : null)
                     ->filter()
                     ->implode("\n");
-                return "{$s->presenter_name}:\n{$lines}";
+                return ($s->title ?: $s->presenter_name) . ":\n{$lines}";
             })
             ->implode("\n\n");
 

@@ -80,7 +80,17 @@ each question the app finds the relevant ones and sends them with it
    time" on a series' next meeting; the Actions tab; reminder emails two
    days before, on the day and weekly when overdue
    (`sessions:action-reminders`). WhatsApp reminders wait for a template.
-3. **Minutes format** for meetings (and the "Next item" wording).
+3. **Minutes format** for meetings (and the "Next item" wording). *Done:*
+   meetings, board and committee meetings (`SessionType::takesMinutes()`)
+   are scheduled with a chair, secretary, venue and agenda (each item led
+   by someone, optional; a series keeps them as its standing agenda). The
+   console says "Agenda" and "Next item". Ventiq Assist writes each item
+   up in minute style (past tense, third person), and `MinutesBuilder`
+   assembles the minutes: present, apologies, previous minutes, matters
+   arising, each item's discussion and decisions, action points, any other
+   business, next meeting. Every part can be changed in place (kept on
+   `capture_sessions.minutes`); confirming them is reviewing the report,
+   signed off in the reviewer's name. The PDF is the minutes.
 4. **Participant list PDF** for procurement (per day for multi-day).
 5. **Programme enrolment and automatic certificates.**
 6. **Certificate designer and stored signatures.**

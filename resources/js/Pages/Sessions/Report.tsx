@@ -3,20 +3,23 @@ import { Check, ChevronDown, Download, LoaderCircle, Pencil, RotateCw } from 'lu
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
+import { Minutes, type MinutesData } from '@/components/sessions/minutes';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
 
 interface Props {
-    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean };
+    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean; takesMinutes: boolean };
     segments: { id: number; name: string; role: string | null; summary: string | null; logs: { time: string; text: string }[] }[];
     actionPoints: ActionPointCard[];
     carried: ActionPointCard[];
     owners: Owner[];
+    /** A meeting's report is its minutes. */
+    minutes: MinutesData | null;
 }
 
 /** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
-export default function Report({ session, segments, actionPoints, carried, owners }: Props) {
+export default function Report({ session, segments, actionPoints, carried, owners, minutes }: Props) {
     // Writing the report, then picking out its action points: checked every few seconds.
     const generating = (session.status === 'completed' && !session.failed) || session.findingActions;
     // Viewers read the report; Admins and Staff edit and review it.
@@ -29,7 +32,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
     const [error, setError] = useState('');
 
     // While the report is being written, check every few seconds.
-    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints'] }, { autoStart: generating });
+    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints', 'minutes'] }, { autoStart: generating });
     useEffect(() => (generating ? start() : stop()), [generating, start, stop]);
     // The report arriving from the check above.
     useEffect(() => {
@@ -61,24 +64,27 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 </>
             } crumbs={[['Reports', route('sessions.reports')], [session.title]]}>
             {session.status === 'draft' || session.status === 'active' ? (
-                <Empty>This session is still going. Its report is written when the last presenter finishes.</Empty>
+                <Empty>This session is still going. {session.takesMinutes ? 'The minutes are written when the last item is done.' : 'Its report is written when the last presenter finishes.'}</Empty>
             ) : session.status !== 'reported' ? (
                 session.failed ? (
                     <div className="rounded-[2rem] border border-dashed border-rose-200 bg-rose-50/40 py-16 text-center">
-                        <p className="text-sm font-bold text-rose-600">The report couldn't be written</p>
+                        <p className="text-sm font-bold text-rose-600">{session.takesMinutes ? "The minutes couldn't be written" : "The report couldn't be written"}</p>
                         <p className="mx-auto mt-1 max-w-md text-[12px] font-medium text-gray-500">The notes are safe, nothing was lost. Try again.</p>
                         {canRun && <button type="button" onClick={() => router.post(route('sessions.report.generate', session.id))} className={cn(quietButton, 'mt-6')}><RotateCw className="size-3.5" />Try again</button>}
                     </div>
                 ) : (
                     <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
                         <LoaderCircle className="mx-auto mb-5 size-8 animate-spin text-action" />
-                        <p className="text-sm font-bold text-gray-500">Writing your report…</p>
+                        <p className="text-sm font-bold text-gray-500">{session.takesMinutes ? 'Writing the minutes…' : 'Writing your report…'}</p>
                         <p className="mt-1 text-[12px] font-medium text-gray-400">This usually takes a few seconds. You can leave this page; it'll be under Reports.</p>
                     </div>
                 )
             ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     <div className="lg:col-span-2">
+                    {minutes ? (
+                        <Minutes sessionId={session.id} minutes={minutes} canEdit={canRun} tracking={session.tracking} />
+                    ) : (
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8">
                         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                             <span className={cn('text-[10px] font-black uppercase tracking-widest', justSaved ? 'text-emerald-600' : 'text-gray-300')}>{justSaved ? 'Saved' : editing ? 'Editing' : ''}</span>
@@ -115,8 +121,9 @@ export default function Report({ session, segments, actionPoints, carried, owner
                             )}
                         </div>
                     </div>
+                    )}
                     {session.findingActions && <p className="mt-6 flex items-center gap-2 rounded-2xl bg-lilac/60 px-5 py-4 text-[12px] font-bold text-lilac-ink"><LoaderCircle className="size-4 animate-spin" />Ventiq Assist is picking out the action points…</p>}
-                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} />
+                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} minutes={!!minutes} />
                     </div>
 
                     <div className="rounded-2xl bg-[#F7F3EC] p-5">

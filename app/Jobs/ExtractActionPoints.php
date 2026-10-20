@@ -68,7 +68,10 @@ class ExtractActionPoints implements ShouldQueue
         $notes = $session->segments->map(function ($s) {
             $lines = collect($s->raw_log ?? [])->pluck('text')->filter()->implode("\n");
 
-            return $lines === '' ? null : '## ' . trim($s->presenter_name . ($s->title ? " ({$s->title})" : '')) . "\n" . $lines;
+            // A meeting's agenda item: the item, and who led it if anyone.
+            $heading = $s->title && $s->presenter_name === $s->title ? $s->title : trim($s->presenter_name . ($s->title ? " ({$s->title})" : ''));
+
+            return $lines === '' ? null : "## {$heading}\n" . $lines;
         })->filter()->implode("\n\n");
         if (trim($notes) === '') {
             return;
@@ -122,9 +125,11 @@ class ExtractActionPoints implements ShouldQueue
         $attendees = Participant::where('session_id', $session->id)->with('client:id,full_name')->get()
             ->filter(fn ($p) => $p->client)
             ->map(fn ($p) => ['name' => $p->client->full_name, 'client_id' => $p->client->id]);
-        $leading = $session->segments->map(fn ($s) => ['name' => $s->presenter_name]);
+        // Who led each part; an agenda item no one led has no person.
+        $leading = $session->segments->filter(fn ($s) => !$s->title || $s->lead())->map(fn ($s) => ['name' => $s->presenter_name]);
+        $officers = collect([$session->meta['chair'] ?? null, $session->meta['secretary'] ?? null])->filter()->map(fn ($n) => ['name' => $n]);
 
-        return $team->concat($attendees)->concat($leading)->values()->all();
+        return $team->concat($attendees)->concat($leading)->concat($officers)->values()->all();
     }
 
     /** The model's answer as [{task, owner, due}], forgiving about code fences and stray text. */

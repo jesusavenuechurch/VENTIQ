@@ -33,6 +33,7 @@ class SeriesScheduler
             'track_participants'    => (bool) ($data['track_participants'] ?? false),
             'expected_participants' => $data['expected_participants'] ?? null,
             'people'                => SessionMaker::cleanPeople($data['people'] ?? []),
+            'meta'                  => SessionMaker::officers($data) + ['location' => $data['location'] ?? null],
             'frequency'             => $data['frequency'],
             'starts_on'             => $data['date'],
             'ends_on'               => $data['ends_on'] ?? null,
@@ -77,6 +78,9 @@ class SeriesScheduler
                     'track_participants'    => $series->track_participants,
                     'expected_participants' => $series->expected_participants,
                     'people'                => $series->people ?? [],
+                    'chair'                 => $series->meta['chair'] ?? null,
+                    'secretary'             => $series->meta['secretary'] ?? null,
+                    'location'              => $series->meta['location'] ?? null,
                     'series_id'             => $series->id,
                     'parent_session_id'     => $previous?->id,
                 ]);
@@ -104,6 +108,7 @@ class SeriesScheduler
                 'expected_duration'     => $data['expected_duration'] ?? null,
                 'expected_participants' => $data['expected_participants'] ?? null,
                 'people'                => SessionMaker::cleanPeople($data['people'] ?? []),
+                'meta'                  => SessionMaker::officers($data) + ['location' => $data['location'] ?? null],
                 'ends_on'               => $data['ends_on'] ?? null,
             ]);
 
@@ -116,7 +121,8 @@ class SeriesScheduler
                     'title'      => $series->title,
                     'type'       => $series->type,
                     'start_time' => $series->start_time,
-                    'meta'       => array_merge($session->meta ?? [], [
+                    'location'   => $series->meta['location'] ?? null,
+                    'meta'       => array_merge($session->meta ?? [], SessionMaker::officers($series->meta ?? []), [
                         'expected_duration_minutes' => $series->expected_duration,
                         'expected_participants'     => $series->track_participants ? $series->expected_participants : null,
                         'custom_type_label'         => $series->custom_type_label,

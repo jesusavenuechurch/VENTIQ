@@ -281,6 +281,7 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
     Route::post('/{session}/report/review', [SessionController::class, 'markReviewed'])->name('report.review');
     Route::patch('/{session}/report', [SessionController::class, 'updateReport'])->name('report.update');
+    Route::patch('/{session}/minutes', [SessionController::class, 'updateMinutes'])->name('minutes.update');
     Route::get('/{session}/report/pdf', [SessionController::class, 'reportPdf'])->name('report.pdf');
     Route::get('/{session}/report/status', [SessionController::class, 'reportStatus'])->name('report.status');
     Route::post('/{session}/report/generate', [SessionController::class, 'generateReport'])->name('report.generate');

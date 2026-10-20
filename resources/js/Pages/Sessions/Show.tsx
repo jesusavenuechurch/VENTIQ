@@ -47,7 +47,7 @@ interface Role {
 }
 
 interface Props {
-    session: { id: number; title: string; status: string; tracking: boolean; checkinUrl: string | null; expected: number | null; participants: number };
+    session: { id: number; title: string; status: string; tracking: boolean; checkinUrl: string | null; expected: number | null; participants: number; agenda: boolean; chair: string | null; secretary: string | null };
     segments: Segment[];
     roles: Role[];
     /** In a series: action points still open from earlier meetings. */
@@ -62,6 +62,9 @@ const pill = 'inline-block rounded-full px-3 py-1.5 text-[9px] font-black upperc
 
 const clock = (sec: number) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 const initials = (name: string) => name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+/** A meeting's agenda item: the item is its topic, and who leads it (if anyone) its name. */
+const itemOf = (s: Segment) => s.topic || s.name;
+const leadOf = (s: Segment) => (s.topic && s.name !== s.topic ? s.name : null);
 
 async function call<T = Record<string, unknown>>(url: string, method = 'POST', body?: unknown): Promise<T | null> {
     try {
@@ -93,7 +96,9 @@ export default function Show({ session, segments, roles, carried }: Props) {
     const [participants, setParticipants] = useState(session.participants);
     const [copied, setCopied] = useState(false);
     const [adding, setAdding] = useState(false);
-    const [newPerson, setNewPerson] = useState({ name: '', role: '', presenting: true });
+    const [newPerson, setNewPerson] = useState({ name: '', title: '', role: '', presenting: true });
+    const agenda = session.agenda;
+    const nameOf = (s: Segment) => (agenda ? itemOf(s) : s.name);
     const [removing, setRemoving] = useState<Speaker | null>(null);
     const [flipping, setFlipping] = useState(false);
     const [fill, setFill] = useState(0);
@@ -280,16 +285,15 @@ export default function Show({ session, segments, roles, carried }: Props) {
 
     async function addPerson() {
         const name = newPerson.name.trim();
-        if (!name) return;
-        const data = await call<{ status: string; segment: { id: number; name: string; role: string | null; is_presenting: boolean; status: Status } }>(`${base}/segments`, 'POST', {
-            name,
-            role: newPerson.role || null,
-            presenting: newPerson.presenting,
-        });
+        const title = newPerson.title.trim();
+        if (agenda ? !title : !name) return;
+        const data = await call<{ status: string; segment: { id: number; name: string; topic: string; role: string | null; is_presenting: boolean; status: Status } }>(`${base}/segments`, 'POST', agenda
+            ? { title, name: name || null, presenting: true }
+            : { name, role: newPerson.role || null, presenting: newPerson.presenting });
         if (data?.status !== 'ok') return;
         const seg = data.segment;
-        setSpeakers((all) => [...all, { id: seg.id, name: seg.name, role: seg.role, presenting: !!seg.is_presenting, topic: '', status: seg.status, paused: false, duration: 0, logs: [], insights: [], breaks: [0], page: 0 }]);
-        setNewPerson({ name: '', role: '', presenting: true });
+        setSpeakers((all) => [...all, { id: seg.id, name: seg.name, role: seg.role, presenting: !!seg.is_presenting, topic: seg.topic ?? '', status: seg.status, paused: false, duration: 0, logs: [], insights: [], breaks: [0], page: 0 }]);
+        setNewPerson({ name: '', title: '', role: '', presenting: true });
         setAdding(false);
         if (seg.status === 'active') {
             setLiveId(seg.id);
@@ -358,17 +362,19 @@ export default function Show({ session, segments, roles, carried }: Props) {
 
             {presenting.length > 0 && (
                 <div>
-                    <p className={cn(label, 'mb-2 px-2')}>Presenting</p>
+                    <p className={cn(label, 'mb-2 px-2')}>{agenda ? 'Agenda' : 'Presenting'}</p>
                     <div className="max-h-[280px] space-y-1 overflow-y-auto">
                         {[...presenting].sort((a, b) => order[a.status] - order[b.status]).map((s) => (
                             <RosterRow
                                 key={s.id}
                                 s={s}
+                                name={nameOf(s)}
+                                mark={agenda ? String(presenting.indexOf(s) + 1) : undefined}
                                 color={PALETTE[speakers.indexOf(s) % PALETTE.length]}
                                 selected={selectedId === s.id}
                                 onSelect={() => setSelectedId(s.id)}
                                 onRemove={canRemove(s) ? () => setRemoving(s) : undefined}
-                                below={s.status === 'active' ? <span className={cn(pill, 'mt-1 bg-[#D4AF37]')}>Live</span> : null}
+                                below={s.status === 'active' ? <span className={cn(pill, 'mt-1 bg-[#D4AF37]')}>{agenda ? 'On now' : 'Live'}</span> : agenda && leadOf(s) ? <span className="block truncate text-[9px] font-bold text-slate-400">{leadOf(s)}</span> : null}
                                 trailing={!canRemove(s) && <span className="shrink-0 text-[9px] font-bold text-slate-400">{s.status === 'completed' ? <Check className="size-3" /> : clock(s.duration)}</span>}
                             />
                         ))}
@@ -398,8 +404,9 @@ export default function Show({ session, segments, roles, carried }: Props) {
             <div className="px-2">
                 {adding ? (
                     <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void addPerson(); }}>
-                        <input autoFocus aria-label="Name" value={newPerson.name} onChange={(e) => setNewPerson({ ...newPerson, name: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} placeholder="Name…" className="w-full rounded-lg bg-white px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-[#D4AF37]" />
-                        <div className="flex items-center gap-2">
+                        {agenda && <input autoFocus aria-label="Agenda item" value={newPerson.title} onChange={(e) => setNewPerson({ ...newPerson, title: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} placeholder="Item…" className="w-full rounded-lg bg-white px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-[#D4AF37]" />}
+                        <input autoFocus={!agenda} aria-label={agenda ? 'Led by' : 'Name'} value={newPerson.name} onChange={(e) => setNewPerson({ ...newPerson, name: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} placeholder={agenda ? 'Led by (optional)' : 'Name…'} className="w-full rounded-lg bg-white px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-[#D4AF37]" />
+                        {!agenda && <div className="flex items-center gap-2">
                             {roles.length > 0 && (
                                 <select aria-label="Role" value={newPerson.role} onChange={(e) => { const r = roles.find((x) => x.value === e.target.value); setNewPerson({ ...newPerson, role: e.target.value, presenting: r ? r.presenting : newPerson.presenting }); }} className="min-w-0 flex-1 rounded-lg bg-white px-2 py-2 text-[11px] font-semibold outline-none ring-1 ring-slate-200">
                                     <option value="">Role…</option>
@@ -409,14 +416,14 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             <label className="flex items-center gap-1 whitespace-nowrap text-[9px] font-black uppercase text-slate-500">
                                 <input type="checkbox" checked={newPerson.presenting} onChange={(e) => setNewPerson({ ...newPerson, presenting: e.target.checked })} className="accent-brand" />Presenting
                             </label>
-                        </div>
+                        </div>}
                         <div className="flex gap-2">
                             <button className="flex-1 rounded-lg bg-slate-900 py-2 text-[10px] font-black uppercase tracking-widest text-white">Add</button>
                             <button type="button" onClick={() => setAdding(false)} className="rounded-lg bg-white px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 ring-1 ring-slate-200">Cancel</button>
                         </div>
                     </form>
                 ) : (
-                    <button type="button" onClick={() => setAdding(true)} className={cn(label, 'flex items-center gap-1 py-2 hover:text-slate-900')}><Plus className="size-3" />Add person</button>
+                    <button type="button" onClick={() => setAdding(true)} className={cn(label, 'flex items-center gap-1 py-2 hover:text-slate-900')}><Plus className="size-3" />{agenda ? 'Add item' : 'Add person'}</button>
                 )}
             </div>
         </>
@@ -487,12 +494,17 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             <Link href={route('sessions.index')} className="flex items-center gap-1 text-[14px] font-black tracking-tight"><ArrowLeft className="size-3.5" />VENTIQ</Link>
                             <p className={cn(label, 'mt-2')}>Live session</p>
                             <p className="mt-0.5 truncate text-[11px] font-bold uppercase text-slate-400">{session.title}</p>
+                            {agenda && (session.chair || session.secretary) && (
+                                <p className="mt-1 text-[10px] font-semibold leading-snug text-slate-400">
+                                    {[session.chair && `Chair: ${session.chair}`, session.secretary && `Secretary: ${session.secretary}`].filter(Boolean).join(' · ')}
+                                </p>
+                            )}
                         </div>
                         <span className="text-[11px] font-black lg:hidden">{clock(globalClock)}</span>
                     </div>
                     <div className="max-h-[45dvh] flex-1 space-y-5 overflow-y-auto px-3 pb-4 lg:max-h-none">{roster}</div>
                     <div className="hidden items-center justify-between border-t-2 border-dashed border-slate-200 px-5 py-4 lg:flex">
-                        <span className={label}>{completed}/{speakers.length} done</span>
+                        <span className={label}>{completed}/{speakers.length} {agenda ? 'items' : 'done'}</span>
                         <span className="text-[10px] font-black">{clock(globalClock)}</span>
                     </div>
                 </aside>
@@ -505,8 +517,9 @@ export default function Show({ session, segments, roles, carried }: Props) {
                     <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 px-6 pb-5 pt-8 sm:pl-14 lg:pl-16 lg:pr-14">
                         <div className="min-w-0 flex-1">
                             <span className={cn(pill, paused || isLive ? 'bg-[#D4AF37]' : 'bg-slate-300')}>{paused ? (paused === 'auto' ? 'Away from page' : 'Paused') : isLive ? 'Capturing' : 'Ready'}</span>
-                            <h1 className="mt-3 text-[26px] font-extrabold uppercase leading-none tracking-tight">{selected?.name ?? (isLive ? 'Add a presenter to begin' : 'Add a presenter')}</h1>
-                            {selected && (
+                            <h1 className="mt-3 text-[26px] font-extrabold uppercase leading-none tracking-tight">{selected ? nameOf(selected) : agenda ? 'Add an agenda item' : isLive ? 'Add a presenter to begin' : 'Add a presenter'}</h1>
+                            {selected && agenda && leadOf(selected) && <p className="mt-1.5 text-[15px] font-semibold text-slate-400">Led by {leadOf(selected)}</p>}
+                            {selected && !agenda && (
                                 <input aria-label="Presentation name" value={selected.topic} onChange={(e) => setTopic(e.target.value)} placeholder="Untitled: click to name this presentation" className="mt-1.5 w-full border-b border-dashed border-transparent bg-transparent text-[15px] font-semibold text-slate-400 outline-none focus:border-slate-300 focus:text-slate-900" />
                             )}
                         </div>
@@ -525,7 +538,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             )}
                             {capturingHere && !paused && (
                                 <button type="button" disabled={finishing} onClick={finishSegment} className={cn(pill, 'bg-slate-900 transition hover:opacity-80 disabled:opacity-50')}>
-                                    {isLastSpeaker ? 'Finish session' : 'Next speaker'} →
+                                    {isLastSpeaker ? (agenda ? 'Finish meeting' : 'Finish session') : agenda ? 'Next item' : 'Next speaker'} →
                                 </button>
                             )}
                         </div>
@@ -535,7 +548,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
                         <div className="max-w-2xl">
                             {!isLive && completed === 0 && !speakers.some((s) => s.logs.length) && (
                                 <div className="pt-12">
-                                    <p className="text-[16px] italic text-slate-400">The page is empty. Start the session and write as they speak.</p>
+                                    <p className="text-[16px] italic text-slate-400">{agenda ? 'The page is empty. Start the meeting and write as each item is discussed.' : 'The page is empty. Start the session and write as they speak.'}</p>
                                     <button type="button" onClick={start} className={cn(pill, 'mt-5 bg-emerald-500 px-5 py-2.5 text-[10px]')}>Begin capturing</button>
                                     {startError && (
                                         <p role="alert" className="mt-4 max-w-md text-[13px] font-semibold text-rose-600">
@@ -546,8 +559,8 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             )}
                             {!isLive && speakers.length > 0 && completed === speakers.length && (
                                 <div className="pt-12">
-                                    <p className="text-[16px] italic text-slate-400">Every presenter has finished.</p>
-                                    <Link href={route('sessions.report', session.id)} className={cn(pill, 'mt-5 bg-slate-900 px-5 py-2.5 text-[10px]')}>See the report →</Link>
+                                    <p className="text-[16px] italic text-slate-400">{agenda ? 'Every item has been taken.' : 'Every presenter has finished.'}</p>
+                                    <Link href={route('sessions.report', session.id)} className={cn(pill, 'mt-5 bg-slate-900 px-5 py-2.5 text-[10px]')}>{agenda ? 'See the minutes →' : 'See the report →'}</Link>
                                 </div>
                             )}
 
@@ -616,27 +629,27 @@ export default function Show({ session, segments, roles, carried }: Props) {
                 </aside>
             </div>
 
-            <ConfirmDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing?.name}?`} confirmLabel="Remove" onConfirm={() => removing && removePerson(removing)}>
-                They haven't presented, so no notes are lost.
+            <ConfirmDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing ? nameOf(removing) : ''}?`} confirmLabel="Remove" onConfirm={() => removing && removePerson(removing)}>
+                {agenda ? "Nothing's been noted under it, so no notes are lost." : "They haven't presented, so no notes are lost."}
             </ConfirmDialog>
         </div>
     );
 }
 
-function RosterRow({ s, color, selected, onSelect, onRemove, below, trailing }: { s: Speaker; color: string; selected: boolean; onSelect: () => void; onRemove?: () => void; below?: React.ReactNode; trailing?: React.ReactNode }) {
+function RosterRow({ s, name = s.name, mark, color, selected, onSelect, onRemove, below, trailing }: { s: Speaker; name?: string; mark?: string; color: string; selected: boolean; onSelect: () => void; onRemove?: () => void; below?: React.ReactNode; trailing?: React.ReactNode }) {
     return (
         <div onClick={onSelect} className={cn('group mb-1 flex cursor-pointer items-center gap-2.5 rounded-2xl px-2 py-2 transition', selected ? 'bg-white shadow-md' : 'hover:bg-white/70')}>
             <span className="relative shrink-0">
                 {s.status === 'active' && <span className="absolute -inset-[3px] animate-ping rounded-full border-[1.5px] border-[#D4AF37]" />}
-                <span className="flex size-8 items-center justify-center rounded-full text-[10px] font-black text-white shadow-sm ring-2 ring-white" style={{ background: color }}>{initials(s.name)}</span>
+                <span className="flex size-8 items-center justify-center rounded-full text-[10px] font-black text-white shadow-sm ring-2 ring-white" style={{ background: color }}>{mark ?? initials(name)}</span>
             </span>
             <div className="min-w-0 flex-1">
-                <p className={cn('truncate text-[11.5px] font-black uppercase', s.status === 'completed' && 'line-through opacity-40')}>{s.name}</p>
+                <p className={cn('truncate text-[11.5px] font-black uppercase', s.status === 'completed' && 'line-through opacity-40')}>{name}</p>
                 {below}
             </div>
             {trailing}
             {onRemove && (
-                <button type="button" aria-label={`Remove ${s.name}`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black/5 text-slate-400 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+                <button type="button" aria-label={`Remove ${name}`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="flex size-6 shrink-0 items-center justify-center rounded-full bg-black/5 text-slate-400 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                     <X className="size-3" />
                 </button>
             )}

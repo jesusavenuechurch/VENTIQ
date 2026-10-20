@@ -11,6 +11,7 @@ use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Support\SessionType;
 use Inertia\Inertia;
 
 class SessionController extends Controller
@@ -138,8 +139,13 @@ class SessionController extends Controller
             'programme_id'          => 'nullable|integer|exists:events,id',
             'people'                => 'nullable|array',
             'people.*.name'         => 'nullable|string|max:255',
+            'people.*.title'        => 'nullable|string|max:255',
             'people.*.role'         => 'nullable|string|max:255',
             'people.*.presenting'   => 'nullable|boolean',
+            // A meeting's chair, secretary and venue.
+            'chair'                 => 'nullable|string|max:255',
+            'secretary'             => 'nullable|string|max:255',
+            'location'              => 'nullable|string|max:255',
             'expected_duration'     => 'nullable|integer|min:1',
             'track_participants'    => 'nullable|boolean',
             'expected_participants' => 'nullable|integer|min:1',
@@ -188,6 +194,10 @@ class SessionController extends Controller
                 'checkinUrl'   => $session->public_token ? route('public.session-checkin.form', $session->public_token) : null,
                 'expected'     => $session->meta['expected_participants'] ?? null,
                 'participants' => Participant::where('session_id', $session->id)->count(),
+                // A meeting: its parts are agenda items, and it's minuted.
+                'agenda'       => \App\Support\SessionType::takesMinutes($session->type),
+                'chair'        => $session->meta['chair'] ?? null,
+                'secretary'    => $session->meta['secretary'] ?? null,
             ],
             'segments' => $session->segments->map(fn ($s) => [
                 'id'         => $s->id,
@@ -351,6 +361,7 @@ class SessionController extends Controller
                 'tracking' => (bool) $session->event_id,
                 'series'   => $session->series ? ['id' => $session->series->id, 'title' => $session->series->title] : null,
                 'findingActions' => ($session->meta['action_points'] ?? null) === 'finding',
+                'takesMinutes'   => SessionType::takesMinutes($session->type),
                 'previous' => $session->parent_session_id && Session::whereKey($session->parent_session_id)->where('status', 'reported')->exists() ? $session->parent_session_id : null,
                 // The report is written in the background; this says if that failed.
                 'failed'   => $session->status === 'completed' && $session->report_job_id
@@ -358,8 +369,9 @@ class SessionController extends Controller
             ],
             'segments' => $session->segments->map(fn ($s) => [
                 'id'      => $s->id,
-                'name'    => $s->presenter_name,
-                'role'    => $s->role,
+                // A meeting's agenda item by its item, and who led it.
+                'name'    => SessionType::takesMinutes($session->type) ? ($s->title ?: $s->presenter_name) : $s->presenter_name,
+                'role'    => SessionType::takesMinutes($session->type) ? ($s->lead() ? "Led by {$s->lead()}" : null) : $s->role,
                 'summary' => $s->ai_summary['summary'] ?? null,
                 'logs'    => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
             ])->values(),
@@ -368,7 +380,11 @@ class SessionController extends Controller
             'actionPoints' => $session->actionPoints()->whereIn('status', ['proposed', 'open', 'done'])->with(['ownerUser', 'ownerClient'])->orderBy('id')->get()->map->toCard(),
             'carried'      => $this->carried($session),
             'owners'       => \App\Http\Controllers\ActionPointsController::owners($session),
-            'meta' => ['title' => "{$session->resolved_title}: report | VENTIQ Sessions"],
+            // A meeting's report is its minutes.
+            'minutes'      => SessionType::takesMinutes($session->type) && $session->status === 'reported'
+                ? app(\App\Services\Sessions\MinutesBuilder::class)->build($session)
+                : null,
+            'meta' => ['title' => "{$session->resolved_title}: " . (SessionType::takesMinutes($session->type) ? 'minutes' : 'report') . ' | VENTIQ Sessions'],
         ])->withViewData(['noindex' => true]);
     }
 
@@ -377,7 +393,8 @@ class SessionController extends Controller
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
         abort_unless($session->status === 'reported', 400);
 
-        $session->update(['reviewed_at' => now()]);
+        // For a meeting this confirms its minutes, signed off by whoever reviewed them.
+        $session->update(['reviewed_at' => now(), 'meta' => array_merge($session->meta ?? [], ['reviewed_by' => Auth::user()->name])]);
         // Reviewing the report confirms the action points proposed for it.
         $session->actionPoints()->where('status', 'proposed')->update(['status' => 'open']);
 
@@ -446,33 +463,73 @@ class SessionController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    /**
+     * A change to one part of a meeting's minutes: who was there, apologies,
+     * the venue, any other business, the next meeting, or an item's
+     * discussion and decisions. The rest stays as assembled.
+     */
+    public function updateMinutes(Request $request, Session $session)
+    {
+        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_unless(SessionType::takesMinutes($session->type) && $session->status === 'reported', 409, 'Only a held meeting has minutes.');
+
+        $data = $request->validate([
+            'present'                => 'sometimes|nullable|string|max:10000',
+            'apologies'              => 'sometimes|nullable|string|max:10000',
+            'aob'                    => 'sometimes|nullable|string|max:20000',
+            'next'                   => 'sometimes|nullable|string|max:255',
+            'venue'                  => 'sometimes|nullable|string|max:255',
+            'items'                  => 'sometimes|array',
+            'items.*.discussion'     => 'sometimes|nullable|string|max:20000',
+            'items.*.decisions'      => 'sometimes|nullable|string|max:20000',
+        ]);
+
+        $minutes = $session->minutes ?? [];
+        foreach (\App\Services\Sessions\MinutesBuilder::FIELDS as $field) {
+            if ($request->exists($field)) {
+                $minutes[$field] = (string) ($data[$field] ?? '');
+            }
+        }
+        $ids = $session->segments()->pluck('id')->all();
+        foreach ($data['items'] ?? [] as $id => $item) {
+            if (!in_array((int) $id, $ids, true)) {
+                continue;
+            }
+            foreach (['discussion', 'decisions'] as $part) {
+                if (array_key_exists($part, $item)) {
+                    $minutes['items'][$id][$part] = (string) ($item[$part] ?? '');
+                }
+            }
+        }
+
+        $session->minutes = $minutes;
+        if ($request->exists('venue')) {
+            $session->location = trim($data['venue'] ?? '') ?: null;
+        }
+        $session->save();
+
+        return back();
+    }
+
     public function reportPdf(Session $session)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+
+        if (SessionType::takesMinutes($session->type) && $session->status === 'reported') {
+            $minutes = app(\App\Services\Sessions\MinutesBuilder::class)->build($session);
+
+            return \PDF::loadView('sessions.minutes-pdf', ['minutes' => $minutes])->setPaper('a4', 'portrait')
+                ->download('minutes-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . $session->date->format('Y-m-d') . '.pdf');
+        }
 
         $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session])->setPaper('a4', 'portrait');
 
         return $pdf->download("ventiq-report-{$session->id}.pdf");
     }
 
-    /**
-     * In a series: the action points from its earlier meetings still open,
-     * and the ones ticked off in this meeting.
-     */
+    /** In a series: the action points carried into this meeting (see ActionPoint::carriedInto()). */
     private function carried(Session $session): array
     {
-        if (!$session->series_id) {
-            return [];
-        }
-
-        return \App\Models\ActionPoint::where('series_id', $session->series_id)
-            ->where('session_id', '!=', $session->id)
-            ->whereHas('session', fn ($q) => $q->whereDate('date', '<=', $session->date))
-            ->where(fn ($q) => $q->where('status', 'open')->orWhere(fn ($d) => $d->where('status', 'done')->where('done_in_session_id', $session->id)))
-            ->with(['session', 'ownerUser', 'ownerClient'])
-            ->orderBy('due_date')
-            ->get()
-            ->map->toCard()
-            ->all();
+        return \App\Models\ActionPoint::carriedInto($session)->map->toCard()->all();
     }
 }

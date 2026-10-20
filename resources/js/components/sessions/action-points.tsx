@@ -139,7 +139,7 @@ export function ActionPointDialog({ point, sessionId, owners, onClose }: { point
 }
 
 /** A session's action points on its report: the suggestions to confirm, the agreed ones, and adding one. */
-export function SessionActionPoints({ sessionId, points, carried, owners, canEdit }: { sessionId: number; points: ActionPointCard[]; carried: ActionPointCard[]; owners: Owner[]; canEdit: boolean }) {
+export function SessionActionPoints({ sessionId, points, carried, owners, canEdit, minutes = false }: { sessionId: number; points: ActionPointCard[]; carried: ActionPointCard[]; owners: Owner[]; canEdit: boolean; minutes?: boolean }) {
     const [adding, setAdding] = useState(false);
     const suggested = points.filter((p) => p.status === 'proposed').length;
 
@@ -148,7 +148,7 @@ export function SessionActionPoints({ sessionId, points, carried, owners, canEdi
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-50 px-5 py-4">
                 <div>
                     <p className="flex items-center gap-2 text-[13px] font-black text-brand"><ListTodo className="size-4 text-action" />Action points</p>
-                    {suggested > 0 && <p className="mt-0.5 text-[11px] text-lilac-ink">Ventiq Assist suggested {suggested}. Keep, change or remove each; marking the report reviewed keeps the rest.</p>}
+                    {suggested > 0 && <p className="mt-0.5 text-[11px] text-lilac-ink">Ventiq Assist suggested {suggested}. Keep, change or remove each; {minutes ? 'confirming the minutes' : 'marking the report reviewed'} keeps the rest.</p>}
                 </div>
                 {canEdit && (
                     <span className="flex gap-2">

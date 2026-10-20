@@ -56,6 +56,27 @@ class ActionPoint extends Model
         return $this->status === 'open' && $this->due_date && $this->due_date->lt(today());
     }
 
+    /**
+     * In a series: the points from its earlier meetings still open when
+     * this one is held, and the ones ticked off in it.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, self>
+     */
+    public static function carriedInto(Session $session)
+    {
+        if (!$session->series_id) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return self::where('series_id', $session->series_id)
+            ->where('session_id', '!=', $session->id)
+            ->whereHas('session', fn ($q) => $q->whereDate('date', '<=', $session->date))
+            ->where(fn ($q) => $q->where('status', 'open')->orWhere(fn ($d) => $d->where('status', 'done')->where('done_in_session_id', $session->id)))
+            ->with(['session', 'ownerUser', 'ownerClient'])
+            ->orderBy('due_date')
+            ->get();
+    }
+
     /** For pages: the point as the React pages show it. */
     public function toCard(): array
     {

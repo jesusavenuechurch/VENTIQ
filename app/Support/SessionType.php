@@ -19,13 +19,13 @@ class SessionType
             ],
         ],
         'meeting' => [
-            'label' => 'Meeting', 'segment' => 'Agenda Item',
+            'label' => 'Meeting', 'segment' => 'Agenda Item', 'minutes' => true,
             'roles' => [
                 'chairperson' => ['label' => 'Chairperson', 'presenting' => true],
                 'secretary'   => ['label' => 'Secretary',   'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Summary',      'prompt' => 'A 2-3 sentence summary of what this agenda item covered.'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed, with an owner if mentioned. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Anything left unresolved. One per line starting with "•".'],
@@ -90,27 +90,27 @@ class SessionType
             ],
         ],
         'board' => [
-            'label' => 'Board Meeting', 'segment' => 'Agenda Item',
+            'label' => 'Board Meeting', 'segment' => 'Agenda Item', 'minutes' => true,
             'roles' => [
                 'chairperson' => ['label' => 'Chairperson',  'presenting' => true],
                 'secretary'   => ['label' => 'Secretary',    'presenting' => false],
                 'board_member'=> ['label' => 'Board Member', 'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Summary',      'prompt' => 'A 2-3 sentence summary of this agenda item.'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed, with owner if mentioned. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Unresolved items. One per line starting with "•".'],
             ],
         ],
         'committee' => [
-            'label' => 'Committee', 'segment' => 'Agenda Item',
+            'label' => 'Committee', 'segment' => 'Agenda Item', 'minutes' => true,
             'roles' => [
                 'chairperson' => ['label' => 'Chairperson', 'presenting' => true],
                 'secretary'   => ['label' => 'Secretary',   'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Summary',      'prompt' => 'A 2-3 sentence summary of this agenda item.'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Unresolved items. One per line starting with "•".'],
@@ -130,6 +130,16 @@ class SessionType
     public static function label(?string $type): string
     {
         return static::$types[$type]['label'] ?? 'Session';
+    }
+
+    /**
+     * Meetings, board and committee meetings: their parts are agenda items
+     * (with who leads each, optional), they have a chair and a secretary,
+     * and what they produce is minutes (App\Services\Sessions\MinutesBuilder).
+     */
+    public static function takesMinutes(?string $type): bool
+    {
+        return (bool) (static::$types[$type]['minutes'] ?? false);
     }
 
     public static function segmentLabel(?string $type): string
@@ -171,7 +181,8 @@ class SessionType
     {
         return collect(self::keys())->map(fn ($key) => [
             'key'   => $key,
-            'label' => self::label($key),
+            'label'   => self::label($key),
+            'minutes' => self::takesMinutes($key),
             'roles' => collect(self::roles($key))
                 ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
                 ->values(),

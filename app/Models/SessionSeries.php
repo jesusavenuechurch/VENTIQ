@@ -21,12 +21,13 @@ class SessionSeries extends Model
 
     protected $fillable = [
         'organization_id', 'created_by', 'title', 'type', 'custom_type_label', 'start_time',
-        'expected_duration', 'track_participants', 'expected_participants', 'people',
+        'expected_duration', 'track_participants', 'expected_participants', 'people', 'meta',
         'frequency', 'starts_on', 'ends_on', 'scheduled_until', 'ended_at',
     ];
 
     protected $casts = [
         'people'             => 'array',
+        'meta'               => 'array',
         'track_participants' => 'boolean',
         'starts_on'          => 'date',
         'ends_on'            => 'date',

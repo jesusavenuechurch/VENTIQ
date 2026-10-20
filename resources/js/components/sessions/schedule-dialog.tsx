@@ -17,6 +17,8 @@ interface Role {
 export interface SessionType {
     key: string;
     label: string;
+    /** A meeting: agenda items, a chair and a secretary, and minutes. */
+    minutes: boolean;
     roles: Role[];
 }
 
@@ -29,6 +31,8 @@ interface Props {
 
 interface Person {
     name: string;
+    /** A meeting's agenda item (name is then who leads it). */
+    title?: string;
     role: string;
     presenting: boolean;
 }
@@ -46,9 +50,12 @@ type Data = {
     programme_id: number | null;
     repeat: string;
     ends_on: string;
+    chair: string;
+    secretary: string;
+    location: string;
 };
 
-const emptyPerson: Person = { name: '', role: '', presenting: true };
+const emptyPerson: Person = { name: '', title: '', role: '', presenting: true };
 
 const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
 
@@ -110,12 +117,17 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         programme_id: programme?.id ?? null,
         repeat: '',
         ends_on: '',
+        chair: '',
+        secretary: '',
+        location: '',
     };
-    const form = useForm<Data>(draft?.data ?? blank);
+    // An older draft may not have every field yet.
+    const form = useForm<Data>(draft ? { ...blank, ...draft.data } : blank);
     const [step, setStep] = useState<1 | 2>(draft?.step ?? 1);
     const [person, setPerson] = useState<Person>(draft?.person ?? emptyPerson);
     const nameRef = useRef<HTMLInputElement>(null);
     const roles = types.find((t) => t.key === form.data.type)?.roles ?? [];
+    const agenda = !!types.find((t) => t.key === form.data.type)?.minutes;
     const startsToday = form.data.date === today || !form.data.date;
 
     useEffect(() => {
@@ -125,10 +137,19 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         if (step === 2) nameRef.current?.focus();
     }, [step]);
 
+    // A person, or for a meeting an agenda item (and who leads it).
+    const typed = (p: Person): Person | null => {
+        if (agenda) {
+            const title = (p.title ?? '').trim();
+            return title ? { name: p.name.trim(), title, role: '', presenting: true } : null;
+        }
+        const name = p.name.trim();
+        return name ? { ...p, name, title: '' } : null;
+    };
     const addPerson = () => {
-        const name = person.name.trim();
-        if (!name) return;
-        form.setData('people', [...form.data.people, { ...person, name }]);
+        const next = typed(person);
+        if (!next) return;
+        form.setData('people', [...form.data.people, next]);
         setPerson({ ...emptyPerson, role: person.role, presenting: person.presenting });
         nameRef.current?.focus();
     };
@@ -139,8 +160,8 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
 
     const submit = () => {
         // A name still in the box counts: it would be lost otherwise.
-        const pending = person.name.trim() ? [{ ...person, name: person.name.trim() }] : [];
-        form.transform((d) => ({ ...d, people: [...d.people, ...pending], custom_type_label: d.type === 'custom' ? d.custom_type_label : '', repeat: programme ? '' : d.repeat, ends_on: d.repeat ? d.ends_on : '' }));
+        const pending = typed(person);
+        form.transform((d) => ({ ...d, people: [...d.people, ...(pending ? [pending] : [])], ...(agenda ? {} : { chair: '', secretary: '' }), custom_type_label: d.type === 'custom' ? d.custom_type_label : '', repeat: programme ? '' : d.repeat, ends_on: d.repeat ? d.ends_on : '' }));
         form.post(route('sessions.store'), {
             preserveScroll: true,
             onSuccess: () => {
@@ -151,7 +172,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         });
     };
 
-    const steps = ['Details', 'People'];
+    const steps = ['Details', agenda ? 'Agenda' : 'People'];
     const [restored, setRestored] = useState(!!draft && !!draft.data.title);
     const startAgain = () => {
         form.setData(blank);
@@ -273,7 +294,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                     </div>
 
                     <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand py-5 text-[11px] font-black uppercase tracking-[0.3em] text-white shadow-xl transition-all hover:bg-action">
-                        Next: who's leading it <ArrowRight className="size-4" />
+                        {agenda ? 'Next: the agenda' : "Next: who's leading it"} <ArrowRight className="size-4" />
                     </button>
                 </form>
             ) : (
@@ -283,31 +304,68 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                         <p className="text-[11px] font-bold text-gray-400">{types.find((t) => t.key === form.data.type)?.label}{form.data.date && ` · ${form.data.date}`}{form.data.start_time && ` · ${form.data.start_time}`}{form.data.repeat && ` · ${repeatOptions(form.data.date).find(([v]) => v === form.data.repeat)?.[1]}`}</p>
                     </div>
 
-                    <div>
-                        <p className={fieldLabel}>Presenters and other people</p>
-                        <form
-                            className="flex flex-col gap-2 sm:flex-row sm:items-center"
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                addPerson();
-                            }}
-                        >
-                            <input ref={nameRef} aria-label="Name" value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} placeholder="Name, then Enter" className={cn(field, 'sm:flex-1')} />
-                            <div className="flex items-center gap-2">
-                                {roles.length > 0 && (
-                                    <NativeSelect aria-label="Role" value={person.role} onChange={(e) => pickRole(e.target.value)} className="w-40 border-gray-200 bg-white py-4 font-bold text-brand">
-                                        <option value="">Role…</option>
-                                        {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                                    </NativeSelect>
-                                )}
-                                <label className="flex items-center gap-1.5 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-gray-500">
-                                    <input type="checkbox" checked={person.presenting} onChange={(e) => setPerson({ ...person, presenting: e.target.checked })} className="accent-brand" />Presenting
-                                </label>
-                                <button aria-label="Add person" className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-colors hover:bg-action"><Plus className="size-4" /></button>
+                    {agenda ? (
+                        <>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label htmlFor="chair" className={fieldLabel}>Chair</label>
+                                    <input id="chair" value={form.data.chair} onChange={(e) => form.setData('chair', e.target.value)} placeholder="Who chairs it" className={field} />
+                                </div>
+                                <div>
+                                    <label htmlFor="secretary" className={fieldLabel}>Secretary</label>
+                                    <input id="secretary" value={form.data.secretary} onChange={(e) => form.setData('secretary', e.target.value)} placeholder="Who minutes it" className={field} />
+                                </div>
+                                <div>
+                                    <label htmlFor="location" className={fieldLabel}>Venue</label>
+                                    <input id="location" value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} placeholder="e.g. Boardroom" className={field} />
+                                </div>
                             </div>
-                        </form>
-                        <p className="ml-1 mt-2 flex items-center gap-1 text-[11px] text-gray-400"><CornerDownLeft className="size-3" />Press Enter after each name. You can add people during the session too.</p>
-                    </div>
+
+                            <div>
+                                <p className={fieldLabel}>Agenda</p>
+                                <form
+                                    className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        addPerson();
+                                    }}
+                                >
+                                    <input ref={nameRef} aria-label="Agenda item" value={person.title ?? ''} onChange={(e) => setPerson({ ...person, title: e.target.value })} placeholder="Item, then Enter" className={cn(field, 'sm:flex-1')} />
+                                    <div className="flex items-center gap-2">
+                                        <input aria-label="Led by" value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} placeholder="Led by (optional)" className={cn(field, 'min-w-0 sm:w-48')} />
+                                        <button aria-label="Add item" className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-colors hover:bg-action"><Plus className="size-4" /></button>
+                                    </div>
+                                </form>
+                                <p className="ml-1 mt-2 flex items-center gap-1 text-[11px] text-gray-400"><CornerDownLeft className="size-3" />Press Enter after each item. The previous minutes and matters arising are in the minutes on their own.</p>
+                            </div>
+                        </>
+                    ) : (
+                        <div>
+                            <p className={fieldLabel}>Presenters and other people</p>
+                            <form
+                                className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    addPerson();
+                                }}
+                            >
+                                <input ref={nameRef} aria-label="Name" value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} placeholder="Name, then Enter" className={cn(field, 'sm:flex-1')} />
+                                <div className="flex items-center gap-2">
+                                    {roles.length > 0 && (
+                                        <NativeSelect aria-label="Role" value={person.role} onChange={(e) => pickRole(e.target.value)} className="w-40 border-gray-200 bg-white py-4 font-bold text-brand">
+                                            <option value="">Role…</option>
+                                            {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                                        </NativeSelect>
+                                    )}
+                                    <label className="flex items-center gap-1.5 whitespace-nowrap text-[10px] font-black uppercase tracking-wide text-gray-500">
+                                        <input type="checkbox" checked={person.presenting} onChange={(e) => setPerson({ ...person, presenting: e.target.checked })} className="accent-brand" />Presenting
+                                    </label>
+                                    <button aria-label="Add person" className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition-colors hover:bg-action"><Plus className="size-4" /></button>
+                                </div>
+                            </form>
+                            <p className="ml-1 mt-2 flex items-center gap-1 text-[11px] text-gray-400"><CornerDownLeft className="size-3" />Press Enter after each name. You can add people during the session too.</p>
+                        </div>
+                    )}
 
                     {form.data.people.length > 0 ? (
                         <ol className="divide-y divide-gray-50 rounded-2xl border border-gray-100 bg-white">
@@ -316,18 +374,20 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                                     <span className="flex min-w-0 items-center gap-3">
                                         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-black text-gray-500">{i + 1}</span>
                                         <span className="min-w-0">
-                                            <span className="block truncate text-[13px] font-bold text-brand">{p.name}</span>
+                                            <span className="block truncate text-[13px] font-bold text-brand">{agenda ? p.title || p.name : p.name}</span>
                                             <span className="block text-[11px] text-gray-400">
-                                                {[roles.find((r) => r.value === p.role)?.label, p.presenting ? 'Presenting' : 'Not presenting'].filter(Boolean).join(' · ')}
+                                                {agenda
+                                                    ? p.title && p.name ? `Led by ${p.name}` : 'No one leading it'
+                                                    : [roles.find((r) => r.value === p.role)?.label, p.presenting ? 'Presenting' : 'Not presenting'].filter(Boolean).join(' · ')}
                                             </span>
                                         </span>
                                     </span>
-                                    <button type="button" aria-label={`Remove ${p.name}`} onClick={() => form.setData('people', form.data.people.filter((_, j) => j !== i))} className="text-gray-300 hover:text-rose-500"><X className="size-4" /></button>
+                                    <button type="button" aria-label={`Remove ${agenda ? p.title || p.name : p.name}`} onClick={() => form.setData('people', form.data.people.filter((_, j) => j !== i))} className="text-gray-300 hover:text-rose-500"><X className="size-4" /></button>
                                 </li>
                             ))}
                         </ol>
                     ) : (
-                        <p className="rounded-2xl border border-dashed border-gray-200 py-6 text-center text-[12px] text-gray-400">No one yet. They present in the order you add them.</p>
+                        <p className="rounded-2xl border border-dashed border-gray-200 py-6 text-center text-[12px] text-gray-400">{agenda ? 'No items yet. They come up in the order you add them.' : 'No one yet. They present in the order you add them.'}</p>
                     )}
 
                     <div className="flex flex-col-reverse gap-3 sm:flex-row">

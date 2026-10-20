@@ -21,8 +21,8 @@ class SessionMaker
     /**
      * @param array{title: string, type: string, custom_type_label?: ?string, date: string, start_time?: ?string,
      *   expected_duration?: ?int, track_participants?: bool, expected_participants?: ?int,
-     *   people?: array<array{name: string, role?: ?string, presenting?: bool}>, programme_id?: ?int,
-     *   series_id?: ?int, parent_session_id?: ?int} $data
+     *   people?: array<array{name: string, title?: ?string, role?: ?string, presenting?: bool}>, programme_id?: ?int,
+     *   series_id?: ?int, parent_session_id?: ?int, chair?: ?string, secretary?: ?string, location?: ?string} $data
      */
     public function make(Organization $organization, ?User $by, array $data): Session
     {
@@ -38,12 +38,13 @@ class SessionMaker
                 'title'             => $data['title'],
                 'date'              => $data['date'],
                 'start_time'        => $data['start_time'] ?? null,
+                'location'          => $data['location'] ?? null,
                 'status'            => 'draft',
                 'meta'              => [
                     'expected_duration_minutes' => $data['expected_duration'] ?? null,
                     'expected_participants'     => $tracking ? ($data['expected_participants'] ?? null) : null,
                     'custom_type_label'         => $data['type'] === 'custom' ? ($data['custom_type_label'] ?? null) : null,
-                ],
+                ] + self::officers($data),
             ]);
 
             // Into a programme: its attendees are the programme's. Only one
@@ -75,21 +76,18 @@ class SessionMaker
         });
     }
 
-    /** The session's people, in order, replacing any it had. Only for a session not yet held. */
+    /**
+     * The session's people (or a meeting's agenda items), in order,
+     * replacing any it had. Only for a session not yet held.
+     */
     public function setPeople(Session $session, array $people): void
     {
         $session->segments()->delete();
 
-        collect($people)
-            ->map(fn ($p) => [
-                'name'       => trim($p['name'] ?? ''),
-                'role'       => $p['role'] ?? null,
-                'presenting' => filter_var($p['presenting'] ?? true, FILTER_VALIDATE_BOOLEAN),
-            ])
-            ->filter(fn ($p) => $p['name'] !== '')
-            ->values()
+        collect(self::cleanPeople($people))
             ->each(fn ($p, $i) => $session->segments()->create([
                 'presenter_name' => $p['name'],
+                'title'          => $p['title'],
                 'role'           => $p['role'],
                 'is_presenting'  => $p['presenting'],
                 'order'          => $i,
@@ -97,17 +95,31 @@ class SessionMaker
             ]));
     }
 
-    /** People as stored on a series (and posted by the form), cleaned. */
+    /**
+     * People as stored on a series (and posted by the form), cleaned. A
+     * meeting's agenda item is {title: the item, name: who leads it}; with
+     * no one leading it, its name is the item.
+     */
     public static function cleanPeople(array $people): array
     {
         return collect($people)
             ->map(fn ($p) => [
-                'name'       => trim($p['name'] ?? ''),
+                'title'      => trim($p['title'] ?? '') ?: null,
+                'name'       => trim($p['name'] ?? '') ?: trim($p['title'] ?? ''),
                 'role'       => $p['role'] ?? null,
                 'presenting' => filter_var($p['presenting'] ?? true, FILTER_VALIDATE_BOOLEAN),
             ])
             ->filter(fn ($p) => $p['name'] !== '')
             ->values()
             ->all();
+    }
+
+    /** A meeting's chair and secretary, kept on the session's meta. */
+    public static function officers(array $data): array
+    {
+        return [
+            'chair'     => trim($data['chair'] ?? '') ?: null,
+            'secretary' => trim($data['secretary'] ?? '') ?: null,
+        ];
     }
 }

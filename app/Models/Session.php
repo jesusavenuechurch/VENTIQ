@@ -38,11 +38,13 @@ class Session extends Model
         'report_job_id',
         'start_time',
         'reviewed_at',
+        'minutes',
     ];
 
     protected $casts = [
         'date'                   => 'date',
         'meta'                   => 'array',
+        'minutes'                => 'array',
         'report_last_opened_at'  => 'datetime',
         'reviewed_at'            => 'datetime',
         'counted_at'             => 'datetime',

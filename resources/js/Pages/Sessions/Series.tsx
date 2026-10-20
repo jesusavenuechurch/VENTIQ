@@ -11,6 +11,7 @@ import type { SessionsArea } from '@/types';
 
 interface Person {
     name: string;
+    title?: string | null;
     role: string | null;
     presenting: boolean;
 }
@@ -38,6 +39,9 @@ interface Props {
         endsLabel: string | null;
         ended: boolean;
         people: Person[];
+        chair: string;
+        secretary: string;
+        location: string;
     };
     upcoming: Meeting[];
     past: Meeting[];
@@ -145,14 +149,22 @@ function EditSeries({ series, types, onClose }: { series: Props['series']; types
         expected_duration: series.expected_duration?.toString() ?? '',
         expected_participants: series.expected_participants?.toString() ?? '',
         ends_on: series.ends_on ?? '',
-        people: series.people.map((p) => ({ name: p.name, role: p.role ?? '', presenting: p.presenting })),
+        people: series.people.map((p) => ({ name: p.name, title: p.title ?? '', role: p.role ?? '', presenting: p.presenting })),
+        chair: series.chair,
+        secretary: series.secretary,
+        location: series.location,
     });
     const [name, setName] = useState('');
+    const [lead, setLead] = useState('');
     const roles = types.find((t) => t.key === form.data.type)?.roles ?? [];
+    // A meeting: agenda items (and who leads each), a chair and a secretary.
+    const agenda = !!types.find((t) => t.key === form.data.type)?.minutes;
+    const typed = () => (!name.trim() ? [] : agenda ? [{ name: lead.trim(), title: name.trim(), role: '', presenting: true }] : [{ name: name.trim(), title: '', role: '', presenting: true }]);
     const add = () => {
         if (!name.trim()) return;
-        form.setData('people', [...form.data.people, { name: name.trim(), role: '', presenting: true }]);
+        form.setData('people', [...form.data.people, ...typed()]);
         setName('');
+        setLead('');
     };
 
     return (
@@ -162,7 +174,7 @@ function EditSeries({ series, types, onClose }: { series: Props['series']; types
                     className="space-y-5 p-6 sm:p-8"
                     onSubmit={(e) => {
                         e.preventDefault();
-                        const pending = name.trim() ? [{ name: name.trim(), role: '', presenting: true }] : [];
+                        const pending = typed();
                         form.transform((d) => ({ ...d, people: [...d.people, ...pending] }));
                         form.put(route('sessions.series.update', series.id), { preserveScroll: true, onSuccess: onClose });
                     }}
@@ -198,20 +210,37 @@ function EditSeries({ series, types, onClose }: { series: Props['series']; types
                             <input id="s-ends" type="date" value={form.data.ends_on} onChange={(e) => form.setData('ends_on', e.target.value)} className={field} />
                         </div>
                     </div>
-                    <div>
-                        <p className={fieldLabel}>People at every meeting</p>
-                        <div className="flex gap-2">
-                            <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} placeholder="Name, then Enter" className={field} />
-                            <button type="button" aria-label="Add person" onClick={add} className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-white hover:bg-action"><Plus className="size-4" /></button>
+                    {agenda && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                                <label htmlFor="s-chair" className={fieldLabel}>Chair</label>
+                                <input id="s-chair" value={form.data.chair} onChange={(e) => form.setData('chair', e.target.value)} className={field} />
+                            </div>
+                            <div>
+                                <label htmlFor="s-secretary" className={fieldLabel}>Secretary</label>
+                                <input id="s-secretary" value={form.data.secretary} onChange={(e) => form.setData('secretary', e.target.value)} className={field} />
+                            </div>
+                            <div>
+                                <label htmlFor="s-location" className={fieldLabel}>Venue</label>
+                                <input id="s-location" value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} className={field} />
+                            </div>
                         </div>
-                        <p className="ml-1 mt-1 flex items-center gap-1 text-[11px] text-gray-400"><CornerDownLeft className="size-3" />Press Enter after each name.</p>
+                    )}
+                    <div>
+                        <p className={fieldLabel}>{agenda ? 'Standing agenda' : 'People at every meeting'}</p>
+                        <div className="flex gap-2">
+                            <input aria-label={agenda ? 'Agenda item' : 'Name'} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} placeholder={agenda ? 'Item, then Enter' : 'Name, then Enter'} className={field} />
+                            {agenda && <input aria-label="Led by" value={lead} onChange={(e) => setLead(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} placeholder="Led by (optional)" className={cn(field, 'w-44 min-w-0')} />}
+                            <button type="button" aria-label={agenda ? 'Add item' : 'Add person'} onClick={add} className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-brand text-white hover:bg-action"><Plus className="size-4" /></button>
+                        </div>
+                        <p className="ml-1 mt-1 flex items-center gap-1 text-[11px] text-gray-400"><CornerDownLeft className="size-3" />{agenda ? 'Press Enter after each item. Every meeting starts with these; add more on the day.' : 'Press Enter after each name.'}</p>
                         {form.data.people.length > 0 && (
                             <ol className="mt-3 divide-y divide-gray-50 rounded-2xl border border-gray-100">
                                 {form.data.people.map((p, i) => (
                                     <li key={i} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                                        <span className="truncate text-[13px] font-bold text-brand">{i + 1}. {p.name}</span>
+                                        <span className="min-w-0 truncate text-[13px] font-bold text-brand">{i + 1}. {agenda ? p.title || p.name : p.name}{agenda && p.title && p.name && <span className="font-medium text-gray-400"> · led by {p.name}</span>}</span>
                                         <span className="flex items-center gap-2">
-                                            {roles.length > 0 && (
+                                            {!agenda && roles.length > 0 && (
                                                 <NativeSelect aria-label={`Role for ${p.name}`} value={p.role} onChange={(e) => form.setData('people', form.data.people.map((x, j) => (j === i ? { ...x, role: e.target.value, presenting: roles.find((r) => r.value === e.target.value)?.presenting ?? x.presenting } : x)))} className="w-36 border-gray-200 bg-white py-2 text-[12px]">
                                                     <option value="">Role…</option>
                                                     {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
