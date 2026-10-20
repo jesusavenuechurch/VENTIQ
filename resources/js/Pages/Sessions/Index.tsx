@@ -1,4 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { clearDraft, readDraft } from '@/lib/session-draft';
 import { ArrowLeft, CalendarPlus, Clock, Mic, Sparkles, Ticket, UsersRound } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
@@ -42,6 +44,12 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     const can = sessionsArea.can;
+    // A session half scheduled earlier in this visit: offer to finish it.
+    const [draft, setDraft] = useState<{ title: string; programme: number | null } | null>(null);
+    useEffect(() => {
+        const d = readDraft();
+        if (d?.data.title?.trim()) setDraft({ title: d.data.title.trim(), programme: d.data.programme_id ?? null });
+    }, []);
     const outOfSessions = sessionsArea.quota.remaining <= 0;
     const anything = (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
 
@@ -58,6 +66,18 @@ export default function Index({ columns, filter, members, pendingInvites }: Prop
                 </>
             }
         >
+            {draft && can.run && (
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-action/30 bg-white p-4 shadow-sm">
+                    <p className="min-w-0 text-[13px] font-bold text-brand">
+                        <Sparkles className="mr-1.5 inline size-4 text-action" />You were scheduling <span className="text-action">{draft.title}</span>
+                    </p>
+                    <span className="flex shrink-0 items-center gap-3">
+                        <button type="button" onClick={() => { clearDraft(); setDraft(null); }} className="text-[11px] font-bold text-gray-400 hover:text-brand">Discard</button>
+                        <Link href={route('sessions.create', draft.programme ? { event: draft.programme } : {})} className={primaryButton}>Finish scheduling</Link>
+                    </span>
+                </div>
+            )}
+
             {outOfSessions && can.plan && (
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-100 bg-amber-50 p-4">
                     <p className="text-[12px] font-bold text-amber-800">You've used the sessions in your plan this month. Add more, or move to a bigger plan.</p>

@@ -24,7 +24,8 @@ function shellFor(name: string) {
     if (['Organizer/Setup'].includes(name)) return null;
     if (name.startsWith('Organizer/')) return OrganizerShell;
     if (name.startsWith('Programmes/')) return SessionsShell;
-    if (name.startsWith('Sessions/') && !['Sessions/Show', 'Sessions/CheckinPass'].includes(name)) return SessionsShell;
+    // The live console, the pass and scheduling are pages of their own.
+    if (name.startsWith('Sessions/') && !['Sessions/Show', 'Sessions/CheckinPass', 'Sessions/Create'].includes(name)) return SessionsShell;
     return null;
 }
 

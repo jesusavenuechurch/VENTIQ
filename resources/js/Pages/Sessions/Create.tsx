@@ -1,8 +1,9 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CornerDownLeft, FolderOpen, LoaderCircle, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import SessionsLayout, { SESSIONS_AREA, field, fieldLabel } from '@/Layouts/SessionsLayout';
-import { forgetTab } from '@/components/area-tabs';
+import SessionsLayout, { field, fieldLabel } from '@/Layouts/SessionsLayout';
+import SiteLayout from '@/Layouts/SiteLayout';
+import { clearDraft, readDraft, saveDraft } from '@/lib/session-draft';
 import { NativeSelect } from '@/components/ui/native-select';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
@@ -38,22 +39,15 @@ type Data = {
     programme_id: number | null;
 };
 
-// A half-filled form comes back when you return to it (see the Desk tab).
-const DRAFT = 'sessions:create-draft';
 const emptyPerson: Person = { name: '', role: '', presenting: true };
-
-function readDraft(programmeId: number | null): { data: Data; step: 1 | 2; person: Person } | null {
-    try {
-        const draft = JSON.parse(window.sessionStorage.getItem(DRAFT) ?? 'null');
-        return draft && draft.data?.programme_id === programmeId ? draft : null;
-    } catch {
-        return null;
-    }
-}
 
 /** Schedule a session in two steps: what it is, then who's leading it. */
 export default function Create({ types, programme, today }: Props) {
-    const draft = useRef(readDraft(programme?.id ?? null)).current;
+    // A draft for this same programme (or none) comes back as it was left.
+    const draft = useRef((() => {
+        const d = readDraft<Data>();
+        return d && (d.data.programme_id ?? null) === (programme?.id ?? null) ? d : null;
+    })()).current;
     const { sessionsArea } = usePage<{ sessionsArea: SessionsArea }>().props;
     const blank: Data = {
         title: '',
@@ -75,11 +69,7 @@ export default function Create({ types, programme, today }: Props) {
     const startsToday = form.data.date === today || !form.data.date;
 
     useEffect(() => {
-        try {
-            window.sessionStorage.setItem(DRAFT, JSON.stringify({ data: form.data, step, person }));
-        } catch {
-            // Private mode: no draft.
-        }
+        saveDraft({ data: form.data, step, person });
     }, [form.data, step, person]);
     useEffect(() => {
         if (step === 2) nameRef.current?.focus();
@@ -103,12 +93,7 @@ export default function Create({ types, programme, today }: Props) {
         form.transform((d) => ({ ...d, people: [...d.people, ...pending], custom_type_label: d.type === 'custom' ? d.custom_type_label : '' }));
         form.post(route('sessions.store'), {
             onSuccess: () => {
-                try {
-                    window.sessionStorage.removeItem(DRAFT);
-                } catch {
-                    // Nothing stored.
-                }
-                forgetTab(SESSIONS_AREA, 'sessions.index');
+                clearDraft();
             },
             onError: (errors) => errors.title && setStep(1),
         });
@@ -119,13 +104,18 @@ export default function Create({ types, programme, today }: Props) {
     const startAgain = () => {
         form.setData(blank);
         form.clearErrors();
+        clearDraft();
         setPerson(emptyPerson);
         setStep(1);
         setRestored(false);
     };
 
     return (
-        <SessionsLayout title="Schedule a session" subtitle="Start it live today, or line it up for later." crumbs={[['Desk', route('sessions.index')], ['Schedule a session']]} width="max-w-3xl">
+        // A page of its own, without the area's tabs: nothing to do here but
+        // schedule. Back to the desk keeps the draft.
+        <SiteLayout>
+        <div className="mx-auto w-full max-w-3xl px-4 py-8">
+        <SessionsLayout title="Schedule a session" subtitle="Start it live today, or line it up for later." crumbs={[['Back to the desk', route('sessions.index')]]} width="">
             {programme && (
                 <p className="mb-6 flex items-center gap-2 rounded-2xl bg-mint/40 p-4 text-[12px] font-bold text-mint-ink"><FolderOpen className="size-4" />Part of {programme.name}</p>
             )}
@@ -280,5 +270,7 @@ export default function Create({ types, programme, today }: Props) {
                 </div>
             )}
         </SessionsLayout>
+        </div>
+        </SiteLayout>
     );
 }

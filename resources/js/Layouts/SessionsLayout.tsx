@@ -13,7 +13,7 @@ function useTabs() {
     const can = sessionsArea?.can;
     // Only the tabs this person's role opens (App\Support\SessionsAccess).
     const tabs: AreaTab[] = [
-        { route: 'sessions.index', label: 'Desk', icon: LayoutGrid, active: ['sessions.index', 'sessions.create', 'sessions.checkin'] },
+        { route: 'sessions.index', label: 'Desk', icon: LayoutGrid, active: ['sessions.index', 'sessions.checkin'] },
         ...(can?.view ? [
             { route: 'sessions.reports', label: 'Reports', icon: FileText, active: ['sessions.reports', 'sessions.report'], badge: sessionsArea?.needsReview },
             { route: 'programmes.index', label: 'Programmes', icon: FolderOpen, active: ['programmes.*'] },
