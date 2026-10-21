@@ -257,6 +257,7 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     // "reports" as a Session ID and 404s before this line is ever reached.
     Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
     Route::get('/plan', [SessionPlanController::class, 'show'])->name('plan');
+    Route::post('/plan/bank-transfer', [SessionPlanController::class, 'claimBankTransfer'])->middleware('throttle:10,1')->name('plan.bank-transfer');
     Route::get('/actions', [App\Http\Controllers\ActionPointsController::class, 'index'])->name('actions.index');
     Route::get('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'edit'])->name('certificates.design');
     Route::put('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'update'])->name('certificates.design.update');
@@ -395,6 +396,8 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->g
     Route::post('/session-plans/plan', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'changePlan'])->name('session-plans.plan');
     Route::post('/session-plans/payg', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'addPayg'])->name('session-plans.payg');
     Route::delete('/session-plans/{sessionPlan}', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'destroy'])->name('session-plans.destroy');
+    Route::post('/session-transfers/{payment}/confirm', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'confirmTransfer'])->name('session-plans.transfers.confirm');
+    Route::post('/session-transfers/{payment}/reject', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'rejectTransfer'])->name('session-plans.transfers.reject');
     Route::get('/inbox', [App\Http\Controllers\Ventiq\InboxController::class, 'index'])->name('inbox.index');
     Route::put('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'update'])->name('inbox.update');
     Route::delete('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'destroy'])->name('inbox.destroy');

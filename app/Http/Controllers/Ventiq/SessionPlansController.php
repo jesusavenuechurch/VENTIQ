@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Ventiq;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Organization, SessionPackage};
+use App\Models\{Organization, PaymentSession, SessionPackage};
+use App\Services\Sessions\BankTransfers;
 use App\Services\SessionPackageService;
 use App\Support\Admin\AdminTable;
 use App\Support\SessionPackageDefinition;
@@ -45,6 +46,19 @@ class SessionPlansController extends Controller
             ])->values(),
             'paygPresets'   => collect(SessionPackageDefinition::paygPresets())->map(fn ($price, $qty) => ['quantity' => $qty, 'price' => $price])->values(),
             'organizations' => Organization::orderBy('name')->get(['id', 'name'])->map(fn ($o) => ['value' => $o->id, 'label' => $o->name]),
+            // Organizations that say they've paid by bank transfer: check the account, then confirm.
+            'transfers'     => PaymentSession::where('gateway', BankTransfers::GATEWAY)->where('status', 'pending')->with('organization')->oldest()->get()
+                ->map(fn (PaymentSession $p) => [
+                    'id'           => $p->id,
+                    'organization' => ['id' => $p->organization_id, 'name' => $p->organization?->name],
+                    'label'        => $p->purchase_meta['label'] ?? 'Sessions',
+                    'amount'       => (float) $p->amount,
+                    'reference'    => $p->client_reference,
+                    'paidOn'       => !empty($p->callback_payload['paid_on']) ? \Illuminate\Support\Carbon::parse($p->callback_payload['paid_on'])->format('j M Y') : null,
+                    'by'           => $p->callback_payload['claimed_by'] ?? null,
+                    'note'         => $p->callback_payload['note'] ?? null,
+                    'claimed'      => $p->updated_at->diffForHumans(),
+                ]),
             'meta'          => ['title' => 'Session plans | VENTIQ'],
         ]);
     }
@@ -90,6 +104,26 @@ class SessionPlansController extends Controller
         );
 
         return back()->with('status', "{$quantity} pay-as-you-go " . ($quantity === 1 ? 'session' : 'sessions') . ' added for ' . Organization::find($data['organization_id'])->name . '.');
+    }
+
+    public function confirmTransfer(Request $request, PaymentSession $payment, BankTransfers $transfers)
+    {
+        $data = $request->validate(['bank_reference' => 'nullable|string|max:100']);
+        try {
+            $transfers->confirm($payment, $request->user(), trim($data['bank_reference'] ?? '') ?: null);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['transfer' => $e->getMessage()]);
+        }
+
+        return back()->with('status', "Confirmed: {$payment->purchase_meta['label']} is on " . Organization::find($payment->organization_id)?->name . "'s account, and its Admins have been told.");
+    }
+
+    public function rejectTransfer(Request $request, PaymentSession $payment, BankTransfers $transfers)
+    {
+        $data = $request->validate(['reason' => 'required|string|max:500']);
+        $transfers->reject($payment, $request->user(), $data['reason']);
+
+        return back()->with('status', 'Marked as not found. The organization has been told why.');
     }
 
     public function destroy(SessionPackage $sessionPlan)

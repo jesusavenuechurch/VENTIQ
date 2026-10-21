@@ -119,26 +119,10 @@ class PayLesothoController extends Controller
         $organization = Auth::user()->organization;
         abort_unless($organization && \App\Support\SessionsAccess::can(Auth::user(), 'plan'), 403);
 
-        if ($data['type'] === 'plan') {
-            $def = SessionPackageDefinition::get($data['tier']);
-            abort_unless($def && $data['tier'] !== 'free', 404);
-
-            $amount = $def['price'];
-            $purchaseMeta = [
-                'type'              => 'plan',
-                'tier'              => $data['tier'],
-                'sessions_included' => $def['sessions_included'],
-                'whatsapp_included' => $def['whatsapp_included'],
-                'sms_included'      => $def['sms_included'],
-            ];
-        } else {
-            $quantity = (int) $data['quantity'];
-            $amount = SessionPackageDefinition::paygBundlePrice($quantity);
-            $purchaseMeta = [
-                'type'     => 'payg',
-                'quantity' => $quantity,
-            ];
-        }
+        $purchase = SessionPackageDefinition::purchase($data['type'], $data['tier'] ?? null, isset($data['quantity']) ? (int) $data['quantity'] : null);
+        abort_unless($purchase, 404);
+        $amount = $purchase['amount'];
+        $purchaseMeta = $purchase['meta'] + ['label' => $purchase['label']];
 
         $session = $this->payments->initiate(
             payableType: 'session_package',

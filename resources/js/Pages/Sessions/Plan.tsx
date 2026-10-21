@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Check, Download, Mail, Plus } from 'lucide-react';
+import { Building2, Check, Clock, Download, Mail, Plus } from 'lucide-react';
 import { useState } from 'react';
 import SessionsLayout, { field, primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { cn, money } from '@/lib/utils';
@@ -13,6 +13,45 @@ interface Props {
     /** A corporate rate agreed with VENTIQ: sessions invoiced monthly, no plan to buy. */
     corporate: { rate: number; free: number; since: string; month: { held: number; free: number; owed: number }; invoiced: string } | null;
     invoices: Invoice[];
+    /** Paid by bank transfer, waiting for VENTIQ to see it. */
+    transfers: { id: number; label: string; amount: number; reference: string; paidOn: string | null }[];
+    /** VENTIQ's bank account, for paying invoices. */
+    bank: { label: string; value: string }[];
+}
+
+function Transfers({ transfers }: { transfers: Props['transfers'] }) {
+    if (transfers.length === 0) return null;
+
+    return (
+        <div className="mb-8 space-y-2">
+            {transfers.map((t) => (
+                <p key={t.id} className="flex items-start gap-3 rounded-2xl bg-amber-50 px-5 py-4 text-[12px] text-amber-800">
+                    <Clock className="mt-0.5 size-4 shrink-0" />
+                    <span><b>{t.label}, {money(t.amount)}</b>: you told us you paid by bank transfer{t.paidOn ? ` on ${t.paidOn}` : ''} (reference {t.reference}). It's added as soon as we see it in our account, usually within a working day.</span>
+                </p>
+            ))}
+        </div>
+    );
+}
+
+/** How to pay an invoice by transfer: VENTIQ's account, the invoice number as the reference. */
+function PayInvoices({ bank, invoices }: { bank: Props['bank']; invoices: Invoice[] }) {
+    if (bank.length === 0 || !invoices.some((i) => i.status === 'unpaid' || i.status === 'overdue')) return null;
+
+    return (
+        <div className="mb-10 rounded-2xl border border-gray-100 bg-white p-6">
+            <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400"><Building2 className="size-4" />Paying an invoice</p>
+            <p className="mt-2 text-[12px] text-gray-500">Transfer to our account and use the <b className="text-brand">invoice number</b> as the reference. We mark it paid when it comes in.</p>
+            <dl className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                {bank.map((l) => (
+                    <div key={l.label} className="flex justify-between gap-3 border-b border-dashed border-gray-100 pb-1.5 text-[12px]">
+                        <dt className="font-bold text-gray-400">{l.label}</dt>
+                        <dd className="text-right font-bold text-brand">{l.value}</dd>
+                    </div>
+                ))}
+            </dl>
+        </div>
+    );
 }
 
 interface Invoice {
@@ -68,7 +107,7 @@ function Invoices({ invoices }: { invoices: Invoice[] }) {
 }
 
 /** This month's sessions, a bigger plan, or more sessions as you go. */
-export default function Plan({ plan, tiers, payg, history, support, corporate, invoices }: Props) {
+export default function Plan({ plan, tiers, payg, history, support, corporate, invoices, transfers, bank }: Props) {
     const [custom, setCustom] = useState('');
     const pct = (used: number, included: number) => (included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 100);
 
@@ -93,6 +132,7 @@ export default function Plan({ plan, tiers, payg, history, support, corporate, i
                     </div>
                 </div>
                 <Invoices invoices={invoices} />
+                <PayInvoices bank={bank} invoices={invoices} />
                 <p className="text-[12px] text-gray-500">To change your rate or billing contact: <a href={`mailto:${support}`} className="font-bold text-brand underline"><Mail className="mr-0.5 inline size-3" />{support}</a></p>
             </SessionsLayout>
         );
@@ -100,6 +140,7 @@ export default function Plan({ plan, tiers, payg, history, support, corporate, i
 
     return (
         <SessionsLayout title="Your Sessions plan" subtitle={plan.renews ? `${plan.label} plan · starts again ${plan.renews}` : `${plan.label} plan`} width="max-w-4xl">
+            <Transfers transfers={transfers} />
             <div className="mb-10 grid gap-4 sm:grid-cols-3">
                 {([['Sessions this month', plan.sessions], ['WhatsApp messages', plan.whatsapp]] as const).map(([title, q]) => (
                     <div key={title} className="rounded-2xl border border-gray-100 bg-white p-5">
@@ -116,6 +157,7 @@ export default function Plan({ plan, tiers, payg, history, support, corporate, i
             </div>
 
             <Invoices invoices={invoices} />
+            <PayInvoices bank={bank} invoices={invoices} />
 
             <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Plans</h2>
             <div className="mb-3 grid gap-4 sm:grid-cols-2">

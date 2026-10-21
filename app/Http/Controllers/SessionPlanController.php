@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PaymentSession;
 use App\Models\SessionPackage;
+use App\Services\Sessions\BankTransfers;
+use App\Support\BankDetails;
 use App\Services\Payments\PaymentGatewayFactory;
 use App\Services\SessionQuotaService;
 use App\Support\SessionPackageDefinition;
@@ -46,6 +49,16 @@ class SessionPlanController extends Controller
                 'date'     => $p->created_at->format('d M Y'),
             ]),
             'support' => config('ventiq.emails.support'),
+            // Paid by bank transfer, waiting for VENTIQ to see it in the account.
+            'transfers' => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)
+                ->where('status', 'pending')->latest()->get()->map(fn (PaymentSession $p) => [
+                    'id'        => $p->id,
+                    'label'     => $p->purchase_meta['label'] ?? 'Sessions',
+                    'amount'    => (float) $p->amount,
+                    'reference' => $p->client_reference,
+                    'paidOn'    => !empty($p->callback_payload['paid_on']) ? \Illuminate\Support\Carbon::parse($p->callback_payload['paid_on'])->format('j M Y') : null,
+                ]),
+            'bank'    => BankDetails::configured() ? BankDetails::lines() : [],
             // A corporate rate agreed with VENTIQ, instead of the plans.
             'corporate' => ($agreement = app(\App\Services\Sessions\CorporateBilling::class)->agreement($organization)) ? [
                 'rate'     => (float) $agreement->rate,
@@ -72,38 +85,48 @@ class SessionPlanController extends Controller
     public function showPayment(Request $request)
     {
         $organization = Auth::user()->organization;
-
-        $type = $request->query('type');
-        abort_unless(in_array($type, ['plan', 'payg']), 404);
-
-        if ($type === 'plan') {
-            $tier = (string) $request->query('tier');
-            $def  = SessionPackageDefinition::get($tier);
-            abort_unless($def && !in_array($tier, ['free', 'enterprise'], true), 404);
-
-            $amount = $def['price'];
-            $label  = "{$def['label']} plan, M{$def['price']} a month";
-        } else {
-            $quantity = (int) $request->query('quantity');
-            abort_unless($quantity > 0 && $quantity <= 500, 404);
-
-            $amount = SessionPackageDefinition::paygBundlePrice($quantity);
-            $label  = "{$quantity} pay-as-you-go " . ($quantity === 1 ? 'session' : 'sessions');
-        }
+        $type = (string) $request->query('type');
+        $purchase = SessionPackageDefinition::purchase($type, $request->query('tier'), $request->query('quantity') !== null ? (int) $request->query('quantity') : null);
+        abort_unless($purchase, 404);
+        $reference = BankDetails::reference($organization->id, $purchase['code']);
 
         return Inertia::render('Sessions/PlanPayment', [
             'purchase' => [
                 'type'     => $type,
-                'tier'     => $tier ?? null,
-                'quantity' => $quantity ?? null,
-                'amount'   => (float) $amount,
-                'label'    => $label,
+                'tier'     => $purchase['meta']['tier'] ?? null,
+                'quantity' => $purchase['meta']['quantity'] ?? null,
+                'amount'   => $purchase['amount'],
+                'label'    => $purchase['label'],
             ],
-            // This is VENTIQ's own billing, with no pay-by-hand fallback:
-            // while online payments are off, it says to get in touch.
+            // Mobile money while it's on; a bank transfer any time.
             'methods' => PaymentGatewayFactory::enabledMethods(),
+            'bank'    => BankDetails::configured() ? [
+                'lines'     => BankDetails::lines($reference),
+                'reference' => $reference,
+                // Already said it was paid: waiting for VENTIQ to see it.
+                'claimed'   => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)
+                    ->where('client_reference', $reference)->where('status', 'pending')->exists(),
+            ] : null,
             'support' => config('ventiq.emails.support'),
             'meta'    => ['title' => 'Payment | VENTIQ Sessions'],
         ])->withViewData(['noindex' => true]);
+    }
+
+    /** "We've paid by bank transfer": VENTIQ checks the account and confirms it. */
+    public function claimBankTransfer(Request $request, BankTransfers $transfers)
+    {
+        $data = $request->validate([
+            'type'     => 'required|in:plan,payg',
+            'tier'     => 'nullable|string',
+            'quantity' => 'nullable|integer|min:1|max:500',
+            'paid_on'  => 'required|date|before_or_equal:today|after:-60 days',
+            'note'     => 'nullable|string|max:500',
+        ]);
+        $purchase = SessionPackageDefinition::purchase($data['type'], $data['tier'] ?? null, $data['quantity'] ?? null);
+        abort_unless($purchase && BankDetails::configured(), 404);
+
+        $transfers->claim(Auth::user()->organization, Auth::user(), $purchase, $data['paid_on'], trim($data['note'] ?? '') ?: null);
+
+        return redirect()->route('sessions.plan')->with('status', "Thanks. We'll check our account for your transfer and add {$purchase['label']} as soon as we see it, usually within a working day.");
     }
 }

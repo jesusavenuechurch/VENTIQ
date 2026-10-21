@@ -77,8 +77,16 @@
 
     <div class="box" style="margin-top: 22px;">
         <div class="label">How to pay</div>
-        {{ config('ventiq.billing.payment_instructions') }}<br>
-        Quote <b>{{ $invoice->number }}</b> as the reference.
+        @if (\App\Support\BankDetails::configured())
+            By bank transfer or deposit to:
+            <table style="border-collapse: collapse; margin: 4px 0 6px;">
+                @foreach (\App\Support\BankDetails::lines($invoice->number) as $l)
+                    <tr><td style="color: #64748b; padding: 1px 14px 1px 0;">{{ $l['label'] }}</td><td style="padding: 1px 0;"><b>{{ $l['value'] }}</b></td></tr>
+                @endforeach
+            </table>
+        @endif
+        @if (config('ventiq.billing.payment_instructions')){{ config('ventiq.billing.payment_instructions') }}<br>@endif
+        Quote <b>{{ $invoice->number }}</b> as the reference, and send proof of payment to {{ config('ventiq.billing.email') }}.
     </div>
 </body>
 </html>

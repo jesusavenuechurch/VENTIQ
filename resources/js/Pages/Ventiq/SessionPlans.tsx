@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Building2, Check, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { OrgLink, Pill } from '@/components/admin/cells';
@@ -39,15 +39,28 @@ interface Tier {
 
 type Option = { value: number; label: string };
 
+interface Transfer {
+    id: number;
+    organization: { id: number; name: string | null };
+    label: string;
+    amount: number;
+    reference: string;
+    paidOn: string | null;
+    by: string | null;
+    note: string | null;
+    claimed: string;
+}
+
 const field = 'rounded-2xl px-4 py-3 text-[14px] font-semibold';
 
 /** Organizations' Sessions plans, and plans or pay-as-you-go sessions agreed outside the app. */
-export default function SessionPlans({ rows, state, tiers, paygPresets, organizations }: {
+export default function SessionPlans({ rows, state, tiers, paygPresets, organizations, transfers }: {
     rows: Paginated<Row>;
     state: TableState;
     tiers: Tier[];
     paygPresets: { quantity: number; price: number }[];
     organizations: Option[];
+    transfers: Transfer[];
 }) {
     const [dialog, setDialog] = useState<null | 'plan' | 'payg'>(null);
     const [removing, setRemoving] = useState<Row | null>(null);
@@ -66,7 +79,7 @@ export default function SessionPlans({ rows, state, tiers, paygPresets, organiza
     return (
         <AdminLayout
             title="Session plans"
-            subtitle="What each organization has for Sessions. Organizations change their own plan and pay online; use these for a deal agreed with VENTIQ."
+            subtitle="What each organization has for Sessions. Organizations change their own plan and pay by mobile money or bank transfer; use these for a deal agreed with VENTIQ."
             actions={
                 <>
                     <Button type="button" variant="brand" className="px-5 py-3 text-[10px]" onClick={() => setDialog('plan')}><RefreshCw className="size-3.5" />Change a plan</Button>
@@ -75,6 +88,7 @@ export default function SessionPlans({ rows, state, tiers, paygPresets, organiza
             }
         >
             <Head title="Session plans" />
+            <Transfers transfers={transfers} />
             <DataTable
                 rows={rows}
                 columns={columns}
@@ -98,6 +112,47 @@ export default function SessionPlans({ rows, state, tiers, paygPresets, organiza
                 Use this only for a plan made by mistake.
             </ConfirmDialog>
         </AdminLayout>
+    );
+}
+
+/** Bank transfers organizations say they've made: find each in the account, then confirm (the plan is applied) or say it isn't there. */
+function Transfers({ transfers }: { transfers: Transfer[] }) {
+    const [rejecting, setRejecting] = useState<Transfer | null>(null);
+    const [reason, setReason] = useState('');
+    const [refs, setRefs] = useState<Record<number, string>>({});
+    if (transfers.length === 0) return null;
+
+    return (
+        <div className="mb-8 rounded-[2rem] border-2 border-amber-200 bg-amber-50/50 p-6">
+            <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-amber-700"><Building2 className="size-4" />Bank transfers to check · {transfers.length}</p>
+            <p className="mt-1 text-[12px] text-gray-500">Find each in the account by its reference. Confirming adds the plan or sessions and emails the organization's Admins.</p>
+            <div className="mt-4 space-y-3">
+                {transfers.map((t) => (
+                    <div key={t.id} className="flex flex-wrap items-center gap-4 rounded-2xl bg-white p-4">
+                        <div className="min-w-[220px] flex-1">
+                            <p className="text-[13px] font-black text-brand"><OrgLink id={t.organization.id} name={t.organization.name} /> · {money(t.amount)}</p>
+                            <p className="text-[12px] text-gray-600">{t.label} · reference <b className="font-mono">{t.reference}</b></p>
+                            <p className="text-[11px] text-gray-400">Paid {t.paidOn ?? '?'}, said by {t.by ?? 'them'} {t.claimed}{t.note ? ` · “${t.note}”` : ''}</p>
+                        </div>
+                        <Input aria-label="Bank reference (optional)" placeholder="Bank reference (optional)" className="w-48 rounded-xl px-3 py-2 text-[12px]" value={refs[t.id] ?? ''} onChange={(e) => setRefs({ ...refs, [t.id]: e.target.value })} />
+                        <Button type="button" variant="brand" className="bg-mint-ink px-4 py-2.5 text-[10px]" onClick={() => router.post(route('ventiq.session-plans.transfers.confirm', t.id), { bank_reference: refs[t.id] ?? '' }, { preserveScroll: true })}><Check className="size-3.5" />It's in: confirm</Button>
+                        <button type="button" onClick={() => { setRejecting(t); setReason(''); }} className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-rose-600"><X className="size-3.5" />Not found</button>
+                    </div>
+                ))}
+            </div>
+            <Dialog open={rejecting !== null} onOpenChange={(o) => !o && setRejecting(null)}>
+                <DialogContent className="max-w-md rounded-[2rem]">
+                    <form className="space-y-4 p-7" onSubmit={(e) => { e.preventDefault(); router.post(route('ventiq.session-plans.transfers.reject', rejecting!.id), { reason }, { preserveScroll: true, onSuccess: () => setRejecting(null) }); }}>
+                        <DialogTitle className="pr-8 text-lg normal-case not-italic tracking-normal">Not found in the account</DialogTitle>
+                        <p className="text-[12px] text-gray-500">{rejecting?.organization.name}'s Admins are emailed this, and nothing is added. They can reply with proof of payment.</p>
+                        <Field label="Why" htmlFor="tr-reason">
+                            <Textarea id="tr-reason" rows={3} required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. No transfer with this reference has reached us yet." />
+                        </Field>
+                        <Button type="submit" variant="brand" className="w-full py-3 text-[10px]" disabled={!reason.trim()}>Tell them</Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }
 

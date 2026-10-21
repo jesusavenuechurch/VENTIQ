@@ -71,7 +71,7 @@ class SessionsAccess
                 'sessions.reports', 'sessions.report', 'sessions.series.show', 'sessions.actions.index', 'sessions.report.pdf', 'sessions.report.full', 'sessions.report.status',
                 'programmes.index', 'programmes.show', 'programmes.report', 'programmes.report.status', 'programmes.certificates.download',
             ], true) => 'view',
-            in_array($routeName, ['sessions.plan', 'organization.session-plan.payment', 'paylesotho.session-package.initiate'], true) => 'plan',
+            in_array($routeName, ['sessions.plan', 'sessions.plan.bank-transfer', 'organization.session-plan.payment', 'paylesotho.session-package.initiate'], true) => 'plan',
             default => 'run',
         };
     }

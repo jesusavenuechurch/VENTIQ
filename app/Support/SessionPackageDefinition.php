@@ -81,6 +81,39 @@ class SessionPackageDefinition
     }
 
     /**
+     * A plan or pay-as-you-go sessions as bought: what it costs, what it's
+     * called, and what's applied once it's paid. Null when it can't be bought.
+     *
+     * @return array{amount: float, label: string, meta: array, code: string}|null
+     */
+    public static function purchase(string $type, ?string $tier, ?int $quantity): ?array
+    {
+        if ($type === 'plan') {
+            $def = $tier ? self::get($tier) : null;
+            if (!$def || in_array($tier, ['free', 'enterprise'], true)) {
+                return null;
+            }
+
+            return [
+                'amount' => (float) $def['price'],
+                'label'  => "{$def['label']} plan, M{$def['price']} a month",
+                'code'   => strtoupper($tier),
+                'meta'   => ['type' => 'plan', 'tier' => $tier, 'sessions_included' => $def['sessions_included'], 'whatsapp_included' => $def['whatsapp_included'], 'sms_included' => $def['sms_included']],
+            ];
+        }
+        if ($type === 'payg' && $quantity > 0 && $quantity <= 500) {
+            return [
+                'amount' => self::paygBundlePrice($quantity),
+                'label'  => "{$quantity} pay-as-you-go " . ($quantity === 1 ? 'session' : 'sessions'),
+                'code'   => "S{$quantity}",
+                'meta'   => ['type' => 'payg', 'quantity' => $quantity],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Preset PAYG quick-add shortcuts shown in the purchase UI.
      */
     public static function paygPresets(): array

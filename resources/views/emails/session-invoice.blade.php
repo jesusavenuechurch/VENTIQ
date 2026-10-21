@@ -15,7 +15,21 @@ Here is your VENTIQ Sessions invoice for **{{ $invoice->periodLabel() }}**: {{ $
 @endif
 </x-mail::table>
 
-The invoice is attached, with the sessions it covers and how to pay. Please quote **{{ $invoice->number }}** with your payment.
+The invoice is attached, with the sessions it covers.
+
+@if (\App\Support\BankDetails::configured())
+**To pay by bank transfer or deposit:**
+
+<x-mail::table>
+| | |
+|:--|:--|
+@foreach (\App\Support\BankDetails::lines($invoice->number) as $l)
+| {{ $l['label'] }} | **{{ $l['value'] }}** |
+@endforeach
+</x-mail::table>
+@endif
+
+Please quote **{{ $invoice->number }}** with your payment, and reply with the proof of payment.
 
 <x-mail::button :url="$link">
 See it in VENTIQ
