@@ -9,7 +9,6 @@ use App\Models\Organization;
 use App\Models\Session;
 use App\Models\User;
 use App\Services\AI\AIService;
-use App\Services\AI\Prompts\ActionPointsPrompt;
 use App\Services\AI\Prompts\SegmentInsightPrompt;
 use App\Services\AI\Prompts\SegmentSummaryPrompt;
 use App\Services\Memory\AskVentiq;
@@ -71,7 +70,7 @@ class AssistCheck extends Command
         $run('embed') && $this->embed($org, $embedder);
         $run('notes') && $this->stickyNotes($ai);
         $run('writeup') && $meeting && $this->writeUp($ai, $meeting);
-        $run('actions') && $meeting && $this->actionPoints($ai, $meeting, $org);
+        $run('actions') && $meeting && $this->actionPoints($ai, $meeting);
         if ($run('ask')) {
             foreach ($this->option('ask') ?: self::QUESTIONS as $question) {
                 $this->askVentiq($ask, $org, $question);
@@ -105,7 +104,8 @@ class AssistCheck extends Command
     /** The live console's sticky notes: a line typed, and whether it's a theme, decision, action or question. */
     private function stickyNotes(AIService $ai): void
     {
-        $this->section('Sticky notes while typing');
+        $model = config('ai.ollama.fast_model') ?: config('ai.ollama.model');
+        $this->section("Sticky notes while typing ({$model}" . (\App\Services\AI\Providers\OllamaProvider::thinks($model) ? ', thinking low' : '') . ')');
         $lines = [
             'road to Mount Moorosi washed out again on Saturday',
             'agreed: pre-position a month of ORS at every clinic beyond the river',
@@ -115,11 +115,13 @@ class AssistCheck extends Command
         $recent = [];
         $found = 0;
         $total = 0.0;
+        $first = null;
         foreach ($lines as $line) {
             [$seconds, $result] = $this->timed(fn () => $ai->generate((new SegmentInsightPrompt)->with([
                 'line' => $line, 'presenter' => 'Teboho Mokhele', 'topic' => 'Rainy season preparedness', 'recent_lines' => implode("\n", $recent),
             ])));
             $total += $seconds;
+            $first ??= $seconds;
             $recent[] = $line;
             if (!$result->success) {
                 $this->results[] = ['Sticky notes', 'FAILED: ' . Str::limit((string) $result->error, 60), $seconds];
@@ -128,9 +130,10 @@ class AssistCheck extends Command
             }
             $tag = SegmentInsightPrompt::parse($result->content);
             $tag['category'] !== 'none' && $found++;
-            $this->line(sprintf('  %-70s → %s', Str::limit($line, 68), $tag['category'] === 'none' ? '<comment>no note</comment>' : "<info>{$tag['category']}</info>: {$tag['text']}"));
+            $this->line(sprintf('  %5.1fs  %-62s → %s', $seconds, Str::limit($line, 60), $tag['category'] === 'none' ? '<comment>no note</comment>' : "<info>{$tag['category']}</info>: {$tag['text']}"));
         }
-        $this->results[] = ['Sticky notes', "ok, {$found} of " . count($lines) . ' lines made a note', round($total, 1)];
+        // The first call also loads the model into memory: the others are what a meeting feels.
+        $this->results[] = ['Sticky notes', "ok, {$found} of " . count($lines) . ' lines made a note, ' . round(($total - $first) / max(1, count($lines) - 1), 1) . 's a line after the first', round($total, 1)];
     }
 
     /** An agenda item written up from its notes, as the minutes have it. */
@@ -162,28 +165,24 @@ class AssistCheck extends Command
         $this->results[] = ['Write-up', $missing->isEmpty() ? 'ok, every section' : 'FAILED: missing ' . $missing->implode(', '), $seconds];
     }
 
-    /** The meeting's action points picked out of its notes. */
-    private function actionPoints(AIService $ai, Session $meeting, Organization $org): void
+    /** The meeting's action points picked out of its notes, as the job after a meeting does it (nothing saved). */
+    private function actionPoints(AIService $ai, Session $meeting): void
     {
         $this->section("Action points: {$meeting->resolved_title}, {$meeting->date->format('j M')}");
-        $notes = $meeting->segments->map(fn ($s) => ($lines = collect($s->raw_log ?? [])->pluck('text')->implode("\n")) === '' ? null : "## {$s->title}\n{$lines}")->filter()->implode("\n\n");
-        $people = User::where('organization_id', $org->id)->pluck('name')->merge($meeting->segments->pluck('presenter_name'))->unique();
-
-        [$seconds, $result] = $this->timed(fn () => $ai->generate((new ActionPointsPrompt)->with([
-            'title' => $meeting->resolved_title, 'date' => $meeting->date->format('l j F Y'),
-            'people' => $people->map(fn ($n) => "- {$n}")->implode("\n"), 'notes' => $notes, 'open' => '',
-        ])));
-        if (!$result->success) {
-            $this->results[] = ['Action points', 'FAILED: ' . Str::limit((string) $result->error, 60), $seconds];
+        try {
+            [$seconds, $points] = $this->timed(fn () => (new ExtractActionPoints($meeting->id))->propose($ai, $meeting->load('segments')));
+        } catch (\Throwable $e) {
+            $this->results[] = ['Action points', 'FAILED: ' . Str::limit($e->getMessage(), 60), ''];
 
             return;
         }
-        $points = ExtractActionPoints::parse($result->content);
+        $people = User::whereIn('id', collect($points)->pluck('owner_user_id')->filter())->pluck('name', 'id');
         foreach ($points as $p) {
-            $this->line("  • {$p['task']}" . ($p['owner'] ? " <comment>({$p['owner']})</comment>" : '') . ($p['due'] ? " by {$p['due']}" : ''));
+            $owner = $p['owner_user_id'] ? $people[$p['owner_user_id']] . ' (team)' : ($p['owner_name'] ?? null);
+            $this->line("  • {$p['task']}" . ($owner ? " <comment>({$owner})</comment>" : ' <comment>(no owner)</comment>') . ($p['due_date'] ? " by {$p['due_date']}" : ''));
         }
-        $points || $this->line('<comment>None found.</comment> Raw answer: ' . Str::limit($result->content, 300));
-        $this->results[] = ['Action points', $points ? 'ok, ' . count($points) . ' found' : 'ok, none found (check the raw answer)', $seconds];
+        $points || $this->line('<comment>None found</comment> beyond those already on the meeting.');
+        $this->results[] = ['Action points', 'ok, ' . count($points) . ' found, ' . collect($points)->filter(fn ($p) => $p['owner_user_id'] || $p['owner_client_id'] || $p['owner_name'])->count() . ' with an owner', $seconds];
     }
 
     private function askVentiq(AskVentiq $ask, Organization $org, string $question): void

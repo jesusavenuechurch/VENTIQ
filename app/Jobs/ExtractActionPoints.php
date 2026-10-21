@@ -29,6 +29,9 @@ class ExtractActionPoints implements ShouldQueue
 
     public int $tries = 6;
 
+    // One call to the AI with the whole meeting's notes.
+    public int $timeout = 300;
+
     public function __construct(public readonly int $sessionId) {}
 
     /** @return int[] */
@@ -64,7 +67,20 @@ class ExtractActionPoints implements ShouldQueue
 
     private function extract(AIService $ai, Session $session): void
     {
+        foreach ($this->propose($ai, $session) as $point) {
+            ActionPoint::create($point);
+        }
+    }
 
+    /**
+     * The action points the AI finds in the session's notes, as they'd be
+     * saved (proposed, owners matched), leaving out ones already there.
+     * Throws when the AI can't be reached. Also used by sessions:assist-check.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function propose(AIService $ai, Session $session): array
+    {
         $notes = $session->segments->map(function ($s) {
             $lines = collect($s->raw_log ?? [])->pluck('text')->filter()->implode("\n");
 
@@ -74,7 +90,7 @@ class ExtractActionPoints implements ShouldQueue
             return $lines === '' ? null : "## {$heading}\n" . $lines;
         })->filter()->implode("\n\n");
         if (trim($notes) === '') {
-            return;
+            return [];
         }
 
         $owners = $this->owners($session);
@@ -95,13 +111,14 @@ class ExtractActionPoints implements ShouldQueue
         }
 
         $known = $session->actionPoints()->pluck('task')->map(fn ($t) => Str::lower(trim($t)))->all();
+        $proposed = [];
 
         foreach (static::parse($result->content) as $point) {
             if (in_array(Str::lower($point['task']), $known, true)) {
                 continue;
             }
             $owner = static::matchOwner($point['owner'], $owners);
-            ActionPoint::create([
+            $proposed[] = [
                 'organization_id' => $session->organization_id,
                 'session_id'      => $session->id,
                 'series_id'       => $session->series_id,
@@ -112,9 +129,11 @@ class ExtractActionPoints implements ShouldQueue
                 'due_date'        => static::dueDate($point['due'], $session),
                 'status'          => 'proposed',
                 'source'          => 'ai',
-            ]);
+            ];
             $known[] = Str::lower($point['task']);
         }
+
+        return $proposed;
     }
 
     /** People who can own a point: the team, then the session's people and attendees. */

@@ -28,7 +28,7 @@ class AIService
             );
         }
 
-        $result = $this->provider->generate($prompt->build());
+        $result = $this->provider->generate($prompt->build(), ['think' => $prompt->think(), 'fast' => $prompt->fast()]);
 
         if ($result->success) {
             Log::info('Ventiq Assist generated content', [

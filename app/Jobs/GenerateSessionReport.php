@@ -20,6 +20,11 @@ class GenerateSessionReport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    // One call to the AI per item, then the rollup: minutes of a long
+    // meeting on the Mac mini take several minutes. The queue's
+    // retry_after must be longer than this (config/queue.php).
+    public int $timeout = 900;
+
     public function __construct(
         public readonly string $jobId,
         public readonly int $userId,

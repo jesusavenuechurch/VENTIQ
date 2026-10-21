@@ -4,6 +4,17 @@ namespace App\Services\AI\Prompts;
 
 class SegmentInsightPrompt extends PromptBuilder
 {
+    // A sticky note has to keep up with the typing: a quick, small call.
+    public function think(): ?string
+    {
+        return 'low';
+    }
+
+    public function fast(): bool
+    {
+        return true;
+    }
+
     public function build(): string
     {
         $line     = $this->variables['line']         ?? '';

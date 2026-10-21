@@ -29,8 +29,10 @@ class IssueProgrammeCertificates implements ShouldQueue, ShouldBeUnique
     public function handle(ProgrammeProgress $progress): void
     {
         $programme = Event::find($this->programmeId);
-        if ($programme?->is_programme && $programme->certificates_enabled) {
-            $progress->issueDue($programme);
+        if ($programme?->is_programme && $programme->certificates_enabled && $progress->issueDue($programme)->isNotEmpty()) {
+            // Ask Ventiq's passages on the programme's days count the certificates.
+            \App\Models\Session::where('event_id', $programme->id)->where('status', 'reported')->pluck('id')
+                ->each(fn ($id) => IndexSessionMemory::dispatch($id));
         }
     }
 }

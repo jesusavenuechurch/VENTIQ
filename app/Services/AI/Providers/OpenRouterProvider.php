@@ -24,7 +24,7 @@ class OpenRouterProvider implements AIProvider
         $this->temperature = (float) config('ai.openrouter.temperature', 0.7);
     }
 
-    public function generate(string $prompt): GeneratedContent
+    public function generate(string $prompt, array $options = []): GeneratedContent
     {
         $start = microtime(true);
 

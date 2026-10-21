@@ -7,21 +7,23 @@ use App\Models\ActionPoint;
 use App\Models\MemoryChunk;
 use App\Models\Session;
 use App\Services\Sessions\MinutesBuilder;
+use App\Services\Sessions\SessionNumbers;
 use App\Support\SessionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Turns a held session into passages for Ask Ventiq: each part's write-up
- * (or, for a meeting, its minutes), the notes as typed, and the action
- * points. Run again whenever the session changes; a passage whose words
+ * (or, for a meeting, its minutes), the notes as typed, the action
+ * points, and who came (with, for a programme's day, how the programme
+ * stands). Run again whenever the session changes; a passage whose words
  * didn't change keeps its embedding.
  */
 class MemoryIndexer
 {
     private const MAX = 1200;
 
-    public function __construct(private MinutesBuilder $minutes) {}
+    public function __construct(private MinutesBuilder $minutes, private SessionNumbers $numbers) {}
 
     public function indexSession(Session $session): int
     {
@@ -108,6 +110,11 @@ class MemoryIndexer
             $add('notes', $s->id, "{$label} · Notes: " . ($s->title ?: $s->presenter_name), $notes);
         }
 
+        // Who came, and for a programme's day, the programme: "how many came", "how did the training go".
+        if ($session->event_id) {
+            $add('numbers', null, "{$label} · Attendance", $this->attendance($session));
+        }
+
         // Before parts had write-ups of their own, only the whole report.
         if ($out->where('source_type', 'segment')->isEmpty() && $session->session_report) {
             $add('report', null, "{$label} · Report", $session->session_report);
@@ -126,6 +133,29 @@ class MemoryIndexer
             ])));
 
         return $out->values()->all();
+    }
+
+    private function attendance(Session $session): string
+    {
+        $n = $this->numbers->for($session);
+        $a = $n['attendance'];
+        $p = $n['programme'];
+        $list = fn (array $rows) => collect($rows)->map(fn ($r) => "{$r['label']} {$r['count']}")->implode(', ');
+        $mins = fn (int $m) => $m >= 60 ? intdiv($m, 60) . 'h' . ($m % 60 ? ' ' . ($m % 60) . 'm' : '') : "{$m}m";
+
+        return $this->lines([
+            'Checked in: ' . $a['checkedIn'] . ($a['expected'] ? " of {$a['expected']} expected ({$a['rate']}%)" : '') . '.',
+            $a['noShows'] ? "Registered but didn't come: {$a['noShows']}." : null,
+            $a['how'] ? 'How they checked in: ' . $list($a['how']) . '.' : null,
+            $a['from'] ? 'Where they came from: ' . $list($a['from']) . '.' : null,
+            $a['districts'] ? 'Districts: ' . $list($a['districts']) . '.' : null,
+            $a['late'] ? "Arrived 15 minutes or more after the start: {$a['late']}." : null,
+            $n['time']['total'] ? 'It took ' . $mins($n['time']['total']) . ($n['time']['planned'] ? ', ' . $mins($n['time']['planned']) . ' planned' : '') . '.' : null,
+            $p ? "Day {$p['day']} of " . count($p['days']) . " of the programme {$p['name']}. Attendance by day: "
+                . collect($p['days'])->map(fn ($d) => "{$d['label']}" . ($d['date'] ? " ({$d['date']})" : '') . " {$d['count']}")->implode(', ') . '.' : null,
+            $p ? "Enrolled on the programme: {$p['enrolled']}." . ($p['required'] ? " A certificate for attending at least {$p['required']} " . ($p['required'] === 1 ? 'day' : 'days') . '.' : '')
+                . ($p['certificates'] !== null ? " Certificates issued: {$p['certificates']}." : '') : null,
+        ]);
     }
 
     /** Text cut at paragraph and sentence boundaries into passages of a useful size. */
