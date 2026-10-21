@@ -28,7 +28,7 @@ NOTES:
 Answer with a JSON array and nothing else. One object per action point:
 - "task": what is to be done, a short sentence starting with a verb
 - "owner": who will do it, a name from PEOPLE if the notes say who, else ""
-- "due": the date it's due as YYYY-MM-DD if the notes give one (work out "by Friday" or "next week" from the session date), else ""
+- "due": the date it's due as YYYY-MM-DD only if the notes give a day or date for that task (work out "by Friday" or "next week" from the session date), else "". Never guess one.
 
 If there are none, answer []
 PROMPT;

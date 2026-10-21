@@ -138,6 +138,16 @@ class SessionNumbers
         ];
     }
 
+    /** @return array<int, int> days attended => people, most days first; those enrolled who came to none as 0 */
+    private function daysEach(\App\Models\Event $programme, Collection $days): array
+    {
+        $each = Participant::whereIn('session_id', $days->pluck('id'))->whereNotNull('attended_at')->get(['client_id', 'session_id'])
+            ->groupBy('client_id')->map(fn ($rows) => $rows->pluck('session_id')->unique()->count());
+        $none = ProgrammeEnrolment::where('event_id', $programme->id)->whereNull('withdrawn_at')->whereNotIn('client_id', $each->keys())->count();
+
+        return $each->countBy()->when($none > 0, fn ($c) => $c->put(0, $none))->sortKeysDesc()->all();
+    }
+
     private function programme(Session $session): array
     {
         $programme = $session->event;
@@ -154,6 +164,8 @@ class SessionNumbers
                 'this'  => $d->id === $session->id,
             ])->all(),
             'enrolled'     => ProgrammeEnrolment::where('event_id', $programme->id)->whereNull('withdrawn_at')->count(),
+            // How many days each person came to, so "21 each day" isn't read as "the same 21 every day".
+            'attendedDays' => $this->daysEach($programme, $days),
             'required'     => $progress->required($programme, $days),
             'certificates' => $programme->certificates_enabled ? Certificate::where('event_id', $programme->id)->count() : null,
         ];

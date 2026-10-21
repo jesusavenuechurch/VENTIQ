@@ -64,5 +64,5 @@ it("remembers who came to a programme's day, and how the programme stands", func
     $passage = MemoryChunk::where('session_id', $day->id)->where('source_type', 'numbers')->sole();
     expect($passage->title)->toBe('CHW training · 19 Oct 2026 · Attendance')
         ->and($passage->body)->toContain('Checked in: 3 of 4 expected (75%).')->toContain('Mafeteng Hospital 3')
-        ->toContain('Day 1 of 1 of the programme CHW training')->toContain('Enrolled on the programme: 3.')->toContain('Certificates issued: 3.');
+        ->toContain('Day 1 of 1 of the programme CHW training')->toContain('Days each person came to: 3 came to 1 day.')->toContain('Enrolled on the programme: 3.')->toContain('Certificates issued: 3.');
 });

@@ -153,6 +153,7 @@ class MemoryIndexer
             $n['time']['total'] ? 'It took ' . $mins($n['time']['total']) . ($n['time']['planned'] ? ', ' . $mins($n['time']['planned']) . ' planned' : '') . '.' : null,
             $p ? "Day {$p['day']} of " . count($p['days']) . " of the programme {$p['name']}. Attendance by day: "
                 . collect($p['days'])->map(fn ($d) => "{$d['label']}" . ($d['date'] ? " ({$d['date']})" : '') . " {$d['count']}")->implode(', ') . '.' : null,
+            $p ? 'Days each person came to: ' . collect($p['attendedDays'])->map(fn ($people, $d) => "{$people} came to " . ($d === count($p['days']) && $d > 1 ? "all {$d} days" : ($d === 0 ? 'none' : "{$d} " . ($d === 1 ? 'day' : 'days'))))->implode(', ') . '.' : null,
             $p ? "Enrolled on the programme: {$p['enrolled']}." . ($p['required'] ? " A certificate for attending at least {$p['required']} " . ($p['required'] === 1 ? 'day' : 'days') . '.' : '')
                 . ($p['certificates'] !== null ? " Certificates issued: {$p['certificates']}." : '') : null,
         ]);
