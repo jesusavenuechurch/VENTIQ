@@ -1,0 +1,1 @@
+import{j as a,d as i}from"./app-B-Y1n5vT.js";import{a as t}from"./avatar-GYb-bR0Q.js";function l({seeds:s}){return a.jsx("div",{className:"mb-4 flex justify-center -space-x-3","aria-hidden":!0,children:s.map((r,e)=>a.jsx("img",{src:t(r),alt:"",className:i("shrink-0 rounded-full bg-slate-100 ring-4 ring-white",e===1?"relative z-10 -mt-2 size-16":"size-12")},r))})}export{l as C};
