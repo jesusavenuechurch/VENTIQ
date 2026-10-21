@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Link2, Plus, QrCode, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Link2, ListOrdered, PencilSparkles, Plus, QrCode, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import type { ActionPointCard } from '@/components/sessions/action-points';
@@ -103,7 +103,8 @@ export default function Show({ session, segments, roles, carried }: Props) {
     const [flipping, setFlipping] = useState(false);
     const [fill, setFill] = useState(0);
     const [finishing, setFinishing] = useState(false);
-    const [notesOpen, setNotesOpen] = useState(false);
+    // On a phone the notebook has the screen; the agenda and Ventiq Assist slide in when wanted.
+    const [drawer, setDrawer] = useState<null | 'agenda' | 'assist'>(null);
     const [startError, setStartError] = useState('');
 
     const notesRef = useRef<HTMLDivElement>(null);
@@ -372,7 +373,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
                                 mark={agenda ? String(presenting.indexOf(s) + 1) : undefined}
                                 color={PALETTE[speakers.indexOf(s) % PALETTE.length]}
                                 selected={selectedId === s.id}
-                                onSelect={() => setSelectedId(s.id)}
+                                onSelect={() => { setSelectedId(s.id); setDrawer(null); }}
                                 onRemove={canRemove(s) ? () => setRemoving(s) : undefined}
                                 below={s.status === 'active' ? <span className={cn(pill, 'mt-1 bg-[#D4AF37]')}>{agenda ? 'On now' : 'Live'}</span> : agenda && leadOf(s) ? <span className="block truncate text-[9px] font-bold text-slate-400">{leadOf(s)}</span> : null}
                                 trailing={!canRemove(s) && <span className="shrink-0 text-[9px] font-bold text-slate-400">{s.status === 'completed' ? <Check className="size-3" /> : clock(s.duration)}</span>}
@@ -392,7 +393,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
                                 s={s}
                                 color={PALETTE[speakers.indexOf(s) % PALETTE.length]}
                                 selected={selectedId === s.id}
-                                onSelect={() => setSelectedId(s.id)}
+                                onSelect={() => { setSelectedId(s.id); setDrawer(null); }}
                                 onRemove={canRemove(s) ? () => setRemoving(s) : undefined}
                                 below={<span className="text-[8px] font-bold uppercase tracking-wide text-slate-300">{roles.find((r) => r.value === s.role)?.label ?? s.role ?? 'Not presenting'}</span>}
                             />
@@ -488,7 +489,8 @@ export default function Show({ session, segments, roles, carried }: Props) {
             <Head title={session.title} />
             <div className="relative mx-auto flex min-h-dvh max-w-[1500px] flex-col overflow-hidden bg-white lg:h-full lg:min-h-0 lg:flex-row lg:rounded-[40px] lg:shadow-[0_40px_100px_rgba(0,0,0,0.5)]">
                 {/* Left: who's presenting */}
-                <aside className="flex shrink-0 flex-col border-b-2 border-dashed border-slate-200 bg-slate-50 lg:h-full lg:w-64 lg:border-b-0 lg:border-r-2">
+                {drawer && <button type="button" aria-label="Close" onClick={() => setDrawer(null)} className="fixed inset-0 z-30 bg-slate-900/40 animate-in fade-in lg:hidden" />}
+                <aside className={cn('fixed inset-y-0 left-0 z-40 flex w-[86%] max-w-[320px] flex-col bg-slate-50 shadow-2xl transition-transform duration-300 lg:static lg:z-auto lg:h-full lg:w-64 lg:max-w-none lg:translate-x-0 lg:border-r-2 lg:border-dashed lg:border-slate-200 lg:shadow-none', drawer === 'agenda' ? 'translate-x-0' : '-translate-x-full')}>
                     <div className="flex items-start justify-between px-5 pb-4 pt-6">
                         <div className="min-w-0">
                             <Link href={route('sessions.index')} className="flex items-center gap-1 text-[14px] font-black tracking-tight"><ArrowLeft className="size-3.5" />VENTIQ</Link>
@@ -500,25 +502,46 @@ export default function Show({ session, segments, roles, carried }: Props) {
                                 </p>
                             )}
                         </div>
-                        <span className="text-[11px] font-black lg:hidden">{clock(globalClock)}</span>
+                        <button type="button" aria-label="Close" onClick={() => setDrawer(null)} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-black/5 text-slate-500 lg:hidden"><X className="size-4" /></button>
                     </div>
-                    <div className="max-h-[45dvh] flex-1 space-y-5 overflow-y-auto px-3 pb-4 lg:max-h-none">{roster}</div>
-                    <div className="hidden items-center justify-between border-t-2 border-dashed border-slate-200 px-5 py-4 lg:flex">
+                    <div className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">{roster}</div>
+                    <div className="flex items-center justify-between border-t-2 border-dashed border-slate-200 px-5 py-4">
                         <span className={label}>{completed}/{speakers.length} {agenda ? 'items' : 'done'}</span>
                         <span className="text-[10px] font-black">{clock(globalClock)}</span>
                     </div>
                 </aside>
 
                 {/* Middle: the notebook */}
-                <main className="relative flex min-h-[60dvh] flex-1 flex-col overflow-hidden lg:h-full lg:min-h-0">
+                <main className="relative flex min-h-dvh flex-1 flex-col overflow-hidden lg:h-full lg:min-h-0">
+                    <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-dashed border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur lg:hidden">
+                        <Link href={route('sessions.index')} aria-label="Back to the desk" className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500"><ArrowLeft className="size-4" /></Link>
+                        <button type="button" onClick={() => setDrawer('agenda')} className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-left">
+                            <ListOrdered className="size-4 shrink-0 text-slate-500" />
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[11px] font-black uppercase leading-tight">{session.title}</span>
+                                <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">{agenda ? 'Agenda' : 'People'} · {completed}/{speakers.length}{session.tracking ? ` · ${participants} in` : ''} · {clock(globalClock)}</span>
+                            </span>
+                        </button>
+                        <button type="button" onClick={() => setDrawer('assist')} aria-label="Ventiq Assist" className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                            <PencilSparkles className="size-4" />
+                            {(selected?.insights.length ?? 0) + carried.length > 0 && (
+                                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#D4AF37] px-1 text-[9px] font-black text-slate-900 ring-2 ring-white">{(selected?.insights.length ?? 0) + carried.length}</span>
+                            )}
+                        </button>
+                    </div>
                     <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] hidden w-[18px] opacity-80 sm:block" style={{ backgroundImage: 'radial-gradient(circle at center, #fff 0 3px, #cbd5e1 3px 4px, transparent 4px)', backgroundSize: '100% 28px' }} />
                     <div className="pointer-events-none absolute -bottom-5 -left-2.5 select-none text-[130px] font-black uppercase italic tracking-[-4px] text-slate-900/[0.03]">Ventiq</div>
 
-                    <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 px-6 pb-5 pt-8 sm:pl-14 lg:pl-16 lg:pr-14">
+                    <header className="relative z-10 flex flex-wrap items-start justify-between gap-4 px-6 pb-4 pt-5 sm:pl-14 lg:pb-5 lg:pl-16 lg:pr-14 lg:pt-8">
                         <div className="min-w-0 flex-1">
                             <span className={cn(pill, paused || isLive ? 'bg-[#D4AF37]' : 'bg-slate-300')}>{paused ? (paused === 'auto' ? 'Away from page' : 'Paused') : isLive ? 'Capturing' : 'Ready'}</span>
                             <h1 className="mt-3 text-[26px] font-extrabold uppercase leading-none tracking-tight">{selected ? nameOf(selected) : agenda ? 'Add an agenda item' : isLive ? 'Add a presenter to begin' : 'Add a presenter'}</h1>
                             {selected && agenda && leadOf(selected) && <p className="mt-1.5 text-[15px] font-semibold text-slate-400">Led by {leadOf(selected)}</p>}
+                            {isLive && live && !capturingHere && (
+                                <button type="button" onClick={() => setSelectedId(live.id)} className={cn(pill, 'mt-3 bg-[#D4AF37] normal-case tracking-normal')}>
+                                    Back to {nameOf(live)}, {agenda ? 'on now' : 'speaking now'} →
+                                </button>
+                            )}
                             {selected && !agenda && (
                                 <input aria-label="Presentation name" value={selected.topic} onChange={(e) => setTopic(e.target.value)} placeholder="Untitled: click to name this presentation" className="mt-1.5 w-full border-b border-dashed border-transparent bg-transparent text-[15px] font-semibold text-slate-400 outline-none focus:border-slate-300 focus:text-slate-900" />
                             )}
@@ -609,8 +632,8 @@ export default function Show({ session, segments, roles, carried }: Props) {
                 </main>
 
                 {/* Right: Ventiq Assist */}
-                <aside className="shrink-0 border-t-2 border-dashed border-slate-200 bg-slate-50 lg:flex lg:h-full lg:w-[300px] lg:flex-col lg:border-l-2 lg:border-t-0">
-                    <button type="button" onClick={() => setNotesOpen(!notesOpen)} className="flex w-full items-center justify-between px-6 pb-4 pt-6 text-left lg:pointer-events-none">
+                <aside className={cn('fixed inset-y-0 right-0 z-40 flex w-[86%] max-w-[340px] flex-col bg-slate-50 shadow-2xl transition-transform duration-300 lg:static lg:z-auto lg:h-full lg:w-[300px] lg:max-w-none lg:translate-x-0 lg:border-l-2 lg:border-dashed lg:border-slate-200 lg:shadow-none', drawer === 'assist' ? 'translate-x-0' : 'translate-x-full')}>
+                    <div className="flex w-full items-center justify-between gap-3 px-6 pb-4 pt-6">
                         <span>
                             <span className="block text-[12px] font-black uppercase">Ventiq Assist</span>
                             <span className={cn(label, 'mt-1 block')}>{{ thinking: 'Reading', following: 'Following along', listening: 'Listening', idle: 'Idle' }[aiState]}</span>
@@ -620,10 +643,10 @@ export default function Show({ session, segments, roles, carried }: Props) {
                                 <span key={i} className="w-[2.5px] animate-pulse rounded-sm bg-[#D4AF37]" style={{ height: aiState === 'idle' ? 3 : 4 + ((i * 5) % 11), animationDelay: `${i * 90}ms`, opacity: aiState === 'thinking' ? 1 : aiState === 'following' ? 0.65 : 0.25 }} />
                             ))}
                         </span>
-                    </button>
-                    {fromLastTime && <div className="px-5 pt-2 lg:hidden">{fromLastTime}</div>}
-                    <div className={cn('px-5 pb-6 pt-2 lg:block lg:flex-1 lg:overflow-y-auto', !notesOpen && 'hidden')}>
-                        <div className="hidden lg:block">{fromLastTime}</div>
+                        <button type="button" aria-label="Close" onClick={() => setDrawer(null)} className="flex size-8 shrink-0 items-center justify-center rounded-full bg-black/5 text-slate-500 lg:hidden"><X className="size-4" /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-5 pb-6 pt-2">
+                        {fromLastTime}
                         {assist}
                     </div>
                 </aside>
