@@ -21,13 +21,9 @@ class AIService
      */
     public function generate(PromptBuilder $prompt): GeneratedContent
     {
-        if (!$this->provider->isAvailable()) {
-            return GeneratedContent::failure(
-                'Ventiq Assist is temporarily unavailable. Please try again shortly.',
-                $this->provider->name()
-            );
-        }
-
+        // Straight to the model: no "are you there?" first. A busy Mac
+        // mini answers that slowly and the real request was then never
+        // sent; the provider says when it truly can't be reached.
         $result = $this->provider->generate($prompt->build(), ['think' => $prompt->think(), 'fast' => $prompt->fast()]);
 
         if ($result->success) {

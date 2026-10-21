@@ -66,3 +66,15 @@ it("remembers who came to a programme's day, and how the programme stands", func
         ->and($passage->body)->toContain('Checked in: 3 of 4 expected (75%).')->toContain('Mafeteng Hospital 3')
         ->toContain('Day 1 of 1 of the programme CHW training')->toContain('Days each person came to: 3 came to 1 day.')->toContain('Enrolled on the programme: 3.')->toContain('Certificates issued: 3.');
 });
+
+it('sends the request even when the Mac mini is slow to say it is there, and says so plainly when it is off', function () {
+    Http::fake([
+        'mac-mini:11434/api/tags' => Http::response([], 500),
+        'mac-mini:11434/api/generate' => Http::response(['response' => "CATEGORY: theme\nTEXT: Roads"]),
+    ]);
+    expect(($this->ask)((new SegmentInsightPrompt)->with(['line' => 'roads']))->success)->toBeTrue();
+
+    Http::fake(['mac-mini:11434/*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection refused')]);
+    $result = ($this->ask)((new SegmentInsightPrompt)->with(['line' => 'roads']));
+    expect($result->success)->toBeFalse()->and($result->error)->toBe('Ventiq Assist is temporarily unavailable. Please try again shortly.');
+});

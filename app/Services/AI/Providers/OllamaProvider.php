@@ -26,7 +26,7 @@ class OllamaProvider implements AIProvider
         $model = !empty($options['fast']) && config('ai.ollama.fast_model') ? config('ai.ollama.fast_model') : $this->model;
 
         try {
-            $response = Http::timeout($this->timeout)
+            $response = Http::timeout($this->timeout)->connectTimeout(10)
                 ->post("{$this->baseUrl}/api/generate", array_filter([
                     'model'  => $model,
                     'prompt' => $prompt,
@@ -60,6 +60,10 @@ class OllamaProvider implements AIProvider
                 duration: round(microtime(true) - $start, 2),
             );
 
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Off, asleep or off the tailnet: the one case that's "unavailable".
+            Log::warning('Ollama not reachable', ['url' => $this->baseUrl, 'error' => $e->getMessage()]);
+            return GeneratedContent::failure('Ventiq Assist is temporarily unavailable. Please try again shortly.', $this->name());
         } catch (\Exception $e) {
             Log::error('Ollama generate failed', ['error' => $e->getMessage()]);
             return GeneratedContent::failure($e->getMessage(), $this->name());
@@ -114,7 +118,7 @@ class OllamaProvider implements AIProvider
     public function isAvailable(): bool
     {
         try {
-            $response = Http::timeout(3)->get("{$this->baseUrl}/api/tags");
+            $response = Http::timeout(10)->get("{$this->baseUrl}/api/tags");
             return $response->successful();
         } catch (\Exception) {
             return false;
