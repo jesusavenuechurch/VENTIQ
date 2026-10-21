@@ -54,23 +54,39 @@ class AIService
     }
 
     /**
-     * Parse sections from AI response.
-     * Looks for HEADING: content patterns.
+     * The sections of an answer written as headings: "SUMMARY:", then its
+     * lines until the next heading. Each section keeps all its lines (a
+     * list of decisions, not just the first). Headings may be written
+     * KEY_POINTS, KEY POINTS or FOLLOW-UPS (all read as key_points,
+     * follow_ups), in bold or after a #, with text on the same line.
+     *
+     * Given the keys it asks for, only those count as headings, in any
+     * case, so a line like "ORS: 400 sachets" stays in its section;
+     * otherwise any line in capitals followed by a colon is one.
      */
-    public function parseSections(string $content): array
+    public function parseSections(string $content, ?array $keys = null): array
     {
+        $key = fn (string $heading) => strtolower(preg_replace('/[\s\-]+/', '_', trim($heading)));
+        $wanted = $keys ? array_map($key, $keys) : null;
         $sections = [];
-        $pattern  = '/^([A-Z][A-Z \-]*[A-Z]|[A-Z]):\s*\n(.*?)(?=\n[A-Z][A-Z \-]*:|$)/ms';
+        $current = null;
 
-        preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
-
-        foreach ($matches as $match) {
-            $key = strtolower(trim($match[1]));
-            $key = str_replace([' ', '-'], '_', $key); // "KEY POINTS" -> "key_points", "FOLLOW-UPS" -> "follow_ups"
-            $sections[$key] = trim($match[2]);
+        foreach (preg_split('/\R/', $content) as $line) {
+            if (preg_match('/^\s*(?:#{1,6}\s*)?\*{0,2}([A-Za-z][A-Za-z0-9 _\-]{0,40}?)\*{0,2}\s*:\s*\*{0,2}\s*(.*)$/u', $line, $m)) {
+                $heading = $key($m[1]);
+                $isHeading = $wanted ? in_array($heading, $wanted, true) : (bool) preg_match('/^[A-Z][A-Z0-9 _\-]*$/', trim($m[1]));
+                if ($isHeading) {
+                    $current = $heading;
+                    $sections[$current] = trim($m[2]) === '' ? [] : [trim($m[2])];
+                    continue;
+                }
+            }
+            if ($current !== null) {
+                $sections[$current][] = rtrim($line);
+            }
         }
 
-        return $sections;
+        return array_map(fn (array $lines) => trim(implode("\n", $lines)), $sections);
     }
 
     public function isAvailable(): bool

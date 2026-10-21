@@ -65,7 +65,7 @@ class GenerateProgrammeReport implements ShouldQueue
             $rollupResult = $ai->generate($rollupPrompt);
 
             if ($rollupResult->success) {
-                $parsed = $ai->parseSections($rollupResult->content);
+                $parsed = $ai->parseSections($rollupResult->content, ['themes', 'recommendations']);
                 $overall['themes'] = $parsed['themes'] ?? null;
                 $overall['recommendations'] = $parsed['recommendations'] ?? null;
             } else {

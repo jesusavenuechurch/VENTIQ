@@ -14,6 +14,10 @@ beforeEach(function () {
 
 it('seeds six months of Sessions to try everything with, and can be run again', function () {
     $this->seed(SessionsDemoSeeder::class);
+    // A demo had: someone asked Ventiq something. Seeding again still works.
+    $admin = User::where('email', 'demo.admin@example.com')->sole();
+    \App\Models\AssistConversation::create(['organization_id' => $admin->organization_id, 'user_id' => $admin->id, 'title' => 'Fuel'])
+        ->messages()->create(['role' => 'user', 'content' => 'What did we decide about fuel?']);
     $this->seed(SessionsDemoSeeder::class);
 
     $trust = Organization::where('slug', 'maluti-community-health-trust')->sole();

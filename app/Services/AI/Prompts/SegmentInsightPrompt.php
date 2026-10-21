@@ -37,4 +37,21 @@ CATEGORY: [theme|decision|action|question|none]
 TEXT: [a short, standalone restatement in under 12 words, or leave blank if none]
 PROMPT;
     }
+
+    /** The model's answer: CATEGORY and TEXT, or category none. */
+    public static function parse(string $content): array
+    {
+        preg_match('/CATEGORY:\s*(\w+)/i', $content, $catMatch);
+        preg_match('/TEXT:\s*(.+)/i', $content, $textMatch);
+
+        $category = strtolower(trim($catMatch[1] ?? 'none'));
+        if (!in_array($category, ['theme', 'decision', 'action', 'question'])) {
+            $category = 'none';
+        }
+
+        return [
+            'category' => $category,
+            'text'     => trim($textMatch[1] ?? ''),
+        ];
+    }
 }

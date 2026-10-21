@@ -106,7 +106,7 @@ class ExtractActionPoints implements ShouldQueue
                 'session_id'      => $session->id,
                 'series_id'       => $session->series_id,
                 'task'            => $point['task'],
-                'owner_name'      => $owner ? null : ($point['owner'] ?: null),
+                'owner_name'      => isset($owner['user_id']) || isset($owner['client_id']) ? null : ($owner['name'] ?? ($point['owner'] ?: null)),
                 'owner_user_id'   => $owner['user_id'] ?? null,
                 'owner_client_id' => $owner['client_id'] ?? null,
                 'due_date'        => static::dueDate($point['due'], $session),
@@ -173,9 +173,18 @@ class ExtractActionPoints implements ShouldQueue
         }
         $first = Str::before($wanted, ' ');
         $byFirst = array_values(array_filter($known, fn ($o) => Str::before(Str::lower($o['name']), ' ') === $first));
+        if ($byFirst) {
+            // Only when the first name points to one person.
+            return count($byFirst) === 1 ? $byFirst[0] : null;
+        }
 
-        // Only when the first name points to one person.
-        return count($byFirst) === 1 ? $byFirst[0] : null;
+        // Someone named on the session (an item's lead, the chair) but not
+        // on the team or checked in: their full name, from the first.
+        $named = collect($owners)->reject(fn ($o) => isset($o['user_id']) || isset($o['client_id']))
+            ->filter(fn ($o) => Str::lower($o['name']) === $wanted || Str::before(Str::lower($o['name']), ' ') === $first)
+            ->unique('name')->values();
+
+        return $named->count() === 1 ? ['name' => $named[0]['name']] : null;
     }
 
     /** A real date, not before the session (the model sometimes guesses the past). */

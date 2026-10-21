@@ -548,6 +548,9 @@ class SessionController extends Controller
                 : $session->segments->where('is_presenting', true)->map(fn ($s) => ['label' => $s->title ?: $s->presenter_name, 'text' => $s->ai_summary['summary'] ?? null])->values()->all(),
             'items'    => $session->segments->where('is_presenting', true)->sortBy('order')->values(),
             'register' => $session->event_id ? $lists->forSession($session, Auth::user()) : null,
+            // Without check-in: who the minutes (or the session's people) say was there, to sign.
+            'present'  => $session->event_id ? [] : collect($minuted ? $minutes['present'] : $session->segments->sortBy('order')->map(fn ($s) => $s->presenter_name . ($s->role ? ' (' . (SessionType::roles($session->type)[$s->role]['label'] ?? ucfirst($s->role)) . ')' : '')))
+                ->unique()->map(fn ($p) => preg_match('/^(.*?)\s*\(([^)]+)\)$/', $p, $m) ? ['name' => $m[1], 'role' => $m[2]] : ['name' => $p, 'role' => null])->values()->all(),
             'logo'     => \App\Support\Logo::of($session->organization),
             'produced' => now()->format('j F Y, H:i'),
             'by'       => Auth::user()->name,
@@ -555,7 +558,7 @@ class SessionController extends Controller
         // Page numbers, once the pages are known.
         $pdf->render();
         $dompdf = $pdf->getDomPDF();
-        $dompdf->getCanvas()->page_text(496, 813, 'Page {PAGE_NUM} of {PAGE_COUNT}', $dompdf->getFontMetrics()->getFont('DejaVu Sans'), 6, [0.58, 0.64, 0.72]);
+        $dompdf->getCanvas()->page_text(496, 818, 'Page {PAGE_NUM} of {PAGE_COUNT}', $dompdf->getFontMetrics()->getFont('DejaVu Sans'), 6, [0.58, 0.64, 0.72]);
 
         return $pdf->download('full-report-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . ($session->date ?? $session->created_at)->format('Y-m-d') . '.pdf');
     }

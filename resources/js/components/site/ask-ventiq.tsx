@@ -1,4 +1,4 @@
-import { ArrowUp, FileText, Sparkles, X } from 'lucide-react';
+import { ArrowUp, FileText, PencilSparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -65,13 +65,14 @@ export function AskVentiq({ raised }: { raised: boolean }) {
                 aria-label={open ? 'Close Ask Ventiq' : 'Ask Ventiq'}
                 className={cn('fixed right-6 z-[55] flex size-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition-all hover:bg-action active:scale-95', raised ? 'bottom-20 sm:bottom-6' : 'bottom-6')}
             >
-                {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
+                {open ? <X className="size-5" /> : <PencilSparkles className="size-5" />}
             </button>
 
             {open && (
                 <div className={cn('fixed right-6 z-[55] flex h-[520px] max-h-[70vh] w-[calc(100vw-3rem)] max-w-sm flex-col overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-3', raised ? 'bottom-36 sm:bottom-24' : 'bottom-24')}>
                     <div className="flex shrink-0 items-center justify-between border-b px-5 py-4">
-                        <div>
+                        <div className="mr-3 grid size-9 shrink-0 place-items-center rounded-xl bg-lilac text-lilac-ink"><PencilSparkles className="size-4" /></div>
+                        <div className="min-w-0 flex-1">
                             <p className="text-[13px] font-black uppercase tracking-tight text-brand">Ask Ventiq</p>
                             <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">From your minutes, reports and action points</p>
                         </div>

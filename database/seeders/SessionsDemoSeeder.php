@@ -125,6 +125,9 @@ class SessionsDemoSeeder extends Seeder
     private function clean(): void
     {
         $orgs = Organization::whereIn('email', self::ORG_EMAILS)->pluck('id');
+        // Ask Ventiq conversations had in a demo (their messages go with them).
+        \App\Models\AssistConversation::whereIn('organization_id', $orgs)
+            ->orWhereIn('user_id', User::whereIn('email', self::USER_EMAILS)->pluck('id'))->delete();
         foreach ($orgs as $id) {
             Storage::disk('public')->deleteDirectory("signatures/programmes/{$id}");
             // Money records are kept from deletes by the app; a demo's go with it.

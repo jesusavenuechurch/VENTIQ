@@ -38,7 +38,6 @@ class LiveDemoSession
         ]],
         ['Stock report', 'Mamosa Qhobela', []],
         ['CHW recruitment for the Qacha road', 'Palesa Mokoena', []],
-        ['Any other business', 'Dr Lineo Ramoeletsi', []],
     ];
 
     /** Members and guests: [name, institution, position, how they checked in]. */

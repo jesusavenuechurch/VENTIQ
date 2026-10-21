@@ -126,3 +126,18 @@ it('makes the demo session happening now again, without doubling it', function (
     $this->actingAs(User::where('email', 'demo.admin@example.com')->sole())
         ->get(route('sessions.index'))->assertOk();
 });
+
+it("gives a meeting without check-in a register of those present, to sign", function () {
+    $meeting = Session::create(['organization_id' => $this->org->id, 'type' => 'meeting', 'title' => 'Ops', 'date' => '2026-10-20', 'status' => 'reported',
+        'meta' => ['chair' => 'Palesa Mokoena', 'secretary' => 'Thabo Lebona']]);
+    $meeting->segments()->create(['title' => 'Budget', 'presenter_name' => 'Mpho Sello', 'order' => 0, 'status' => 'completed', 'is_presenting' => true,
+        'ai_summary' => ['summary' => 'Discussed.', 'decisions' => 'None identified.']]);
+
+    $data = null;
+    \Illuminate\Support\Facades\View::composer('sessions.full-report-pdf', function ($view) use (&$data) { $data = $view->getData(); });
+    $this->get(route('sessions.report.full', $meeting))->assertOk();
+
+    expect($data['present'])->toBe([
+        ['name' => 'Palesa Mokoena', 'role' => 'Chair'], ['name' => 'Thabo Lebona', 'role' => 'Secretary'], ['name' => 'Mpho Sello', 'role' => null],
+    ])->and(view('sessions.full-report-pdf', $data)->render())->toContain('Attendance register')->toContain("Check-in wasn't on for this meeting");
+});

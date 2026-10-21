@@ -152,7 +152,7 @@ class SessionSegmentController extends Controller
             return response()->json(['category' => 'none']);
         }
 
-        $parsed = $this->parseTagResponse($result->content);
+        $parsed = SegmentInsightPrompt::parse($result->content);
 
         if ($parsed['category'] === 'none' || $parsed['text'] === '') {
             return response()->json(['category' => 'none']);
@@ -168,21 +168,6 @@ class SessionSegmentController extends Controller
         return response()->json($parsed);
     }
 
-    private function parseTagResponse(string $content): array
-    {
-        preg_match('/CATEGORY:\s*(\w+)/i', $content, $catMatch);
-        preg_match('/TEXT:\s*(.+)/i', $content, $textMatch);
-
-        $category = strtolower(trim($catMatch[1] ?? 'none'));
-        if (!in_array($category, ['theme', 'decision', 'action', 'question'])) {
-            $category = 'none';
-        }
-
-        return [
-            'category' => $category,
-            'text'     => trim($textMatch[1] ?? ''),
-        ];
-    }
 
     private function authorizeSegment(Session $session, SessionSegment $segment): void
     {

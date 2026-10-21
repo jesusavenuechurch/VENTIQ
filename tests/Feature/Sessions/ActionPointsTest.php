@@ -40,6 +40,11 @@ it("reads the model's answer, even wrapped in other text", function () {
     expect(ExtractActionPoints::matchOwner('Thabo Lebona', $owners)['user_id'])->toBe(1)
         ->and(ExtractActionPoints::matchOwner('Lineo', $owners)['user_id'])->toBe(3)
         ->and(ExtractActionPoints::matchOwner('Thabo', $owners))->toBeNull();   // two Thabos: don't guess
+
+    // Someone only named on the session: their full name from the first.
+    $named = array_merge($owners, [['name' => 'Teboho Mokhele'], ['name' => 'Teboho Mokhele']]);
+    expect(ExtractActionPoints::matchOwner('Teboho', $named))->toBe(['name' => 'Teboho Mokhele'])
+        ->and(ExtractActionPoints::matchOwner('Mpho', $named))->toBeNull();
 });
 
 it('proposes action points from the notes, with the owner and due date where it can', function () {

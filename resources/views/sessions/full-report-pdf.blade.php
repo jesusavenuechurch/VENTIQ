@@ -13,7 +13,7 @@
         'Summary and numbers',
         $minutes ? 'Minutes' : 'Report',
         'The notes it was written from',
-        $register ? 'Attendance register' : null,
+        'Attendance register',
     ]));
     $n = 0;
 @endphp
@@ -246,7 +246,24 @@
     </div>
 
     {{-- ── 4. Attendance register ───────────────────────────── --}}
-    @if ($register)
+    @if (!$register)
+        <div class="break">
+            <p class="eyebrow">{{ ++$n }}</p>
+            <h1 class="section">Attendance register</h1>
+            <p class="section-sub">Check-in wasn't on for this {{ strtolower($type) }}, so these are the people {{ $minutes ? 'the minutes record as present' : 'on the session' }}. Each signs to confirm they were there; add anyone missing below.</p>
+            <table class="register">
+                <thead><tr><th>#</th><th>Name</th><th>Role</th><th>Signature</th></tr></thead>
+                <tbody>
+                    @foreach ($present as $i => $person)
+                        <tr><td class="n">{{ $i + 1 }}</td><td><b>{{ $person['name'] }}</b></td><td>{{ $person['role'] }}</td><td class="sig" style="width: 160px;"></td></tr>
+                    @endforeach
+                    @for ($b = 0; $b < 4; $b++)
+                        <tr><td class="n">{{ count($present) + $b + 1 }}</td><td></td><td></td><td class="sig" style="width: 160px;"></td></tr>
+                    @endfor
+                </tbody>
+            </table>
+        </div>
+    @else
         <div class="break">
             <p class="eyebrow">{{ ++$n }}</p>
             <h1 class="section">Attendance register</h1>

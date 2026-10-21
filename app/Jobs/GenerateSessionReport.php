@@ -75,7 +75,7 @@ class GenerateSessionReport implements ShouldQueue
             }
 
             $succeeded++;
-            $parsed = $ai->parseSections($result->content);
+            $parsed = $ai->parseSections($result->content, array_keys($sectionsConfig));
 
             $summary = [];
             foreach (array_keys($sectionsConfig) as $key) {
@@ -122,7 +122,7 @@ class GenerateSessionReport implements ShouldQueue
                 $rollupResult = $ai->generate($rollupPrompt);
 
                 if ($rollupResult->success) {
-                    $parsedRollup = $ai->parseSections($rollupResult->content);
+                    $parsedRollup = $ai->parseSections($rollupResult->content, ['themes', 'recommendations']);
                     $overall['themes'] = $parsedRollup['themes'] ?? null;
                     $overall['recommendations'] = $parsedRollup['recommendations'] ?? null;
                 } else {
