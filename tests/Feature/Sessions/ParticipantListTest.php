@@ -51,7 +51,7 @@ it('lists one row per person with a column per day, and how each check-in was re
     $html = view('sessions.participant-list-pdf', ['list' => $list, 'blank' => 3])->render();
     expect($html)->toContain('Participant list: Nurses training')->toContain('Day 3')->toContain('Lineo Ramoeletsi')
         ->toContain('2 Self')->toContain('Produced 21 October 2026, 08:00 by Palesa Mokoena')
-        ->and(substr_count($html, '<tr>'))->toBe(1 + 2 + 3 + 1);   // header, people, blank rows, sign-off
+        ->and(substr_count($html, '<tr>'))->toBe(1 + 1 + 2 + 3 + 1);   // letterhead, header, people, blank rows, sign-off
 
     $response = $this->get(route('programmes.participants.pdf', $this->programme))->assertOk();
     expect($response->headers->get('content-disposition'))->toContain('participant-list-nurses-training.pdf');
@@ -85,4 +85,28 @@ it('marks a self check-in as self', function () {
     $one->update(['public_token' => 'tok123']);
     $this->post(route('public.session-checkin.submit', 'tok123'), ['full_name' => 'Nthabiseng Letsie', 'email' => 'ntha@example.com']);
     expect(Participant::where('session_id', $one->id)->value('source'))->toBe('self');
+});
+
+it("puts the organization's logo on its participant lists, minutes and reports", function () {
+    $im = imagecreatetruecolor(20, 10);
+    ob_start();
+    imagepng($im);
+    Storage::disk('public')->put('logos/moh.png', ob_get_clean());
+    $this->org->update(['logo_path' => 'logos/moh.png']);
+    $logo = \App\Support\Logo::of($this->org->fresh());
+    expect($logo)->toStartWith('data:image/png;base64,')
+        ->and(\App\Support\Logo::dataUri('logos/missing.png'))->toBeNull();
+
+    $day = ($this->day)('2026-10-19');
+    ($this->checkIn)($day, $this->mpho, '08:05', 'self');
+    $list = view('sessions.participant-list-pdf', ['list' => app(ParticipantList::class)->forSession($day), 'blank' => 0, 'logo' => $logo])->render();
+    $report = view('sessions.report-pdf', ['session' => $day->fresh(), 'logo' => $logo])->render();
+    expect($list)->toContain($logo)->toContain('Ministry of Health')
+        ->and($report)->toContain($logo);
+
+    // Without a logo: just the name.
+    expect(view('sessions.report-pdf', ['session' => $day->fresh(), 'logo' => null])->render())->not->toContain('<img')->toContain('Ministry of Health');
+
+    $this->get(route('sessions.checkin.pdf', $day))->assertOk();
+    $this->get(route('sessions.report.pdf', $day))->assertOk();
 });

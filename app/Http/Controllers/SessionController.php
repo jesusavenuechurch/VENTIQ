@@ -508,11 +508,11 @@ class SessionController extends Controller
         if (SessionType::takesMinutes($session->type) && $session->status === 'reported') {
             $minutes = app(\App\Services\Sessions\MinutesBuilder::class)->build($session);
 
-            return \PDF::loadView('sessions.minutes-pdf', ['minutes' => $minutes])->setPaper('a4', 'portrait')
+            return \PDF::loadView('sessions.minutes-pdf', ['minutes' => $minutes, 'logo' => \App\Support\Logo::of($session->organization)])->setPaper('a4', 'portrait')
                 ->download('minutes-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . $session->date->format('Y-m-d') . '.pdf');
         }
 
-        $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session])->setPaper('a4', 'portrait');
+        $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session, 'logo' => \App\Support\Logo::of($session->organization)])->setPaper('a4', 'portrait');
 
         return $pdf->download("ventiq-report-{$session->id}.pdf");
     }

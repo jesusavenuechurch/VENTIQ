@@ -31,7 +31,7 @@
 <body>
     <div class="foot">{{ $list['organization'] }} · {{ $list['title'] }} · Participant list produced by VENTIQ Sessions on {{ $list['generated'] }}</div>
 
-    @if ($list['organization'])<p class="org">{{ $list['organization'] }}</p>@endif
+    @include('sessions.partials.letterhead', ['logo' => $logo ?? null, 'name' => $list['organization']])
     <h1>Participant list: {{ $list['title'] }}</h1>
     <p class="sub">{{ $list['kind'] }}{{ $list['dates'] ? ' · ' . $list['dates'] : '' }}{{ $list['venue'] ? ' · ' . $list['venue'] : '' }}</p>
     <p class="facts">

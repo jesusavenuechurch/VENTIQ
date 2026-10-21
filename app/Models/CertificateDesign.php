@@ -7,7 +7,6 @@ use App\Support\Signature;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * How an organization's certificates look: a layout, the title and
@@ -150,14 +149,6 @@ class CertificateDesign extends Model
 
     private static function logo(?string $path): ?string
     {
-        if (!$path || !Storage::disk('public')->exists($path)) {
-            return null;
-        }
-        $mime = Storage::disk('public')->mimeType($path) ?: 'image/png';
-        if (!str_starts_with($mime, 'image/')) {
-            return null;
-        }
-
-        return "data:{$mime};base64," . base64_encode(Storage::disk('public')->get($path));
+        return \App\Support\Logo::dataUri($path);
     }
 }

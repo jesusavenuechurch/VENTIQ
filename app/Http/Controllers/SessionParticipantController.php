@@ -130,7 +130,7 @@ class SessionParticipantController extends Controller
 
         $list = $lists->forSession($session, Auth::user());
 
-        return \PDF::loadView('sessions.participant-list-pdf', ['list' => $list, 'blank' => self::blankRows($request)])
+        return \PDF::loadView('sessions.participant-list-pdf', ['list' => $list, 'blank' => self::blankRows($request), 'logo' => \App\Support\Logo::of($session->organization)])
             ->setPaper('a4', 'landscape')
             ->download('participant-list-' . \Illuminate\Support\Str::slug($session->resolved_title) . ($session->date ? '-' . $session->date->format('Y-m-d') : '') . '.pdf');
     }

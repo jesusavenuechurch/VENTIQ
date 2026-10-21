@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-    @if ($h['organization'])<p class="org">{{ $h['organization'] }}</p>@endif
+    @include('sessions.partials.letterhead', ['logo' => $logo ?? null, 'name' => $h['organization']])
     <h1>Minutes: {{ $h['title'] }}</h1>
     <p class="sub">{{ $h['type'] }} held on {{ $h['date'] }}{{ $h['time'] ? ' at ' . $h['time'] : '' }}{{ $h['venue'] ? ', ' . $h['venue'] : '' }}</p>
 

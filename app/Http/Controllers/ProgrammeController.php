@@ -140,6 +140,7 @@ class ProgrammeController extends Controller
         return \PDF::loadView('sessions.participant-list-pdf', [
             'list'  => $lists->forProgramme($programme, Auth::user()),
             'blank' => SessionParticipantController::blankRows($request),
+            'logo'  => \App\Support\Logo::of($programme->organization),
         ])->setPaper('a4', 'landscape')->download('participant-list-' . \Illuminate\Support\Str::slug($programme->name) . '.pdf');
     }
 
