@@ -48,11 +48,14 @@ class EnsureSessionsAccess
             'organization' => $organization->name,
             'needsReview'  => Session::forOrganization($organization->id)->where('status', 'reported')->whereNull('reviewed_at')->count(),
             'overdueActions' => \App\Models\ActionPoint::where('organization_id', $organization->id)->where('status', 'open')->whereDate('due_date', '<', today())->count(),
-            'quota'        => [
-                'used'      => $this->quota->currentPlan($organization)->sessions_used,
-                'included'  => $this->quota->currentPlan($organization)->sessions_included,
-                'remaining' => $this->quota->remainingSessions($organization),
-            ],
+            'quota'        => $this->quota->isCorporate($organization)
+                ? ['used' => app(\App\Services\Sessions\CorporateBilling::class)->monthToDate($organization)['held'], 'included' => null, 'remaining' => 9999, 'corporate' => true]
+                : [
+                    'used'      => $this->quota->currentPlan($organization)->sessions_used,
+                    'included'  => $this->quota->currentPlan($organization)->sessions_included,
+                    'remaining' => $this->quota->remainingSessions($organization),
+                    'corporate' => false,
+                ],
         ]);
 
         return $next($request);

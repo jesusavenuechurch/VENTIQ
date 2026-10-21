@@ -306,6 +306,9 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::get('/{session}/participants/{participant}/card', [SessionParticipantController::class, 'card'])->name('checkin.card');
 });
 
+// A corporate Sessions invoice: the organization's own (Plan) or any, for super admins.
+Route::get('/billing/invoices/{invoice}/pdf', [App\Http\Controllers\SessionInvoiceController::class, 'download'])->middleware('auth')->name('sessions.invoices.pdf');
+
 Route::get('/join', [PublicSessionCheckinController::class, 'join'])->name('public.session-join');
 Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
@@ -381,6 +384,13 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->g
     Route::post('/tier-templates/{tier_template}/duplicate', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'duplicate'])->name('tier-templates.duplicate');
     Route::get('/payouts', [App\Http\Controllers\Ventiq\PayoutsController::class, 'index'])->name('payouts.index');
     Route::get('/session-plans', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'index'])->name('session-plans.index');
+    Route::get('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'index'])->name('corporate.index');
+    Route::post('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'store'])->name('corporate.store');
+    Route::post('/corporate-rates/{agreement}/end', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'end'])->name('corporate.end');
+    Route::post('/corporate-rates/invoice', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'invoice'])->name('corporate.invoice');
+    Route::post('/corporate-invoices/{invoice}/khoebo', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'khoebo'])->name('corporate.khoebo');
+    Route::post('/corporate-invoices/{invoice}/resend', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'resend'])->middleware('throttle:10,1')->name('corporate.resend');
+    Route::post('/corporate-invoices/{invoice}/pay', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'pay'])->name('corporate.pay');
     Route::post('/session-plans/plan', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'changePlan'])->name('session-plans.plan');
     Route::post('/session-plans/payg', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'addPayg'])->name('session-plans.payg');
     Route::delete('/session-plans/{sessionPlan}', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'destroy'])->name('session-plans.destroy');

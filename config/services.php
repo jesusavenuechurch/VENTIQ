@@ -92,6 +92,12 @@ return [
                 'type'       => 'service',
                 'sale_price' => 0, // set on each order: 4.9% of that event's sales
             ],
+            'session' => [
+                'name'       => 'VENTIQ Sessions: session held',
+                'sku'        => 'VQ-SESSION',
+                'type'       => 'service',
+                'sale_price' => 0, // each corporate organization's agreed rate, on its invoice
+            ],
         ],
     ],
 

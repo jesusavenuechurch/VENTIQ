@@ -46,6 +46,25 @@ class SessionPlanController extends Controller
                 'date'     => $p->created_at->format('d M Y'),
             ]),
             'support' => config('ventiq.emails.support'),
+            // A corporate rate agreed with VENTIQ, instead of the plans.
+            'corporate' => ($agreement = app(\App\Services\Sessions\CorporateBilling::class)->agreement($organization)) ? [
+                'rate'     => (float) $agreement->rate,
+                'free'     => $agreement->free_per_month,
+                'since'    => $agreement->starts_on->format('j M Y'),
+                'month'    => app(\App\Services\Sessions\CorporateBilling::class)->monthToDate($organization),
+                'invoiced' => now()->addMonthNoOverflow()->startOfMonth()->format('j M'),
+            ] : null,
+            'invoices' => \App\Models\SessionInvoice::where('organization_id', $organization->id)->latest()->limit(24)->get()->map(fn ($i) => [
+                'id'          => $i->id,
+                'number'      => $i->number,
+                'period'      => $i->periodLabel(),
+                'sessions'    => $i->sessions_count,
+                'total'       => (float) $i->total,
+                'outstanding' => $i->outstanding(),
+                'status'      => $i->isOverdue() ? 'overdue' : $i->status,
+                'due'         => $i->due_date->format('j M Y'),
+                'pdf'         => route('sessions.invoices.pdf', $i),
+            ]),
             'meta'    => ['title' => 'Sessions plan | VENTIQ'],
         ]);
     }

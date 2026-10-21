@@ -155,3 +155,26 @@ each question the app finds the relevant ones and sends them with it
   by hand, a single fixed design (`certificates/certificate.blade.php`).
 - Ventiq Assist chat (`App\Services\Assist\AssistChat`), which today
   answers about how to use VENTIQ, not from an organization's records.
+
+## Paying for Sessions
+
+- **Plans** (the organization buys them on Plan, paid through Pay Lesotho):
+  Free, 1 session a month; Team, 3 for M500; Business, 6 for M1,200
+  (Programmes). Pay-as-you-go sessions on top (1 for M150, 3 for M400,
+  less each from 4). A session counts when it starts.
+- **Corporate rates** (agreed with VENTIQ, set by a super admin on
+  Corporate rates): a price per session and a number free each month (1
+  by default). The organization is never stopped by a quota. Each session
+  is priced when it starts (`capture_sessions.charge`); on the 1st at
+  06:10 `sessions:invoice` puts last month's on one invoice
+  (`session_invoices`, VQS-2026-0001), raised in Khoebo (product
+  VQ-SESSION, one line per session billed) and emailed with the PDF to the
+  billing email and the organization's Admins, due in 14 days. A month of
+  only free sessions isn't invoiced. If Khoebo is down the invoice still
+  goes out and can be raised in Khoebo later. Payments are recorded by a
+  super admin, in Khoebo too. Ending a rate puts the organization back on
+  its plan; sessions already held are still invoiced.
+- Set `VENTIQ_INVOICE_PAYMENT_INSTRUCTIONS` (bank account, mobile money
+  number) for the "How to pay" box, and run `php artisan khoebo:products`
+  once on each Khoebo to make VQ-SESSION.
+

@@ -55,5 +55,6 @@ export interface SessionsArea {
     overdueActions: number;
     /** An Admin allowed them to sign certificates. */
     canSign: boolean;
-    quota: { used: number; included: number; remaining: number };
+    /** On a corporate rate there's no included number: sessions are invoiced monthly. */
+    quota: { used: number; included: number | null; remaining: number; corporate: boolean };
 }

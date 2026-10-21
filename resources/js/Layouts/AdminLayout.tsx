@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeftRight, Banknote, BriefcaseBusiness, Building2, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BriefcaseBusiness, Building2, Handshake, CalendarDays, Contact, Inbox, LayoutTemplate, type LucideIcon, Smartphone, Tags, Ticket, UsersRound, Video } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { useActiveInView, useAreaTabs } from '@/components/area-tabs';
 import { Alert } from '@/components/ui/alert';
@@ -24,6 +24,7 @@ const SECTIONS: Section[] = [
     { route: 'ventiq.agents.index', label: 'Agents', icon: BriefcaseBusiness, active: ['ventiq.agents.*'] },
     { route: 'ventiq.inbox.index', label: 'Inbox', icon: Inbox, active: ['ventiq.inbox.*'] },
     { route: 'ventiq.session-plans.index', label: 'Session plans', icon: Video, active: ['ventiq.session-plans.*'] },
+    { route: 'ventiq.corporate.index', label: 'Corporate rates', icon: Handshake, active: ['ventiq.corporate.*'] },
     { route: 'ventiq.tiers.index', label: 'Ticket types', icon: Tags, active: ['ventiq.tiers.*'] },
     { route: 'ventiq.clients.index', label: 'Clients', icon: Contact, active: ['ventiq.clients.*'] },
     { route: 'ventiq.tier-templates.index', label: 'Tier templates', icon: LayoutTemplate, active: ['ventiq.tier-templates.*'] },

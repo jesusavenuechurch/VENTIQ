@@ -307,6 +307,10 @@ class SessionController extends Controller
             }
             $this->quota->consumeSession($organization);
             $session->update(['counted_at' => now()]);
+            $billing = app(\App\Services\Sessions\CorporateBilling::class);
+            if ($agreement = $billing->agreement($organization)) {
+                $billing->charge($session, $agreement);
+            }
         }
 
         $session->start();

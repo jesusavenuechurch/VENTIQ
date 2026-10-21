@@ -33,3 +33,5 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('sessions:issue-certificates')->dailyAt('18:50')->withoutOverlapping();
 // Ask Ventiq: embed passages that waited for the Mac mini.
 \Illuminate\Support\Facades\Schedule::command('sessions:index-memory')->hourlyAt(17)->withoutOverlapping();
+// Corporate Sessions invoices for last month, on the 1st.
+\Illuminate\Support\Facades\Schedule::command('sessions:invoice')->monthlyOn(1, '06:10')->withoutOverlapping();

@@ -27,6 +27,8 @@ class Session extends Model
         'parent_session_id',
         'series_id',
         'counted_at',
+        'charge',
+        'session_invoice_id',
         'type',
         'title',
         'date',
@@ -48,6 +50,7 @@ class Session extends Model
         'report_last_opened_at'  => 'datetime',
         'reviewed_at'            => 'datetime',
         'counted_at'             => 'datetime',
+        'charge'                 => 'decimal:2',
     ];
 
     protected static function booted(): void

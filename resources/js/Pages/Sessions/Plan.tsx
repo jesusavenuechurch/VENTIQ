@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Check, Mail, Plus } from 'lucide-react';
+import { Check, Download, Mail, Plus } from 'lucide-react';
 import { useState } from 'react';
 import SessionsLayout, { field, primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { cn, money } from '@/lib/utils';
@@ -10,12 +10,93 @@ interface Props {
     payg: { quantity: number; price: number }[];
     history: { id: number; label: string; status: string; sessions: string; paid: number; date: string }[];
     support: string;
+    /** A corporate rate agreed with VENTIQ: sessions invoiced monthly, no plan to buy. */
+    corporate: { rate: number; free: number; since: string; month: { held: number; free: number; owed: number }; invoiced: string } | null;
+    invoices: Invoice[];
+}
+
+interface Invoice {
+    id: number;
+    number: string;
+    period: string;
+    sessions: number;
+    total: number;
+    outstanding: number;
+    status: 'unpaid' | 'paid' | 'overdue' | 'void';
+    due: string;
+    pdf: string;
+}
+
+const INVOICE_STATUS: Record<string, [string, string]> = {
+    unpaid: ['To pay', 'bg-amber-50 text-amber-700'],
+    overdue: ['Overdue', 'bg-rose-50 text-rose-600'],
+    paid: ['Paid', 'bg-mint text-mint-ink'],
+    void: ['Cancelled', 'bg-gray-100 text-gray-400'],
+};
+
+function Invoices({ invoices }: { invoices: Invoice[] }) {
+    if (invoices.length === 0) return null;
+
+    return (
+        <>
+            <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Invoices</h2>
+            <div className="mb-10 overflow-x-auto rounded-2xl border border-gray-100 bg-white">
+                <table className="w-full min-w-[520px] text-left text-[12px]">
+                    <thead className="bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <tr><th className="px-5 py-3">Invoice</th><th className="px-5 py-3">Month</th><th className="px-5 py-3">Sessions</th><th className="px-5 py-3">Due</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Amount</th><th className="px-5 py-3" /></tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                        {invoices.map((i) => {
+                            const [label, tone] = INVOICE_STATUS[i.status] ?? [i.status, 'bg-gray-100 text-gray-500'];
+                            return (
+                                <tr key={i.id}>
+                                    <td className="px-5 py-3 font-bold text-brand">{i.number}</td>
+                                    <td className="px-5 py-3 text-gray-600">{i.period}</td>
+                                    <td className="px-5 py-3 text-gray-600">{i.sessions}</td>
+                                    <td className="px-5 py-3 text-gray-600">{i.due}</td>
+                                    <td className="px-5 py-3"><span className={cn('rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest', tone)}>{label}</span></td>
+                                    <td className="px-5 py-3 text-right font-bold text-brand">{money(i.total)}{i.status !== 'paid' && i.outstanding < i.total && <span className="block text-[10px] font-medium text-gray-400">{money(i.outstanding)} left</span>}</td>
+                                    <td className="px-5 py-3 text-right"><a href={i.pdf} className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-brand hover:text-action"><Download className="size-3" />PDF</a></td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </>
+    );
 }
 
 /** This month's sessions, a bigger plan, or more sessions as you go. */
-export default function Plan({ plan, tiers, payg, history, support }: Props) {
+export default function Plan({ plan, tiers, payg, history, support, corporate, invoices }: Props) {
     const [custom, setCustom] = useState('');
     const pct = (used: number, included: number) => (included > 0 ? Math.min(100, Math.round((used / included) * 100)) : 100);
+
+    if (corporate) {
+        return (
+            <SessionsLayout title="Your Sessions plan" subtitle={`Corporate rate, agreed with VENTIQ since ${corporate.since}`} width="max-w-4xl">
+                <div className="mb-10 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-brand bg-white p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your rate</p>
+                        <p className="mt-2 text-2xl font-black text-brand">{money(corporate.rate)}<span className="text-[12px] text-gray-400"> a session</span></p>
+                        <p className="mt-2 text-[11px] text-gray-400">{corporate.free > 0 ? `The first ${corporate.free === 1 ? 'session' : `${corporate.free} sessions`} each month free.` : 'Every session is billed.'} No limit on how many you hold.</p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sessions this month</p>
+                        <p className="mt-2 text-2xl font-black text-brand">{corporate.month.held}</p>
+                        <p className="mt-2 text-[11px] text-gray-400">{corporate.month.free} free so far. A session counts when it starts.</p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Owed so far</p>
+                        <p className="mt-2 text-2xl font-black text-brand">{money(corporate.month.owed)}</p>
+                        <p className="mt-2 text-[11px] text-gray-400">Invoiced on {corporate.invoiced}, by email to your billing contact and Admins.</p>
+                    </div>
+                </div>
+                <Invoices invoices={invoices} />
+                <p className="text-[12px] text-gray-500">To change your rate or billing contact: <a href={`mailto:${support}`} className="font-bold text-brand underline"><Mail className="mr-0.5 inline size-3" />{support}</a></p>
+            </SessionsLayout>
+        );
+    }
 
     return (
         <SessionsLayout title="Your Sessions plan" subtitle={plan.renews ? `${plan.label} plan · starts again ${plan.renews}` : `${plan.label} plan`} width="max-w-4xl">
@@ -34,6 +115,8 @@ export default function Plan({ plan, tiers, payg, history, support }: Props) {
                 </div>
             </div>
 
+            <Invoices invoices={invoices} />
+
             <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Plans</h2>
             <div className="mb-3 grid gap-4 sm:grid-cols-2">
                 {tiers.map((t) => (
@@ -49,7 +132,7 @@ export default function Plan({ plan, tiers, payg, history, support }: Props) {
                     </div>
                 ))}
             </div>
-            <p className="mb-10 text-[12px] text-gray-500">Need more than Business? Enterprise is agreed per organization: <a href={`mailto:${support}`} className="font-bold text-brand underline"><Mail className="mr-0.5 inline size-3" />{support}</a></p>
+            <p className="mb-10 text-[12px] text-gray-500">Need more than Business? A corporate rate per session, invoiced monthly, can be agreed with us: <a href={`mailto:${support}`} className="font-bold text-brand underline"><Mail className="mr-0.5 inline size-3" />{support}</a></p>
 
             <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Add sessions as you go</h2>
             <div className="mb-10 rounded-2xl border border-gray-100 bg-white p-5">

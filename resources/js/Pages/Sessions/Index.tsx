@@ -78,7 +78,7 @@ export default function Index({ columns, filter, members, pendingInvites, series
                 <>
                     {can.run && <button type="button" onClick={() => schedule(true)} className={primaryButton}><Sparkles className="size-4" />Schedule a session</button>}
                     <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
-                    {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.used}/{sessionsArea.quota.included} sessions</AppLink>}
+                    {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.corporate ? `${sessionsArea.quota.used} this month` : `${sessionsArea.quota.used}/${sessionsArea.quota.included} sessions`}</AppLink>}
                     {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}
                 </>
             }
