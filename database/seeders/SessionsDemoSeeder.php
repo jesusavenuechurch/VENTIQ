@@ -49,6 +49,8 @@ use Illuminate\Support\Str;
  * - Maluti Community Health Trust, an NGO on a corporate rate, with a
  *   team of four (Admin, Staff, a Viewer who signs certificates, a Door
  *   scanner).
+ *   One of its sessions is happening now: run `php artisan
+ *   sessions:demo-live` before a demo to start it 25 minutes ago again.
  * - Thaba Bosiu Youth Network, on the Team plan with its sessions used
  *   up and one pay-as-you-go session left.
  *
@@ -61,7 +63,9 @@ class SessionsDemoSeeder extends Seeder
 {
     public const PASSWORD = 'Demo-Pass-2026';
 
-    private const ORG_EMAILS = ['office@maluti-health.example.org', 'hello@thababosiu-youth.example.org'];
+    public const TRUST_EMAIL = 'office@maluti-health.example.org';
+
+    private const ORG_EMAILS = [self::TRUST_EMAIL, 'hello@thababosiu-youth.example.org'];
 
     private const USER_EMAILS = [
         'demo.admin@example.com', 'demo.staff@example.com', 'demo.viewer@example.com',
@@ -108,6 +112,8 @@ class SessionsDemoSeeder extends Seeder
         $this->refresher();
         $this->partnersForum();
         $this->corporateBilling();
+        // Happening now; `php artisan sessions:demo-live` makes it now again.
+        Demo\LiveDemoSession::make($this->org, $this->team['thabo']);
         $this->youthNetwork();
         $this->remember();
 
@@ -366,7 +372,7 @@ class SessionsDemoSeeder extends Seeder
         ];
 
         $days = collect([0, 1, 2])->map(fn ($d) => $this->at($first->copy()->addDays($d)->setTime(7, 0), fn () => app(SessionMaker::class)->make($this->org, $this->team['thabo'], [
-            'title' => 'Community Health Worker Training, Mafeteng', 'type' => 'training', 'date' => $first->copy()->addDays($d)->toDateString(), 'start_time' => '08:30',
+            'title' => 'Community Health Worker Training, Mafeteng', 'type' => 'training', 'date' => $first->copy()->addDays($d)->toDateString(), 'start_time' => '08:30', 'expected_duration' => 300,
             'track_participants' => true, 'expected_participants' => 24, 'location' => 'Mafeteng Community Hall', 'programme_id' => $programme->id,
             'people' => collect($modules[$d])->map(fn ($m) => ['title' => $m[0], 'name' => $m[1], 'role' => 'facilitator'])->all(),
         ])));
@@ -581,6 +587,7 @@ class SessionsDemoSeeder extends Seeder
             ['demo.ventiq@example.com', 'VENTIQ super admin', 'Corporate rates and invoices'],
         ]);
         $c->line('Ask Ventiq, for example: "Why did we buy a second vehicle?", "What is still open for Teboho?", "What did we decide about fuel?"');
+        $c->line('Live now: "' . Demo\LiveDemoSession::TITLE . '". Before a demo, `php artisan sessions:demo-live` starts it 25 minutes ago again.');
         $c->line('Embeddings: run `php artisan sessions:index-memory` with the Mac mini on (answers work on keywords without it).');
     }
 
@@ -645,7 +652,7 @@ class SessionsDemoSeeder extends Seeder
     private function tracked(string $title, string $type, Carbon $date, string $time, array $items, int $expected, string $pointsKey): Session
     {
         $session = $this->at($date->copy()->subDays(5)->setTime(10, 0), fn () => app(SessionMaker::class)->make($this->org, $this->team['thabo'], [
-            'title' => $title, 'type' => $type, 'date' => $date->toDateString(), 'start_time' => $time, 'track_participants' => true,
+            'title' => $title, 'type' => $type, 'date' => $date->toDateString(), 'start_time' => $time, 'track_participants' => true, 'expected_duration' => 120,
             'expected_participants' => $expected, 'location' => $type === 'workshop' ? 'Mafeteng Community Hall' : 'Boardroom, Maseru office',
             'people' => collect($items)->map(fn ($i) => ['title' => $i[0], 'name' => $i[1], 'role' => $type === 'workshop' ? 'facilitator' : 'presenter'])->all(),
         ]));
@@ -664,7 +671,7 @@ class SessionsDemoSeeder extends Seeder
         foreach ($people as $i => $p) {
             $participant = Participant::create([
                 'organization_id' => $this->org->id, 'event_id' => $session->event_id, 'session_id' => $session->id, 'client_id' => $this->client($p[0])->id,
-                'source' => $sources[$i % count($sources)], 'attended_at' => $session->date->copy()->setTimeFromTimeString($session->start_time)->subMinutes(15 - $i),
+                'source' => $sources[$i % count($sources)], 'attended_at' => $session->date->copy()->setTimeFromTimeString($session->start_time)->subMinutes(24)->addMinutes($i * 3 + $i % 2),
                 'institution' => $p[1], 'position' => $p[2], 'district' => $p[3], 'signature_status' => 'pending',
             ]);
             if ($i % 4 === 3) {
@@ -672,6 +679,8 @@ class SessionsDemoSeeder extends Seeder
                 $participant->update(['source' => 'scanner']);
             }
         }
+        // Written once they were in, so the report counts them.
+        $session->forceFill(['session_report' => $this->writeUp($session->fresh())])->save();
     }
 
     private function client(string $name): Client

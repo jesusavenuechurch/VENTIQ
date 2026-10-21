@@ -1,25 +1,29 @@
 import { Link, router, usePage, usePoll } from '@inertiajs/react';
-import { Check, ChevronDown, Download, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, Download, FileText, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
 import { Minutes, type MinutesData } from '@/components/sessions/minutes';
+import { SessionNumbers, type SessionNumbersData } from '@/components/sessions/numbers';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
 
 interface Props {
     session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean; takesMinutes: boolean };
-    segments: { id: number; name: string; role: string | null; summary: string | null; logs: { time: string; text: string }[] }[];
+    segments: { id: number; name: string; role: string | null; summary: string | null; topic: string | null; logs: { time: string; text: string }[] }[];
     actionPoints: ActionPointCard[];
     carried: ActionPointCard[];
     owners: Owner[];
     /** A meeting's report is its minutes. */
     minutes: MinutesData | null;
+    numbers: SessionNumbersData | null;
 }
 
+type Tab = 'report' | 'numbers';
+
 /** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
-export default function Report({ session, segments, actionPoints, carried, owners, minutes }: Props) {
+export default function Report({ session, segments, actionPoints, carried, owners, minutes, numbers }: Props) {
     // Writing the report, then picking out its action points: checked every few seconds.
     const generating = (session.status === 'completed' && !session.failed) || session.findingActions;
     // Viewers read the report; Admins and Staff edit and review it.
@@ -30,6 +34,19 @@ export default function Report({ session, segments, actionPoints, carried, owner
     const [saving, setSaving] = useState(false);
     const [justSaved, setJustSaved] = useState(false);
     const [error, setError] = useState('');
+    // The tab, kept in the address so a refresh or a shared link opens it.
+    const [tab, setTab] = useState<Tab>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'numbers' ? 'numbers' : 'report'));
+    function show(next: Tab) {
+        setTab(next);
+        const url = new URL(window.location.href);
+        if (next === 'numbers') url.searchParams.set('tab', 'numbers');
+        else url.searchParams.delete('tab');
+        window.history.replaceState(window.history.state, '', url);
+    }
+    // What was said, a line an item: the minutes as they stand, or each part's write-up.
+    const summary = minutes
+        ? minutes.items.map((i) => ({ label: i.title, text: i.discussion }))
+        : segments.map((s) => ({ label: s.topic || s.name, text: s.summary }));
 
     // While the report is being written, check every few seconds.
     const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints', 'minutes'] }, { autoStart: generating });
@@ -80,6 +97,21 @@ export default function Report({ session, segments, actionPoints, carried, owner
                     </div>
                 )
             ) : (
+                <>
+                <div role="tablist" aria-label="Report views" className="mb-6 flex flex-wrap items-center gap-2">
+                    {([['report', session.takesMinutes ? 'Minutes' : 'Report', FileText], ['numbers', 'Summary and numbers', BarChart3]] as const).map(([key, label, Icon]) => (
+                        <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => show(key)}
+                            className={cn(quietButton, tab === key && 'border-brand bg-brand text-white hover:text-white')}>
+                            <Icon className="size-3.5" />{label}
+                        </button>
+                    ))}
+                    <a href={route('sessions.report.full', session.id)} className={cn(quietButton, 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
+                        <Download className="size-3.5" />Full report
+                    </a>
+                </div>
+                {tab === 'numbers' && numbers ? (
+                    <SessionNumbers numbers={numbers} summary={summary} minuted={session.takesMinutes} />
+                ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     <div className="lg:col-span-2">
                     {minutes ? (
@@ -161,6 +193,8 @@ export default function Report({ session, segments, actionPoints, carried, owner
                         </div>
                     </div>
                 </div>
+                )}
+                </>
             )}
         </SessionsLayout>
     );

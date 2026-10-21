@@ -290,6 +290,7 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::patch('/{session}/report', [SessionController::class, 'updateReport'])->name('report.update');
     Route::patch('/{session}/minutes', [SessionController::class, 'updateMinutes'])->name('minutes.update');
     Route::get('/{session}/report/pdf', [SessionController::class, 'reportPdf'])->name('report.pdf');
+    Route::get('/{session}/report/full', [SessionController::class, 'fullReport'])->name('report.full');
     Route::get('/{session}/report/status', [SessionController::class, 'reportStatus'])->name('report.status');
     Route::post('/{session}/report/generate', [SessionController::class, 'generateReport'])->name('report.generate');
     Route::get('/{session}/checkin', [SessionParticipantController::class, 'index'])->name('checkin');

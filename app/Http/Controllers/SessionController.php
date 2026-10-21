@@ -367,6 +367,7 @@ class SessionController extends Controller
                 'name'    => SessionType::takesMinutes($session->type) ? ($s->title ?: $s->presenter_name) : $s->presenter_name,
                 'role'    => SessionType::takesMinutes($session->type) ? ($s->lead() ? "Led by {$s->lead()}" : null) : $s->role,
                 'summary' => $s->ai_summary['summary'] ?? null,
+                'topic'   => $s->title,
                 'logs'    => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
             ])->values(),
             // What was agreed here, and what came in still open from the
@@ -378,6 +379,8 @@ class SessionController extends Controller
             'minutes'      => SessionType::takesMinutes($session->type) && $session->status === 'reported'
                 ? app(\App\Services\Sessions\MinutesBuilder::class)->build($session)
                 : null,
+            // The Summary and numbers tab.
+            'numbers'      => $session->status === 'reported' ? app(\App\Services\Sessions\SessionNumbers::class)->for($session) : null,
             'meta' => ['title' => "{$session->resolved_title}: " . (SessionType::takesMinutes($session->type) ? 'minutes' : 'report') . ' | VENTIQ Sessions'],
         ])->withViewData(['noindex' => true]);
     }
@@ -519,6 +522,42 @@ class SessionController extends Controller
         $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session, 'logo' => \App\Support\Logo::of($session->organization)])->setPaper('a4', 'portrait');
 
         return $pdf->download("ventiq-report-{$session->id}.pdf");
+    }
+
+    /**
+     * The full report, in one PDF: a cover, the summary and numbers, the
+     * report (a meeting's minutes), the notes it was written from, and
+     * the attendance register. For a funder, a board or the file.
+     */
+    public function fullReport(Session $session, \App\Services\Sessions\SessionNumbers $numbers, \App\Services\Sessions\ParticipantList $lists)
+    {
+        abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($session->status === 'reported', 404);
+
+        $session->load(['segments', 'organization', 'creator', 'event']);
+        $minuted = SessionType::takesMinutes($session->type);
+        $minutes = $minuted ? app(\App\Services\Sessions\MinutesBuilder::class)->build($session) : null;
+
+        $pdf = \PDF::loadView('sessions.full-report-pdf', [
+            'session'  => $session,
+            'type'     => $session->type === 'custom' && !empty($session->meta['custom_type_label']) ? $session->meta['custom_type_label'] : SessionType::label($session->type),
+            'numbers'  => $numbers->for($session),
+            'minutes'  => $minutes,
+            'summary'  => $minuted
+                ? collect($minutes['items'])->map(fn ($i) => ['label' => $i['title'], 'text' => $i['discussion']])->all()
+                : $session->segments->where('is_presenting', true)->map(fn ($s) => ['label' => $s->title ?: $s->presenter_name, 'text' => $s->ai_summary['summary'] ?? null])->values()->all(),
+            'items'    => $session->segments->where('is_presenting', true)->sortBy('order')->values(),
+            'register' => $session->event_id ? $lists->forSession($session, Auth::user()) : null,
+            'logo'     => \App\Support\Logo::of($session->organization),
+            'produced' => now()->format('j F Y, H:i'),
+            'by'       => Auth::user()->name,
+        ])->setPaper('a4', 'portrait');
+        // Page numbers, once the pages are known.
+        $pdf->render();
+        $dompdf = $pdf->getDomPDF();
+        $dompdf->getCanvas()->page_text(496, 813, 'Page {PAGE_NUM} of {PAGE_COUNT}', $dompdf->getFontMetrics()->getFont('DejaVu Sans'), 6, [0.58, 0.64, 0.72]);
+
+        return $pdf->download('full-report-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . ($session->date ?? $session->created_at)->format('Y-m-d') . '.pdf');
     }
 
     /** In a series: the action points carried into this meeting (see ActionPoint::carriedInto()). */
