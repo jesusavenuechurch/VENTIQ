@@ -24,7 +24,7 @@ beforeEach(function () {
 it('asks gpt-oss to think little for a sticky note, and lets it think for the rest', function () {
     ($this->ask)((new SegmentInsightPrompt)->with(['line' => 'agreed to buy the Toyota']));
     expect(($this->sent)()['think'])->toBe('low')->and(($this->sent)()['model'])->toBe('gpt-oss:20b')
-        ->and(($this->sent)()['options']['num_ctx'])->toBe(16384);
+        ->and(($this->sent)()['options']['num_ctx'])->toBe(16384)->and(($this->sent)()['keep_alive'])->toBe('24h');
 
     ($this->ask)((new MemoryAnswerPrompt)->with(['question' => 'Why?', 'sources' => '', 'facts' => '', 'organization' => 'X', 'today' => 'today']));
     expect(($this->sent)()->data())->not->toHaveKey('think');

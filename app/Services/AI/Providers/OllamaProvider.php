@@ -31,6 +31,8 @@ class OllamaProvider implements AIProvider
                     'model'  => $model,
                     'prompt' => $prompt,
                     'stream' => false,
+                    // Kept loaded between calls: reloading 14 GB makes the first sticky note of a meeting wait.
+                    'keep_alive' => config('ai.ollama.keep_alive') ?: null,
                     // Only to a model that reasons first; others refuse it.
                     'think'  => !empty($options['think']) && self::thinks($model) ? $options['think'] : null,
                     'options' => array_filter([

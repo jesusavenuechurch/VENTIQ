@@ -35,7 +35,7 @@ class Embedder
 
         try {
             $response = Http::timeout((int) config('ai.ollama.embed_timeout', 60))
-                ->post(rtrim(config('ai.ollama.url'), '/') . '/api/embed', ['model' => $this->model(), 'input' => array_values($texts)]);
+                ->post(rtrim(config('ai.ollama.url'), '/') . '/api/embed', array_filter(['model' => $this->model(), 'input' => array_values($texts), 'keep_alive' => config('ai.ollama.keep_alive') ?: null]));
             $vectors = $response->successful() ? $response->json('embeddings') : null;
 
             return is_array($vectors) && count($vectors) === count($texts) ? $vectors : null;

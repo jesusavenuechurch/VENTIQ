@@ -14,6 +14,8 @@ return [
         // How much prompt the model may take (tokens). Ollama's default is small and
         // drops the start of a longer prompt: 16384 suits Ask Ventiq and long meetings.
         'num_ctx'     => env('OLLAMA_NUM_CTX', 16384),
+        // How long Ollama keeps a model loaded after a call (Ollama's own default is 5m; -1 is always).
+        'keep_alive'  => env('OLLAMA_KEEP_ALIVE', '24h'),
         // Whether the model takes a thinking level (low/medium/high). Unset: gpt-oss does.
         'thinking'    => env('OLLAMA_THINKING'),
         // For Ask Ventiq's search: run `ollama pull nomic-embed-text` on the Mac mini.

@@ -22,7 +22,7 @@ class SegmentSummaryPrompt extends PromptBuilder
             $leadLine = $lead ? "Led by: {$lead}\n" : '';
 
             $intro = <<<INTRO
-You are writing the minutes of one agenda item from a meeting. The notes below were typed live by the secretary while it was discussed; they may be fragmented, shorthand, or incomplete. Write as minutes are written: formal, past tense, third person. Record only what the notes say; don't invent names, figures or decisions.
+You are writing the minutes of one agenda item from a meeting. The notes below were typed live by the secretary while it was discussed; they may be fragmented, shorthand, or incomplete. Write as minutes are written: formal, past tense, third person. Record only what the notes say; don't invent names, figures or decisions. Whoever led the item reported on it: refer to them by name, and give no one a title (Chairperson, Director…) the notes don't give them. Keep each figure with what it counts.
 
 Agenda item: {$topic}
 {$leadLine}

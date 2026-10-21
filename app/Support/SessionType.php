@@ -25,7 +25,7 @@ class SessionType
                 'secretary'   => ['label' => 'Secretary',   'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "Ms Mokoena reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed, with an owner if mentioned. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Anything left unresolved. One per line starting with "•".'],
@@ -97,7 +97,7 @@ class SessionType
                 'board_member'=> ['label' => 'Board Member', 'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "Ms Mokoena reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed, with owner if mentioned. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Unresolved items. One per line starting with "•".'],
@@ -110,7 +110,7 @@ class SessionType
                 'secretary'   => ['label' => 'Secretary',   'presenting' => false],
             ],
             'sections' => [
-                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "The Chairperson reported that…; members noted…"'],
+                'summary'      => ['label' => 'Discussion',   'prompt' => 'A formal minutes-style account of the discussion: past tense, third person, 2-5 sentences, naming people where the notes do. E.g. "Ms Mokoena reported that…; members noted…"'],
                 'decisions'    => ['label' => 'Decisions',    'prompt' => 'Decisions made. One per line starting with "•".'],
                 'action_items' => ['label' => 'Action Items', 'prompt' => 'Tasks agreed. One per line starting with "•".'],
                 'follow_ups'   => ['label' => 'Follow-ups',   'prompt' => 'Unresolved items. One per line starting with "•".'],
