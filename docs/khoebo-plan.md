@@ -111,12 +111,31 @@ expecting?".
   balance invoice; fewer than prepaid is not refunded. A fully paid
   invoice marks its fees paid, as on the Money page.
 
-## Still to find out, then build
+## Two companies: Events books and Sessions books
 
-1. **Sending** the invoice to the organizer (Khoebo's send endpoint).
-2. **Payments (rest):** record a received payment against an invoice; payment
-   methods (M-Pesa, EcoCash, bank, deducted from payout).
-4. **GET** customers / invoices, and invoice status (paid, part-paid).
+Each is its own Khoebo company with its own URL and token (the subdomain is
+the company): **eventiq** for Events (`EVENTS_KHOEBO_*`, falling back to
+`KHOEBO_*`) and **sventiq** for Sessions (`SESSIONS_KHOEBO_*`). Customers and
+products are kept per company (`organizations.sessions_khoebo_customer_id`;
+Sessions products stored as `sessions:<key>`). Make the Sessions products
+once: `php artisan khoebo:products --books=sessions`.
+
+Every invoice is **posted** after it is made (`POST /invoices/{id}/post`):
+only a posted invoice can be paid or sent, and it gets its number then.
+
+**Sessions sales** (plans and pay-as-you-go, by EcoCash, M-Pesa, or a bank
+transfer once a super admin confirms it): invoice → post → pay into the
+journal for how it was paid (bank 7, EcoCash 8, M-Pesa 9) → Khoebo emails
+it, with the PDF, to the organization's Admins. Queued when paid
+(`RecordSessionsSale`); if Khoebo is down the error is kept on the payment
+and `sessions:khoebo` (hourly at :25) books it later. Corporate monthly
+invoices go to the Sessions company too, emailed by Khoebo; when Khoebo is
+down VENTIQ emails its own PDF.
+
+## Still to build
+
+1. Events: send the invoice from Khoebo and record payments by method.
+2. Sessions: monthly plan renewals are not billed yet.
 
 Decided: the order is made at publish. To revisit: updating it when the
 organizer raises their numbers (no update endpoint yet; the invoice bills

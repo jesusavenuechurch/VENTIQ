@@ -58,8 +58,9 @@ return [
     // Khoebo, VENTIQ's accounting system: organizers are its customers and
     // VENTIQ's fees its products. See docs/khoebo-plan.md.
     'khoebo' => [
-        'url'   => env('KHOEBO_URL', 'https://dev.khoebo.co.ls/api/v1'),
-        'token' => env('KHOEBO_TOKEN'),
+        // The Events books (eventiq company). EVENTS_KHOEBO_* or, as before, KHOEBO_*.
+        'url'   => env('EVENTS_KHOEBO_URL', env('KHOEBO_URL', 'https://dev.khoebo.co.ls/api/v1')),
+        'token' => env('EVENTS_KHOEBO_TOKEN', env('KHOEBO_TOKEN')),
         // What VENTIQ sells, made in Khoebo by `php artisan khoebo:products`
         // (their Khoebo ids are kept in khoebo_products). To sell something
         // new, add it here and run the command again; a key never changes.
@@ -92,11 +93,51 @@ return [
                 'type'       => 'service',
                 'sale_price' => 0, // set on each order: 4.9% of that event's sales
             ],
-            'session' => [
-                'name'       => 'VENTIQ Sessions: session held',
-                'sku'        => 'VQ-SESSION',
-                'type'       => 'service',
-                'sale_price' => 0, // each corporate organization's agreed rate, on its invoice
+        ],
+
+        // The Sessions books: a company of its own in Khoebo (sventiq), with
+        // its own address and token. Plans, pay-as-you-go sessions and
+        // corporate invoices are invoiced and paid here.
+        // `php artisan khoebo:products --books=sessions` makes its products.
+        'sessions' => [
+            'url'   => env('SESSIONS_KHOEBO_URL'),
+            'token' => env('SESSIONS_KHOEBO_TOKEN'),
+            // Payment journals in the Sessions company (GET /payment-journals).
+            'journals' => [
+                'default'       => env('SESSIONS_KHOEBO_JOURNAL_ID', env('SESSIONS_KHOEBO_JOURNAL_BANK')),
+                'bank_transfer' => env('SESSIONS_KHOEBO_JOURNAL_BANK'),
+                'ecocash'       => env('SESSIONS_KHOEBO_JOURNAL_ECOCASH'),
+                'mpesa'         => env('SESSIONS_KHOEBO_JOURNAL_MPESA'),
+                'cash'          => env('SESSIONS_KHOEBO_JOURNAL_CASH'),
+            ],
+            'tax_ids' => array_map('intval', array_filter(explode(',', (string) env('SESSIONS_KHOEBO_TAX_IDS', '')))),
+            // Payments completed from this date go to Khoebo (the hourly catch-up looks no further back).
+            'from' => env('SESSIONS_KHOEBO_FROM', '2026-10-22'),
+            'products' => [
+                'plan-team' => [
+                    'name'       => 'VENTIQ Sessions: Team plan (one month)',
+                    'sku'        => 'VQS-TEAM',
+                    'type'       => 'service',
+                    'sale_price' => 500,
+                ],
+                'plan-business' => [
+                    'name'       => 'VENTIQ Sessions: Business plan (one month)',
+                    'sku'        => 'VQS-BUSINESS',
+                    'type'       => 'service',
+                    'sale_price' => 1200,
+                ],
+                'payg' => [
+                    'name'       => 'VENTIQ Sessions: pay-as-you-go sessions',
+                    'sku'        => 'VQS-PAYG',
+                    'type'       => 'service',
+                    'sale_price' => 150, // a bundle's price is on its line
+                ],
+                'session' => [
+                    'name'       => 'VENTIQ Sessions: session held',
+                    'sku'        => 'VQS-SESSION',
+                    'type'       => 'service',
+                    'sale_price' => 0, // each corporate organization's agreed rate, on its invoice
+                ],
             ],
         ],
     ],

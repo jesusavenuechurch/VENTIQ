@@ -8,10 +8,7 @@ use App\Models\Session;
 use App\Models\SessionAgreement;
 use App\Models\SessionInvoice;
 use App\Models\User;
-use App\Services\Khoebo\KhoeboClient;
-use App\Services\Khoebo\KhoeboCustomers;
 use App\Services\Khoebo\KhoeboPayments;
-use App\Services\Khoebo\KhoeboProducts;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -24,15 +21,12 @@ use Illuminate\Support\Facades\Mail;
  * with an organization; it is never stopped by a quota. Each session is
  * priced when it starts (the month's first free ones at 0, the rest at the
  * rate), and on the 1st the month's sessions go on one invoice: raised in
- * Khoebo, VENTIQ's accounting, and emailed by VENTIQ with the PDF.
+ * the Sessions books in Khoebo (and emailed from there), or emailed by
+ * VENTIQ with its own PDF when Khoebo can't be reached.
  */
 class CorporateBilling
 {
-    public function __construct(
-        private KhoeboClient $khoebo,
-        private KhoeboCustomers $customers,
-        private KhoeboProducts $products,
-    ) {}
+    public function __construct(private SessionsBooks $books) {}
 
     public function agreement(Organization $organization): ?SessionAgreement
     {
@@ -126,33 +120,32 @@ class CorporateBilling
             return null;
         }
 
-        $this->raiseInKhoebo($invoice);
-        $this->email($invoice);
+        // Khoebo emails it from its template; VENTIQ's own email when it couldn't be raised there.
+        $this->raiseInKhoebo($invoice)
+            ? $this->books->send((int) $invoice->fresh()->khoebo_invoice_id, $this->recipients($invoice->organization), "{$invoice->number}-send")
+            : $this->email($invoice);
+        if ($invoice->fresh()->khoebo_invoice_id) {
+            $invoice->forceFill(['emailed_at' => now()])->save();
+        }
 
         return $invoice->fresh();
     }
 
-    /** The invoice in Khoebo, one line per session billed. A failure is kept on the invoice to try again. */
+    /** The invoice in the Sessions books, one line per session billed, posted. A failure is kept on the invoice to try again. */
     public function raiseInKhoebo(SessionInvoice $invoice): bool
     {
-        if ($invoice->khoebo_invoice_id || !$this->khoebo->configured()) {
+        if ($invoice->khoebo_invoice_id || !$this->books->configured()) {
             return (bool) $invoice->khoebo_invoice_id;
         }
 
         try {
-            $key = "ventiq-invoice-sessions-{$invoice->id}";
-            $productId = $this->products->id('session');
-            $made = $this->khoebo->create('invoices', [
-                'customer_id'        => $this->customers->ensure($invoice->organization),
-                'invoice_date'       => $invoice->created_at->toDateString(),
-                'external_reference' => $invoice->number,
-                'lines'              => $invoice->sessions()->where('charge', '>', 0)->get()->map(fn (Session $s) => [
-                    'product_id'  => $productId,
-                    'quantity'    => 1,
-                    'unit_price'  => number_format((float) $s->charge, 2, '.', ''),
-                    'description' => "{$s->resolved_title}, " . $s->counted_at->format('j M Y'),
-                ])->values()->all(),
-            ], $key);
+            $productId = $this->books->productId('session');
+            $made = $this->books->invoice($invoice->organization, $invoice->sessions()->where('charge', '>', 0)->get()->map(fn (Session $s) => [
+                'product_id'  => $productId,
+                'quantity'    => '1',
+                'unit_price'  => number_format((float) $s->charge, 2, '.', ''),
+                'description' => "{$s->resolved_title}, " . $s->counted_at->format('j M Y'),
+            ])->values()->all(), $invoice->number, $invoice->created_at->toDateString());
             $invoice->update(['khoebo_invoice_id' => $made['id'], 'khoebo_reference' => $made['reference'] ?? "KHOEBO-{$made['id']}", 'khoebo_error' => null]);
 
             return true;
@@ -181,6 +174,12 @@ class CorporateBilling
     /** @return string[] */
     public function recipients(Organization $organization): array
     {
+        return self::recipientsOf($organization);
+    }
+
+    /** @return string[] the billing email, then the organization's Admins */
+    public static function recipientsOf(Organization $organization): array
+    {
         $billing = SessionAgreement::where('organization_id', $organization->id)->value('billing_email');
         $admins = $organization->members()->role('org_admin')->pluck('email');
 
@@ -196,18 +195,12 @@ class CorporateBilling
         }
 
         if ($invoice->khoebo_invoice_id) {
-            $journal = config("services.khoebo.journals.{$method}") ?: config('services.khoebo.journals.default');
-            if (!$journal) {
-                throw new \InvalidArgumentException('Set KHOEBO_JOURNAL_ID: the Khoebo journal payments are recorded in.');
+            if (!$this->books->khoebo->journal($method)) {
+                throw new \InvalidArgumentException('Set SESSIONS_KHOEBO_JOURNAL_BANK, _ECOCASH and _MPESA: the Sessions journals payments are recorded in.');
             }
             $money = number_format($amount, 2, '.', '');
             $key = "ventiq-payment-sessions-{$invoice->id}-" . substr(sha1("{$money}|{$date}|{$method}|{$reference}"), 0, 12);
-            $this->khoebo->create("invoices/{$invoice->khoebo_invoice_id}/pay", array_filter([
-                'journal_id'         => (int) $journal,
-                'amount'             => $money,
-                'payment_date'       => $date,
-                'external_reference' => $reference ?: $key,
-            ]), $key);
+            $this->books->pay((int) $invoice->khoebo_invoice_id, $method, $amount, $date, $reference ?: $key, $key);
         }
 
         $paid = round((float) $invoice->paid_amount + $amount, 2);

@@ -35,3 +35,5 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('sessions:index-memory')->hourlyAt(17)->withoutOverlapping();
 // Corporate Sessions invoices for last month, on the 1st.
 \Illuminate\Support\Facades\Schedule::command('sessions:invoice')->monthlyOn(1, '06:10')->withoutOverlapping();
+// Paid Sessions plans and sessions that didn't reach the Sessions books (Khoebo down, say).
+\Illuminate\Support\Facades\Schedule::command('sessions:khoebo')->hourlyAt(25)->withoutOverlapping();

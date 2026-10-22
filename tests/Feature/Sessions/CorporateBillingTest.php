@@ -28,12 +28,16 @@ beforeEach(function () {
     $this->khoeboUp = true;
     $this->khoebo = function (bool $up = true) {
         $this->khoeboUp = $up;
-        config(['services.khoebo.url' => 'https://khoebo.test/api/v1', 'services.khoebo.token' => 'itk_test', 'services.khoebo.journals.default' => 3]);
-        KhoeboProduct::create(['key' => 'session', 'khoebo_id' => 9]);
+        // The Sessions books: a Khoebo company of their own.
+        config(['services.khoebo.sessions.url' => 'https://khoebo.test/api/v1', 'services.khoebo.sessions.token' => 'itk_test', 'services.khoebo.sessions.journals.default' => 3]);
+        KhoeboProduct::create(['key' => 'sessions:session', 'khoebo_id' => 9]);
         Http::fake([
             'khoebo.test/api/v1/customers' => Http::response(['data' => ['id' => 41]], 201),
-            'khoebo.test/api/v1/invoices' => fn () => $this->khoeboUp ? Http::response(['data' => ['id' => 77, 'reference' => 'INV/2026/0077']], 201) : Http::response(['message' => 'down'], 503),
+            'khoebo.test/api/v1/invoices' => fn () => $this->khoeboUp ? Http::response(['data' => ['id' => 77, 'reference' => 'INV-00077', 'status' => 'draft']], 201) : Http::response(['error' => ['code' => 'server_error', 'message' => 'down']], 503),
+            // Posted: its number now, and it can be paid and sent.
+            'khoebo.test/api/v1/invoices/*/post' => Http::response(['data' => ['id' => 77, 'reference' => 'INV/2026/0077', 'status' => 'posted']]),
             'khoebo.test/api/v1/invoices/*/pay' => Http::response(['data' => ['id' => 5]], 201),
+            'khoebo.test/api/v1/invoices/*/send' => Http::response(['data' => ['id' => 77], 'meta' => ['send' => ['id' => 1, 'status' => 'pending']]]),
         ]);
     };
 });
@@ -89,8 +93,11 @@ it('invoices last month on the 1st: in Khoebo, by email with the PDF, once', fun
     Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices') && $r['external_reference'] === 'VQS-2026-0001'
         && count($r['lines']) === 2 && $r['lines'][0]['unit_price'] === '450.00' && $r['lines'][0]['product_id'] === 9
         && str_starts_with($r['lines'][0]['description'], 'Weekly ops, 13 Oct 2026'));
-    Mail::assertQueued(SessionInvoiceMail::class, fn ($m) => $m->hasTo('accounts@example.org'));
-    Mail::assertQueued(SessionInvoiceMail::class, fn ($m) => $m->hasTo('palesa@example.com'));
+    // Posted before it's paid or sent, then emailed by Khoebo to the billing contact and the Admins.
+    Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices/77/post'));
+    Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/invoices/77/send') && $r['to'] === ['accounts@example.org', 'palesa@example.com'] && $r['attach_pdf'] === true);
+    Mail::assertNotQueued(SessionInvoiceMail::class);
+    expect($invoice->emailed_at)->not->toBeNull();
 
     $mail = new SessionInvoiceMail($invoice);
     expect(substr((string) $mail->attachments()[0]->attachWith(fn ($path) => '', fn ($data) => $data()), 0, 4))->toBe('%PDF');

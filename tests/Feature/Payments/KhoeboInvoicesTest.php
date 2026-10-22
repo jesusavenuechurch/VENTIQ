@@ -55,7 +55,8 @@ it('invoices what the organizer actually owes, the day after the event', functio
 
     // Once per event.
     $this->artisan('khoebo:invoice')->assertSuccessful();
-    Http::assertSentCount(1);
+    Http::assertSentCount(2);   // the invoice, then posting it
+    Http::assertSent(fn (Request $r) => $r->url() === 'https://khoebo.test/api/v1/invoices/21/post');
 });
 
 it('waits for the event to finish, and skips sponsored events', function () {
@@ -83,7 +84,11 @@ describe('paying ahead', function () {
         $this->invoiceIds = [31, 32];
         Http::fake(function (Request $r) {
             if (str_ends_with($r->url(), '/pay')) {
-                return Http::response(['data' => ['id' => 5, 'type' => 'customer_payment', 'status' => 'draft']], 201);
+                return Http::response(['data' => ['id' => 5, 'type' => 'customer_payment', 'status' => 'posted']], 201);
+            }
+            // Posting returns the same invoice, now posted.
+            if (preg_match('#/invoices/(\d+)/post$#', $r->url(), $m)) {
+                return Http::response(['data' => ['id' => (int) $m[1], 'reference' => "INV-000{$m[1]}", 'status' => 'posted']]);
             }
             $id = array_shift($this->invoiceIds);
             return Http::response(['data' => ['id' => $id, 'reference' => "INV-000{$id}", 'status' => 'draft']], 201);
@@ -119,7 +124,7 @@ describe('paying ahead', function () {
         $this->artisan('khoebo:invoice')->assertSuccessful();
 
         expect($fee->fresh()->invoice_reference)->toBe('INV-00031')->and($fee->fresh()->invoice_paid_at)->not->toBeNull();
-        Http::assertSentCount(2);   // the prepaid invoice and its payment
+        Http::assertSentCount(3);   // the prepaid invoice, posting it, and its payment
     });
 
     it("won't take more than is owed", function () {

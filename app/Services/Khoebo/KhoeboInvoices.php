@@ -227,6 +227,8 @@ class KhoeboInvoices
             'external_reference' => $key,
             'lines'              => $lines,
         ], $key);
+        // Posted to the ledger: only then can it be paid, and it gets its INV number.
+        $invoice = $this->khoebo->create("invoices/{$invoice['id']}/post", [], "{$key}-post");
 
         $invoice['reference'] = $invoice['reference'] ?? "KHOEBO-{$invoice['id']}";
 

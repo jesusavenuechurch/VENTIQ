@@ -16,13 +16,15 @@ class KhoeboCustomers
     /** @return int the organization's Khoebo customer id */
     public function ensure(Organization $organization): int
     {
-        if ($organization->khoebo_customer_id) {
-            return (int) $organization->khoebo_customer_id;
+        // A customer in each set of books: the Events company's id, and the Sessions company's.
+        $column = $this->khoebo->book === 'sessions' ? 'sessions_khoebo_customer_id' : 'khoebo_customer_id';
+        if ($organization->{$column}) {
+            return (int) $organization->{$column};
         }
 
         $customer = $this->khoebo->create('customers', $this->body($organization), "ventiq-customer-org-{$organization->id}");
 
-        $organization->forceFill(['khoebo_customer_id' => $customer['id']])->save();
+        $organization->forceFill([$column => $customer['id']])->save();
 
         return (int) $customer['id'];
     }

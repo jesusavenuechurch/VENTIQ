@@ -11,12 +11,39 @@ use Illuminate\Support\Facades\{Http, Log};
  * Every create sends an Idempotency-Key made from what it is for (e.g.
  * ventiq-customer-org-12), so a request retried after a timeout returns
  * the record made the first time instead of a second one.
+ *
+ * VENTIQ keeps two sets of books, each a company in Khoebo with its own
+ * address and token: Events (services.khoebo) and Sessions
+ * (services.khoebo.sessions).
  */
 class KhoeboClient
 {
+    public const BOOKS = ['events' => 'services.khoebo', 'sessions' => 'services.khoebo.sessions'];
+
+    public function __construct(public readonly string $book = 'events') {}
+
+    public static function for(string $book): static
+    {
+        return new static($book);
+    }
+
+    /** A setting of this book: url, token, journals, products… */
+    public function setting(string $key, mixed $default = null): mixed
+    {
+        return config((self::BOOKS[$this->book] ?? self::BOOKS['events']) . ".{$key}", $default);
+    }
+
     public function configured(): bool
     {
-        return filled(config('services.khoebo.url')) && filled(config('services.khoebo.token'));
+        return filled($this->setting('url')) && filled($this->setting('token'));
+    }
+
+    /** The journal a payment by this method is recorded in (bank_transfer, ecocash, mpesa, cash). */
+    public function journal(?string $method): ?int
+    {
+        $id = ($method ? $this->setting("journals.{$method}") : null) ?: $this->setting('journals.default');
+
+        return $id ? (int) $id : null;
     }
 
     /** @return array the record Khoebo returns (its "data") */
@@ -34,11 +61,13 @@ class KhoeboClient
     private function send(string $method, string $path, array $data, ?string $idempotencyKey = null): array
     {
         if (! $this->configured()) {
-            throw new KhoeboException('Khoebo is not set up: set KHOEBO_URL and KHOEBO_TOKEN.');
+            throw new KhoeboException($this->book === 'sessions'
+                ? 'Khoebo for Sessions is not set up: set SESSIONS_KHOEBO_URL and SESSIONS_KHOEBO_TOKEN.'
+                : 'Khoebo is not set up: set KHOEBO_URL and KHOEBO_TOKEN.');
         }
 
-        $request = Http::baseUrl(rtrim(config('services.khoebo.url'), '/'))
-            ->withToken(config('services.khoebo.token'))
+        $request = Http::baseUrl(rtrim($this->setting('url'), '/'))
+            ->withToken($this->setting('token'))
             ->acceptJson()
             ->timeout(20)
             // Only a lost connection is retried; the idempotency key keeps
@@ -58,11 +87,13 @@ class KhoeboClient
 
         if (! $response->successful()) {
             $body = (array) $response->json();
-            // A Cloudflare block comes back as an HTML page, not JSON.
-            $message = $body['message'] ?? (str_contains($response->body(), 'Cloudflare')
+            // Khoebo answers {"error": {"code", "message", "details"}}; a Cloudflare block is an HTML page.
+            $message = isset($body['error']['message']) ? trim(($body['error']['code'] ?? '') . ': ' . $body['error']['message'], ': ')
+                : ($body['message'] ?? null);
+            $message ??= (str_contains($response->body(), 'Cloudflare')
                 ? 'blocked by Khoebo\'s firewall (Cloudflare): ask Khoebo to allow this server'
                 : 'HTTP ' . $response->status());
-            Log::warning('Khoebo refused a request', ['path' => $path, 'status' => $response->status(), 'body' => $body]);
+            Log::warning('Khoebo refused a request', ['book' => $this->book, 'path' => $path, 'status' => $response->status(), 'body' => $body]);
             throw new KhoeboException("Khoebo: {$message}", $response->status(), $body);
         }
 

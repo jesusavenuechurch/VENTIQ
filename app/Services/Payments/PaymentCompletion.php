@@ -49,6 +49,8 @@ class PaymentCompletion
         }
 
         if ($session->payable_type === 'session_package') {
+            // Into the Sessions books in Khoebo: an invoice, paid, emailed as the receipt.
+            \App\Jobs\RecordSessionsSale::dispatch($session->id)->afterCommit();
             $meta = $session->purchase_meta ?? [];
 
             if (($meta['type'] ?? null) === 'plan') {
