@@ -1,0 +1,21 @@
+# VENTIQ's morning security check (scripts/security-audit.sh).
+# Copy both files to /etc/systemd/system/, set the paths, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ventiq-security-audit.timer
+#   systemctl list-timers ventiq-security-audit.timer     # next run
+#   sudo systemctl start ventiq-security-audit.service    # run it now
+#   journalctl -u ventiq-security-audit.service           # what it said
+[Unit]
+Description=VENTIQ security check (PHP, composer and npm packages, deployed code)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The user that owns the app (the web server's user, usually www-data).
+User=www-data
+WorkingDirectory=/var/www/ventiq
+Environment=APP_DIR=/var/www/ventiq
+# Where the report is emailed (needs `mail`, e.g. from the mailutils package).
+Environment=AUDIT_MAIL_TO=you@example.com
+ExecStart=/var/www/ventiq/scripts/security-audit.sh

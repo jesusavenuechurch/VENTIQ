@@ -1,0 +1,12 @@
+# Runs ventiq-security-audit.service every morning at 06:00 (and at the next
+# boot if the server was off then).
+[Unit]
+Description=VENTIQ security check, every morning
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
