@@ -19,10 +19,25 @@ class PayoutController extends Controller
     {
         $organization = $request->attributes->get('organization');
 
-        return view('organizer.payout', [
-            'organization' => $organization,
-            'canEdit'      => $request->user()->can('edit_organization'),
-            'changedBy'    => $organization->payout_updated_by ? User::find($organization->payout_updated_by) : null,
+        $canEdit = $request->user()->can('edit_organization');
+        $changedBy = $organization->payout_updated_by ? User::find($organization->payout_updated_by) : null;
+
+        return \Inertia\Inertia::render('Organizer/Payout', [
+            'canEdit' => $canEdit,
+            'methods' => collect(Organization::PAYOUT_METHODS)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
+            // The rest of the team sees it masked.
+            'onFile'  => $organization->hasPayoutDetails() ? [
+                'summary'   => $organization->payoutSummary(masked: !$canEdit),
+                'changedAt' => $organization->payout_updated_at?->format('j M Y, H:i'),
+                'changedBy' => $changedBy?->name,
+            ] : null,
+            'details' => $canEdit ? [
+                'payout_method'         => $organization->payout_method ?? 'ecocash',
+                'payout_account_name'   => (string) $organization->payout_account_name,
+                'payout_account_number' => (string) $organization->payout_account_number,
+                'payout_bank_name'      => (string) $organization->payout_bank_name,
+            ] : null,
+            'meta'    => ['title' => 'Payouts | VENTIQ'],
         ]);
     }
 

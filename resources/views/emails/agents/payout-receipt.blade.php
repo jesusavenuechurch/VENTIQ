@@ -21,7 +21,7 @@ We've just processed a payout for your account. The funds are on their way to yo
 
 Your dashboard has been updated. Keep up the great work onboarding organizations!
 
-@component('mail::button', ['url' => config('app.url') . '/admin'])
+@component('mail::button', ['url' => route('agent.home')])
 View Dashboard
 @endcomponent
 

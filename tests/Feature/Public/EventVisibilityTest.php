@@ -29,16 +29,19 @@ it('keeps drafts off the public site, except for the organization previewing the
     $url = route('event.short', [$this->org->slug, $draft->slug]);
 
     $this->get($url)->assertNotFound();
-    $this->get(route('registration.form', [$this->org->slug, $draft->slug]))->assertSee('opened yet');
+    $this->get(route('registration.form', [$this->org->slug, $draft->slug]))
+        ->assertInertia(fn ($page) => $page->component('Events/RegistrationClosed')->where('closedReason', fn ($r) => str_contains($r, 'opened yet')));
     $this->get(route('public.events', $this->org->slug))->assertDontSee('Draft event');
 
-    $this->actingAs($this->admin)->get($url)->assertOk()->assertSee('Preview: only your team can see this draft');
+    // The page shows its preview notice for a draft.
+    $this->actingAs($this->admin)->get($url)->assertOk()->assertInertia(fn ($page) => $page->component('Events/Show')->where('event.status', 'draft'));
 });
 
 it('closes registration on cancelled and finished events, and says why', function () {
     $cancelled = ($this->makeEvent)('cancelled');
     $this->get(route('event.short', [$this->org->slug, $cancelled->slug]))
-        ->assertOk()->assertSee('This event has been cancelled.')->assertSee('Closed');
+        ->assertOk()->assertInertia(fn ($page) => $page->component('Events/Show')
+            ->where('closedReason', 'This event has been cancelled.')->where('canRegister', false)->where('tiers.0.soldOut', true));
 
     $tier = $cancelled->tiers()->first();
     $this->post(route('registration.submit', [$this->org->slug, $cancelled->slug]), [
@@ -48,7 +51,8 @@ it('closes registration on cancelled and finished events, and says why', functio
     expect(Ticket::count())->toBe(0);
 
     $ended = ($this->makeEvent)('completed');
-    $this->get(route('registration.form', [$this->org->slug, $ended->slug]))->assertSee('This event has ended.');
+    $this->get(route('registration.form', [$this->org->slug, $ended->slug]))
+        ->assertInertia(fn ($page) => $page->component('Events/RegistrationClosed')->where('closedReason', 'This event has ended.'));
 });
 
 it('only sells this event\'s ticket types that are on sale', function () {
@@ -84,7 +88,7 @@ it('deletes an event nobody registered for, and refuses once people have', funct
     $client = Client::create(['organization_id' => $this->org->id, 'full_name' => 'Guest', 'phone' => '+26650000001']);
     Ticket::create(['event_id' => $busy->id, 'client_id' => $client->id, 'event_tier_id' => $busy->tiers()->first()->id, 'status' => 'active', 'payment_status' => 'completed', 'amount' => 0]);
 
-    $this->get(route('organizer.events.edit', $busy))->assertSee("can't be deleted", false);
+    $this->get(route('organizer.events.edit', $busy))->assertInertia(fn ($page) => $page->where('event.hasTickets', true));
     $this->delete(route('organizer.events.destroy', $busy))->assertSessionHas('status', fn ($s) => str_contains($s, 'Cancelled'));
     expect(Event::find($busy->id))->not->toBeNull();
 

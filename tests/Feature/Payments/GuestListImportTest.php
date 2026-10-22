@@ -35,6 +35,15 @@ function checkGuests(object $t, UploadedFile $file, array $extra = [])
     ], $extra));
 }
 
+/** The checked list waits under ?token= on the import page. */
+function checkedToken($response): string
+{
+    $response->assertRedirect();
+    parse_str((string) parse_url($response->headers->get('Location'), PHP_URL_QUERY), $query);
+
+    return $query['token'];
+}
+
 it('checks every row before creating anything, and never invents numbers', function () {
     // Someone already holding a ticket, and a client of ANOTHER organization with the same number.
     $existing = Client::create(['organization_id' => $this->org->id, 'full_name' => 'Already In', 'phone' => '+26650000003']);
@@ -53,12 +62,12 @@ it('checks every row before creating anything, and never invents numbers', funct
         ',,',
     ]));
 
-    $response->assertOk()
-        ->assertSee('1 ready')->assertSee('5 with a problem')
-        ->assertSee('No phone number')->assertSee('Same number as row 2')->assertSee('Already has a ticket for this event')->assertSee('No name');
+    $token = checkedToken($response);
+    $this->get(route('organizer.events.guests.create', [$this->event, 'token' => $token]))
+        ->assertOk()->assertSee('No phone number')->assertSee('Same number as row 2')->assertSee('Already has a ticket for this event')->assertSee('No name')
+        ->assertInertia(fn ($page) => $page->component('Organizer/GuestList')->where('preview.ok', 1)->where('preview.problems', 5));
     expect(Ticket::count())->toBe(1);
-
-    preg_match('/name="token" value="([^"]+)"/', $response->getContent(), $m);
+    $m = [1 => $token];
     $this->post(route('organizer.events.guests.store', $this->event), ['token' => $m[1]])
         ->assertRedirect(route('organizer.events.attendees', $this->event))
         ->assertSessionHas('status', '1 ticket created.');
@@ -79,7 +88,7 @@ it('records an already-paid list as money paid to the organizer', function () {
     $response = checkGuests($this, guestCsv(['name,mobile', 'Thabo Molefe,59990001', 'Palesa Nthati,59990002']), [
         'mode' => 'paid_direct', 'method' => 'ecocash', 'send_whatsapp' => '0',
     ]);
-    preg_match('/name="token" value="([^"]+)"/', $response->getContent(), $m);
+    $m = [1 => checkedToken($response)];
     $this->post(route('organizer.events.guests.store', $this->event), ['token' => $m[1]])->assertSessionHas('status', '2 tickets created.');
 
     $tickets = Ticket::with('payments')->get();
@@ -94,7 +103,7 @@ it('records an already-paid list as money paid to the organizer', function () {
 it('stops at the tier\'s capacity and says how many were skipped', function () {
     $this->tier->update(['quantity_available' => 1]);
     $response = checkGuests($this, guestCsv(['full_name,phone', 'One,59990001', 'Two,59990002']));
-    preg_match('/name="token" value="([^"]+)"/', $response->getContent(), $m);
+    $m = [1 => checkedToken($response)];
 
     $this->post(route('organizer.events.guests.store', $this->event), ['token' => $m[1]])
         ->assertSessionHas('status', fn ($s) => str_starts_with($s, '1 ticket created; 1 skipped'));

@@ -39,7 +39,8 @@ it('issues an active complimentary ticket and sends it once', function () {
     app()->instance(TicketDeliveryService::class, $delivery);
 
     $this->actingAs($this->admin)->get(route('organizer.events.comp.create', $this->event))
-        ->assertOk()->assertSee('Table of 3')->assertSee('M7.50 per person');
+        ->assertOk()->assertSee('Table of 3')
+        ->assertInertia(fn ($page) => $page->where('kind', 'comp')->where('fees.perPerson', 7.5));
 
     $this->post(route('organizer.events.comp.store', $this->event), [
         'event_tier_id' => $this->table->id, 'full_name' => 'Dr Mpho Lebona', 'phone' => '5949 4756',
@@ -123,5 +124,5 @@ it('finds attendees by name, phone digits or entry code', function () {
     $this->actingAs($this->admin)->get($url('lerato'))->assertSee('Lerato Mokoena')->assertDontSee('Thabo Molefe');
     $this->get($url('5949 4756'))->assertSee('Lerato Mokoena')->assertDontSee('Thabo Molefe');
     $this->get($url($thabo->voucher_code))->assertSee('Thabo Molefe')->assertDontSee('Lerato Mokoena');
-    $this->get($url('nobody'))->assertSee('Nobody matches');
+    $this->get($url('nobody'))->assertInertia(fn ($page) => $page->where('tickets.data', [])->where('search', 'nobody'));
 });

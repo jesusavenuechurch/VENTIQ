@@ -8,8 +8,13 @@ interface AIProvider
 {
     /**
      * Generate a single response from a prompt.
+     *
+     * @param array{think?: ?string, fast?: bool} $options what the prompt
+     *   asks of the model: how hard to think (low, medium, high) for a
+     *   model that reasons first, and whether a faster model will do.
+     *   A provider ignores what it can't do.
      */
-    public function generate(string $prompt): GeneratedContent;
+    public function generate(string $prompt, array $options = []): GeneratedContent;
 
     /**
      * Generate a streaming response — yields chunks.

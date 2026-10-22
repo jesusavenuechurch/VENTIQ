@@ -1,4 +1,5 @@
 <?php
+use Inertia\Inertia;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketDownloadController;
 use App\Http\Controllers\PublicEventController;
@@ -20,7 +21,6 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\SessionSegmentController;
 use App\Http\Controllers\PublicSessionCheckinController;
 use App\Http\Controllers\SessionParticipantController;
-use App\Http\Controllers\OrganizationMemberController;
 use App\Http\Controllers\OrganizationInviteAcceptController;    
 use App\Http\Controllers\ProgrammeController;
 use App\Http\Controllers\PayLesothoController;
@@ -64,7 +64,9 @@ Route::get('/sitemap.xml', function () {
 
 Route::get('/', [PublicEventController::class, 'index'])->name('home');
 
-Route::view('/about', 'public.about')->name('about');
+Route::get('/about', fn () => Inertia::render('About', [
+    'meta' => ['title' => 'About VENTIQ | Built in Lesotho', 'description' => 'Why VENTIQ exists: registration, tickets, payments and check-in for organizations in Lesotho.'],
+]))->name('about');
 // 1. The handler for the email link (Fixes your 'verification.verify' error)
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
@@ -77,7 +79,7 @@ Route::get('/email/verify', function (Illuminate\Http\Request $request) {
     if ($request->user()->hasVerifiedEmail()) {
         return redirect()->to(\App\Support\IntentRedirect::resolve('host'));
     }
-    return view('auth.verify-email');
+    return Inertia::render('Auth/VerifyEmail', ['email' => $request->user()->email, 'meta' => ['title' => 'Verify your email | VENTIQ']]);
 })->middleware('auth')->name('verification.notice');
 
 Route::post('/email/verification-notification', function (Illuminate\Http\Request $request) {
@@ -158,7 +160,12 @@ Route::get('/{orgSlug}/{eventSlug}/register/error', function ($orgSlug, $eventSl
     $error = session('error', 'Registration failed. Please try again.');
     $retryUrl = route('registration.form', ['orgSlug' => $orgSlug, 'eventSlug' => $eventSlug]); // ✅ Fixed
 
-    return view('public.registration-error', compact('organization', 'event', 'error', 'retryUrl'));
+    return Inertia::render('Events/RegistrationError', [
+        'event'    => \App\Support\EventPage::event($event, $organization),
+        'error'    => $error,
+        'retryUrl' => $retryUrl,
+        'meta'     => ['title' => "Registration Error - {$organization->name}"],
+    ]);
 })->name('registration.error');
 
 // Find my ticket (also how a balance is paid): phone + ticket number or entry code.
@@ -172,17 +179,20 @@ Route::prefix('installment')->name('installment.')->group(function () {
 });
 
 
-Route::view('/terms', 'public.terms')->name('terms');
-Route::view('/privacy', 'public.privacy')->name('privacy');
+Route::get('/terms', fn () => Inertia::render('Legal/Terms', ['meta' => ['title' => 'Ticket terms | VENTIQ']]))->name('terms');
+Route::get('/privacy', fn () => Inertia::render('Legal/Privacy', ['meta' => ['title' => 'Privacy | VENTIQ']]))->name('privacy');
 
-Route::get('/pricing', function () {
-    return view('public.pricing');
-})->name('pricing');
+// From config, so the page always matches what's charged.
+Route::get('/pricing', fn () => Inertia::render('Pricing', [
+    'rate'      => (float) config('constants.fees.service_percent'),
+    'perPerson' => (float) config('constants.fees.operational_per_person'),
+    'plans'     => collect(\App\Support\SessionPackageDefinition::tiers())
+        ->map(fn ($plan, $key) => ['key' => $key, 'label' => $plan['label'], 'price' => $plan['price'], 'description' => $plan['description']])
+        ->values(),
+    'meta'      => ['title' => 'Pricing | Event tickets in Lesotho - VENTIQ', 'description' => 'No monthly fee. VENTIQ takes a small fee on each ticket, and nothing else.'],
+]))->name('pricing');
 
 
-Route::get('/access', function () {
-    return view('public.org-admin');
-})->name('access');
 
 // Direct organization registration (NO agent token)
 Route::get('/org/register', [AgentRegistrationController::class, 'showForm'])
@@ -198,21 +208,11 @@ Route::get('/org/register/{token}', [AgentRegistrationController::class, 'showFo
 Route::post('/org/register/{token}', [AgentRegistrationController::class, 'submit'])
     ->name('agent.registration.submit');
 
-// Success page (shared by both)
-Route::get('/org/registration-success', [AgentRegistrationController::class, 'success'])
-    ->name('agent.registration.success');
 
 Route::get('/become-agent', [AgentApplicationController::class, 'showForm'])->name('agent.apply');
 Route::post('/become-agent', [AgentApplicationController::class, 'submit'])->name('agent.submit');
 Route::get('/reset-password/{token}', [AgentApplicationController::class, 'showResetForm'])->name('password.reset');
 Route::post('/reset-password', [AgentApplicationController::class, 'resetPassword'])->name('password.update');
-
-Route::middleware(['auth'])->group(function () {
-    Route::get(
-        '/organizational-records/{organizationalRecord}/pdf',
-        [\App\Http\Controllers\OrganizationalRecordPdfController::class, 'download']
-    )->name('organizational-records.pdf');
-});
 
 // Event PDF reports: the controller limits each to the event's own
 // organization (or a super admin).
@@ -236,17 +236,9 @@ Route::middleware(['auth'])->prefix('payment/paylesotho')->name('paylesotho.')->
         ->name('session-package.initiate');
 });
 
-// ── FALLBACK GATEWAY: MoPay (kept, not removed) ──────────────────
-Route::middleware(['auth'])->prefix('payment')->name('online-payment.')->group(function () {
-    Route::get('/package/initiate', [MopayController::class, 'initiatePackagePayment'])
-        ->name('package.initiate');
-});
-
+// ── FALLBACK GATEWAY: MoPay (tickets only) ──────────────────────
 Route::get('/payment/ticket/initiate', [MopayController::class, 'initiateTicketPayment'])
     ->name('online-payment.ticket.initiate');
-
-Route::get('/payment/package/callback', [MopayController::class, 'packageCallback'])
-    ->name('online-payment.package.callback');
 
 Route::get('/payment/ticket/callback', [MopayController::class, 'ticketCallback'])
     ->name('online-payment.ticket.callback');
@@ -256,7 +248,7 @@ Route::get('/events/upcoming', [PublicEventController::class, 'upcoming'])->name
 Route::get('/events/discover', [PublicEventController::class, 'discover'])->name('events.discover');
 
 
-Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(function () {
+Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions.')->group(function () {
     Route::get('/', [SessionController::class, 'index'])->name('index');
     Route::get('/create', [SessionController::class, 'create'])->name('create');
     Route::post('/', [SessionController::class, 'store'])->name('store');
@@ -264,10 +256,31 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     // MUST be above '/{session}' — otherwise Laravel tries to bind
     // "reports" as a Session ID and 404s before this line is ever reached.
     Route::get('/reports', [SessionController::class, 'reports'])->name('reports');
+    Route::get('/plan', [SessionPlanController::class, 'show'])->name('plan');
+    Route::post('/plan/bank-transfer', [SessionPlanController::class, 'claimBankTransfer'])->middleware('throttle:10,1')->name('plan.bank-transfer');
+    Route::get('/actions', [App\Http\Controllers\ActionPointsController::class, 'index'])->name('actions.index');
+    Route::get('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'edit'])->name('certificates.design');
+    Route::put('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'update'])->name('certificates.design.update');
+    Route::delete('/certificate-design', [App\Http\Controllers\CertificateDesignController::class, 'reset'])->name('certificates.design.reset');
+    Route::post('/certificate-design/preview', [App\Http\Controllers\CertificateDesignController::class, 'preview'])->name('certificates.design.preview');
+    Route::get('/certificate-design/sample', [App\Http\Controllers\CertificateDesignController::class, 'sample'])->name('certificates.design.sample');
+    Route::get('/signature', [App\Http\Controllers\SignatureController::class, 'show'])->name('signature');
+    Route::put('/signature', [App\Http\Controllers\SignatureController::class, 'update'])->name('signature.update');
+    Route::patch('/actions/{actionPoint}', [App\Http\Controllers\ActionPointsController::class, 'update'])->name('actions.update');
+    Route::post('/actions/{actionPoint}/done', [App\Http\Controllers\ActionPointsController::class, 'done'])->name('actions.done');
+    Route::post('/actions/{actionPoint}/reopen', [App\Http\Controllers\ActionPointsController::class, 'reopen'])->name('actions.reopen');
+    Route::delete('/actions/{actionPoint}', [App\Http\Controllers\ActionPointsController::class, 'destroy'])->name('actions.destroy');
+    Route::get('/series/{series}', [App\Http\Controllers\SessionSeriesController::class, 'show'])->name('series.show');
+    Route::put('/series/{series}', [App\Http\Controllers\SessionSeriesController::class, 'update'])->name('series.update');
+    Route::post('/series/{series}/end', [App\Http\Controllers\SessionSeriesController::class, 'end'])->name('series.end');
 
     Route::get('/{session}', [SessionController::class, 'show'])->name('show');
     Route::post('/{session}/start', [SessionController::class, 'start'])->name('start');
+    Route::post('/{session}/skip', [App\Http\Controllers\SessionSeriesController::class, 'skip'])->name('skip');
+    Route::post('/{session}/actions', [App\Http\Controllers\ActionPointsController::class, 'store'])->name('actions.store');
+    Route::post('/{session}/actions/confirm', [App\Http\Controllers\ActionPointsController::class, 'confirmAll'])->name('actions.confirm');
     Route::post('/{session}/segments', [SessionSegmentController::class, 'store'])->name('segments.store');
+    Route::patch('/{session}/segments/{segment}', [SessionSegmentController::class, 'update'])->name('segments.update');
     Route::delete('/{session}/segments/{segment}', [SessionSegmentController::class, 'destroy'])->name('segments.destroy');
     Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
     Route::post('/{session}/segments/{segment}/log/undo', [SessionSegmentController::class, 'undoLog'])->name('segments.log.undo');
@@ -276,7 +289,9 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
     Route::post('/{session}/report/review', [SessionController::class, 'markReviewed'])->name('report.review');
     Route::patch('/{session}/report', [SessionController::class, 'updateReport'])->name('report.update');
+    Route::patch('/{session}/minutes', [SessionController::class, 'updateMinutes'])->name('minutes.update');
     Route::get('/{session}/report/pdf', [SessionController::class, 'reportPdf'])->name('report.pdf');
+    Route::get('/{session}/report/full', [SessionController::class, 'fullReport'])->name('report.full');
     Route::get('/{session}/report/status', [SessionController::class, 'reportStatus'])->name('report.status');
     Route::post('/{session}/report/generate', [SessionController::class, 'generateReport'])->name('report.generate');
     Route::get('/{session}/checkin', [SessionParticipantController::class, 'index'])->name('checkin');
@@ -293,15 +308,19 @@ Route::middleware(['auth'])->prefix('sessions')->name('sessions.')->group(functi
     Route::get('/{session}/participants/{participant}/card', [SessionParticipantController::class, 'card'])->name('checkin.card');
 });
 
+// A corporate Sessions invoice: the organization's own (Plan) or any, for super admins.
+Route::get('/billing/invoices/{invoice}/pdf', [App\Http\Controllers\SessionInvoiceController::class, 'download'])->middleware('auth')->name('sessions.invoices.pdf');
+
 Route::get('/join', [PublicSessionCheckinController::class, 'join'])->name('public.session-join');
 Route::get('/checkin/{token}', [PublicSessionCheckinController::class, 'show'])->name('public.session-checkin.form');
 Route::post('/checkin/{token}', [PublicSessionCheckinController::class, 'store'])->name('public.session-checkin.submit');
+// A programme's enrolment link: the token is the credential, as with check-in.
+Route::get('/enrol/{token}', [\App\Http\Controllers\PublicProgrammeEnrolController::class, 'show'])->name('public.programme-enrol.form');
+Route::post('/enrol/{token}', [\App\Http\Controllers\PublicProgrammeEnrolController::class, 'store'])->middleware('throttle:20,1')->name('public.programme-enrol.submit');
 
 Route::middleware(['auth'])->prefix('organization')->name('organization.')->group(function () {
     Route::get('/members', fn () => redirect()->route('organizer.team.index'))->name('members');
-    Route::post('/invite', [OrganizationMemberController::class, 'invite'])->name('invite.store');
-    Route::delete('/invite/{invite}', [OrganizationMemberController::class, 'revoke'])->name('invite.revoke');
-    Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->name('session-plan.payment');
+    Route::get('/session-plan/payment', [SessionPlanController::class, 'showPayment'])->middleware('sessions.area')->name('session-plan.payment');
 });
  
 // Public — no auth, the invite token itself is the credential
@@ -311,6 +330,17 @@ Route::post('/invite/{token}', [OrganizationInviteAcceptController::class, 'subm
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 Route::get('/login', [App\Http\Controllers\Auth\LoginController::class, 'show'])->name('login');
+
+// The old Filament admin lived at /admin. Bookmarks and links in emails
+// already sent go to the right home instead.
+Route::get('/admin/{path?}', function () {
+    $user = auth()->user();
+    if (!$user) {
+        return redirect()->route('login');
+    }
+
+    return redirect($user->organization_id ? \App\Support\IntentRedirect::resolve(null) : \App\Support\IntentRedirect::home($user));
+})->where('path', '.*');
 Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'store'])->middleware('throttle:10,1')->name('login.submit');
 Route::middleware('throttle:20,1')->group(function () {
     Route::post('/login/start', [App\Http\Controllers\Auth\EmailLoginController::class, 'start'])->name('login.start');
@@ -333,6 +363,65 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq/money')->name('ventiq
     Route::post('/sms/{message}', [App\Http\Controllers\VentiqMoneyController::class, 'decideSms'])->name('sms.decide');
 });
 
+// A sales agent's own pages.
+Route::middleware('auth')->prefix('agent')->name('agent.')->group(function () {
+    Route::get('/', [App\Http\Controllers\AgentAreaController::class, 'home'])->name('home');
+    Route::get('/certification', [App\Http\Controllers\AgentAreaController::class, 'certification'])->name('certification');
+    Route::post('/certification', [App\Http\Controllers\AgentAreaController::class, 'submitCertification'])->middleware('throttle:10,1')->name('certification.submit');
+});
+
+// VENTIQ's own admin (super admins).
+Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->group(function () {
+    Route::resource('organizations', App\Http\Controllers\Ventiq\OrganizationsController::class)->except('show');
+    Route::resource('users', App\Http\Controllers\Ventiq\UsersController::class)->except('show');
+    Route::get('/events', [App\Http\Controllers\Ventiq\EventsController::class, 'index'])->name('events.index');
+    Route::post('/events/{event}/sponsor', [App\Http\Controllers\Ventiq\EventsController::class, 'sponsor'])->name('events.sponsor');
+    Route::get('/tickets', [App\Http\Controllers\Ventiq\TicketsController::class, 'index'])->name('tickets.index');
+    Route::post('/tickets/{ticket}/resend', [App\Http\Controllers\Ventiq\TicketsController::class, 'resend'])->middleware('throttle:20,1')->name('tickets.resend');
+    Route::get('/ticket-types', [App\Http\Controllers\Ventiq\TiersController::class, 'index'])->name('tiers.index');
+    Route::post('/ticket-types/bulk', [App\Http\Controllers\Ventiq\TiersController::class, 'bulk'])->name('tiers.bulk');
+    Route::get('/clients', [App\Http\Controllers\Ventiq\ClientsController::class, 'index'])->name('clients.index');
+    Route::resource('tier-templates', App\Http\Controllers\Ventiq\TierTemplatesController::class)->except('show');
+    Route::post('/tier-templates/{tier_template}/apply', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'apply'])->name('tier-templates.apply');
+    Route::post('/tier-templates/{tier_template}/duplicate', [App\Http\Controllers\Ventiq\TierTemplatesController::class, 'duplicate'])->name('tier-templates.duplicate');
+    Route::get('/payouts', [App\Http\Controllers\Ventiq\PayoutsController::class, 'index'])->name('payouts.index');
+    Route::get('/session-plans', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'index'])->name('session-plans.index');
+    Route::get('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'index'])->name('corporate.index');
+    Route::post('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'store'])->name('corporate.store');
+    Route::post('/corporate-rates/{agreement}/end', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'end'])->name('corporate.end');
+    Route::post('/corporate-rates/invoice', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'invoice'])->name('corporate.invoice');
+    Route::post('/corporate-invoices/{invoice}/khoebo', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'khoebo'])->name('corporate.khoebo');
+    Route::post('/corporate-invoices/{invoice}/resend', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'resend'])->middleware('throttle:10,1')->name('corporate.resend');
+    Route::post('/corporate-invoices/{invoice}/pay', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'pay'])->name('corporate.pay');
+    Route::post('/session-plans/plan', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'changePlan'])->name('session-plans.plan');
+    Route::post('/session-plans/payg', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'addPayg'])->name('session-plans.payg');
+    Route::delete('/session-plans/{sessionPlan}', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'destroy'])->name('session-plans.destroy');
+    Route::post('/session-transfers/{payment}/confirm', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'confirmTransfer'])->name('session-plans.transfers.confirm');
+    Route::post('/session-transfers/{payment}/reject', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'rejectTransfer'])->name('session-plans.transfers.reject');
+    Route::get('/inbox', [App\Http\Controllers\Ventiq\InboxController::class, 'index'])->name('inbox.index');
+    Route::put('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'update'])->name('inbox.update');
+    Route::delete('/inbox/{inquiry}', [App\Http\Controllers\Ventiq\InboxController::class, 'destroy'])->name('inbox.destroy');
+    Route::get('/scanner-app', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'index'])->name('app-releases.index');
+    Route::post('/scanner-app', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'store'])->name('app-releases.store');
+    Route::put('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'update'])->name('app-releases.update');
+    Route::delete('/scanner-app/{release}', [App\Http\Controllers\Ventiq\AppReleasesController::class, 'destroy'])->name('app-releases.destroy');
+    Route::get('/agents', [App\Http\Controllers\Ventiq\AgentsController::class, 'index'])->name('agents.index');
+    Route::post('/agents/{agent}/approve', [App\Http\Controllers\Ventiq\AgentsController::class, 'approve'])->name('agents.approve');
+    Route::post('/agents/{agent}/decline', [App\Http\Controllers\Ventiq\AgentsController::class, 'decline'])->name('agents.decline');
+    Route::post('/agents/{agent}/earnings', [App\Http\Controllers\Ventiq\AgentsController::class, 'earning'])->name('agents.earning');
+    Route::post('/agents/{agent}/payout', [App\Http\Controllers\Ventiq\AgentsController::class, 'payout'])->name('agents.payout');
+});
+
+// Ask Ventiq's panel on the React pages (organization users).
+Route::middleware(['auth', 'throttle:60,1'])->prefix('assist')->name('assist.')->group(function () {
+    Route::get('/messages', [App\Http\Controllers\AssistController::class, 'index'])->name('messages');
+    Route::post('/messages', [App\Http\Controllers\AssistController::class, 'store'])->middleware('throttle:10,1')->name('ask');
+    // Writing an event's description on the event form.
+    Route::get('/event-content', [App\Http\Controllers\EventContentController::class, 'latest'])->name('event-content.latest');
+    Route::post('/event-content', [App\Http\Controllers\EventContentController::class, 'store'])->middleware('throttle:10,1')->name('event-content.store');
+    Route::get('/event-content/{jobId}', [App\Http\Controllers\EventContentController::class, 'show'])->name('event-content.show');
+});
+
 Route::middleware('auth')->group(function () {
     Route::get('/account', [App\Http\Controllers\AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [App\Http\Controllers\AccountController::class, 'updateProfile'])->name('account.update');
@@ -342,7 +431,7 @@ Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'dest
 
 // ── Organizer area ───────────────────────────────────────────────
 // Where org users land: their events and the payments waiting on them.
-// Super admins reach it by picking an organization in Filament.
+// Super admins reach it by opening an organization's organizer view from the admin.
 // The team is shared by VENTIQ Events and Sessions, so it needs an
 // organization but not the events setup (phone number) step.
 Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name('organizer.')->group(function () {
@@ -357,6 +446,7 @@ Route::middleware(['auth', 'verified', 'organizer'])->prefix('organizer')->name(
         Route::post('/team/invites', [App\Http\Controllers\Organizer\TeamController::class, 'invite'])->name('team.invite');
         Route::delete('/team/invites/{invite}', [App\Http\Controllers\Organizer\TeamController::class, 'revokeInvite'])->name('team.invite.revoke');
         Route::put('/team/{member}/role', [App\Http\Controllers\Organizer\TeamController::class, 'changeRole'])->name('team.role');
+        Route::put('/team/{member}/signs', [App\Http\Controllers\Organizer\TeamController::class, 'signs'])->name('team.signs');
         Route::delete('/team/{member}', [App\Http\Controllers\Organizer\TeamController::class, 'remove'])->name('team.remove');
     });
 });
@@ -424,12 +514,18 @@ Route::middleware('signed')->group(function () {
     Route::get('/payment-review/{payment}/proof', [App\Http\Controllers\PaymentReviewController::class, 'proof'])->name('payment-review.proof');
 });
 
-Route::middleware(['auth'])->prefix('programmes')->name('programmes.')->group(function () {
+Route::middleware(['auth', 'sessions.area'])->prefix('programmes')->name('programmes.')->group(function () {
     Route::get('/', [ProgrammeController::class, 'index'])->name('index');
     Route::get('/create', [ProgrammeController::class, 'create'])->name('create');
     Route::post('/', [ProgrammeController::class, 'store'])->name('store');
     Route::get('/{programme}', [ProgrammeController::class, 'show'])->name('show');
     Route::post('/{programme}/certificates', [ProgrammeController::class, 'issueCertificates'])->name('certificates.issue');
+    Route::get('/{programme}/participants/pdf', [ProgrammeController::class, 'participantList'])->name('participants.pdf');
+    Route::post('/{programme}/enrolments', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'store'])->name('enrolments.store');
+    Route::post('/{programme}/enrolments/import', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'import'])->name('enrolments.import');
+    Route::post('/{programme}/enrolments/{enrolment}/withdraw', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'withdraw'])->name('enrolments.withdraw');
+    Route::post('/{programme}/enrolments/{enrolment}/restore', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'restore'])->name('enrolments.restore');
+    Route::patch('/{programme}/settings', [\App\Http\Controllers\ProgrammeEnrolmentController::class, 'settings'])->name('settings');
     Route::post('/{programme}/report/generate', [ProgrammeController::class, 'generateReport'])->name('report.generate');
     Route::get('/{programme}/report', [ProgrammeController::class, 'report'])->name('report');
     Route::get('/{programme}/report/status', [ProgrammeController::class, 'reportStatus'])->name('report.status');

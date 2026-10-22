@@ -38,6 +38,16 @@ class SessionSegment extends Model
         'paused_at' => 'datetime',
     ];
 
+    /**
+     * A meeting's agenda item keeps the item in title and who leads it in
+     * presenter_name (the item again when no one does): who leads it, if
+     * anyone.
+     */
+    public function lead(): ?string
+    {
+        return $this->title && $this->presenter_name !== $this->title ? $this->presenter_name : null;
+    }
+
     // ── Relationships ────────────────────────────────────────────────────
 
     public function session(): BelongsTo

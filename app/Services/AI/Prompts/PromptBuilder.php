@@ -14,6 +14,18 @@ abstract class PromptBuilder
 
     abstract public function build(): string;
 
+    /** How hard a model that reasons first should think: low, medium, high, or its default. */
+    public function think(): ?string
+    {
+        return null;
+    }
+
+    /** Whether the faster model will do (OLLAMA_FAST_MODEL), for answers needed while someone waits. */
+    public function fast(): bool
+    {
+        return false;
+    }
+
     protected function inject(string $template): string
     {
         foreach ($this->variables as $key => $value) {

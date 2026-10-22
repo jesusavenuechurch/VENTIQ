@@ -33,7 +33,11 @@ class Event extends Model
         'banner_image',
         'organization_package_id',
         'is_programme',
+        'kind',
         'certificates_enabled',
+        'enrol_token',
+        'enrolment_open',
+        'certificate_min_days',
         'signature_capture_enabled',
         'event_type',
         'payment_mode',
@@ -51,6 +55,7 @@ class Event extends Model
         'registration_deadline' => 'datetime',
         'is_programme' => 'boolean',
         'certificates_enabled' => 'boolean',
+        'enrolment_open'       => 'boolean',
         'signature_capture_enabled' => 'boolean',
         'allow_installments' => 'boolean',
         'minimum_deposit_percentage' => 'decimal:2',
@@ -65,9 +70,21 @@ class Event extends Model
      | Boot
      ------------------------------------------------------------ */
 
+    /** An event people get tickets for; the other kinds only hold a session's or a programme's attendees. */
+    public const KIND_EVENT = 'event';
+    public const KIND_SESSION = 'session';
+    public const KIND_PROGRAMME = 'programme';
+
     protected static function boot()
     {
         parent::boot();
+
+        // A programme is always that kind, however it was made.
+        static::saving(function (Event $event) {
+            if ($event->is_programme) {
+                $event->kind = self::KIND_PROGRAMME;
+            }
+        });
 
         // Never take tickets, payments and fees down with an event.
         static::deleting(fn (Event $event) => \App\Support\MoneyRecords::blockingDelete($event) === null);
@@ -99,7 +116,7 @@ class Event extends Model
             // Mirrors the pattern already used for tagline: if city is
             // left blank for any reason, default at the model level too,
             // not just in the form — protects data created outside the
-            // Filament form (seeders, imports, API).
+            // event form (seeders, imports, API).
             if (empty($event->city)) {
                 $event->city = 'Maseru';
             }
@@ -161,6 +178,12 @@ class Event extends Model
     public const OPEN_STATUSES = ['published', 'ongoing'];
 
     /** Public events people can find: published or under way. */
+    /** Events people get tickets for: not the rows sessions and programmes make. */
+    public function scopeTicketed($query)
+    {
+        return $query->where('kind', self::KIND_EVENT);
+    }
+
     public function scopeListed($query)
     {
         return $query->where('is_public', true)->whereIn('status', self::OPEN_STATUSES);
@@ -293,4 +316,5 @@ class Event extends Model
         return $this->hasMany(Session::class);
     }
     public function certificates(): HasMany { return $this->hasMany(Certificate::class); }
+    public function enrolments(): HasMany { return $this->hasMany(ProgrammeEnrolment::class); }
 }

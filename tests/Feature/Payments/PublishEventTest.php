@@ -17,9 +17,11 @@ beforeEach(function () {
 it('offers Publish on a draft, in the list and on its pages, and puts it live', function () {
     $publish = route('organizer.events.publish', $this->event);
 
-    $this->actingAs($this->admin)->get(route('organizer.home'))->assertOk()->assertSee($publish, false);
+    // A draft's card offers Publish to those who can edit events.
+    $this->actingAs($this->admin)->get(route('organizer.home'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('events.0.status', 'draft')->where('organizer.can.edit_event', true));
     $this->get(route('organizer.events.attendees', $this->event))->assertOk()
-        ->assertSee("Draft: attendees can't see this event", false)->assertSee($publish, false);
+        ->assertInertia(fn ($page) => $page->where('event.status', 'draft'));
 
     $this->post($publish)->assertRedirect();
     expect($this->event->fresh()->status)->toBe('published');

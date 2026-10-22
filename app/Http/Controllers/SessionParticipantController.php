@@ -22,7 +22,21 @@ class SessionParticipantController extends Controller
             ->latest('attended_at')
             ->get();
 
-        return view('sessions.checkin', compact('session', 'participants'));
+        return \Inertia\Inertia::render('Sessions/Checkin', [
+            'session'      => ['id' => $session->id, 'title' => $session->resolved_title],
+            'participants' => $participants->map(fn (Participant $p) => [
+                'id'          => $p->id,
+                'name'        => $p->client?->full_name,
+                'phone'       => $p->client?->phone,
+                'email'       => $p->client?->email,
+                'photo'       => $p->client?->photo_path ? Storage::url($p->client->photo_path) : null,
+                'time'        => $p->attended_at?->format('g:i A'),
+                'institution' => $p->institution,
+                'position'    => $p->position,
+                'notified'    => (bool) $p->notified_at,
+            ]),
+            'meta' => ['title' => "Check-in: {$session->resolved_title} | VENTIQ"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function store(Request $request, Session $session)
@@ -31,11 +45,20 @@ class SessionParticipantController extends Controller
         abort_unless($session->event_id, 404);
 
         $validated = $request->validate([
-            'full_name' => 'required|string|max:255',
-            'phone'     => 'nullable|string|max:20',
+            'full_name'   => 'required|string|max:255',
+            'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
             'institution' => 'nullable|string|max:255',
             'position'    => 'nullable|string|max:255',
         ]);
+
+        // With an email, the same person as the self check-in form; the
+        // email is how they get their attendance card afterwards.
+        if (!empty($validated['email'])) {
+            $session->checkInAttendee($validated + ['source' => 'walk_in']);
+
+            return redirect()->route('sessions.checkin', $session)->with('status', "{$validated['full_name']} is checked in.");
+        }
 
         if (!empty($validated['phone'])) {
             $client = Client::firstOrCreate(
@@ -70,7 +93,11 @@ class SessionParticipantController extends Controller
         $participant->position        = $validated['position'] ?? null;
         $participant->save();
 
-        return redirect()->route('sessions.checkin', $session);
+        if ($session->event?->is_programme) {
+            app(\App\Services\Sessions\ProgrammeProgress::class)->enrolClient($session->event, $client, $participant->institution, $participant->position, 'checkin');
+        }
+
+        return redirect()->route('sessions.checkin', $session)->with('status', "{$validated['full_name']} is checked in.");
     }
 
     public function update(Request $request, Session $session, Participant $participant)
@@ -81,36 +108,37 @@ class SessionParticipantController extends Controller
         $validated = $request->validate([
             'full_name'   => 'required|string|max:255',
             'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
             'institution' => 'nullable|string|max:255',
             'position'    => 'nullable|string|max:255',
         ]);
 
-        $participant->client->update(['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null]);
+        $participant->client->update(['full_name' => $validated['full_name'], 'phone' => $validated['phone'] ?? null, 'email' => $validated['email'] ?? $participant->client->email]);
         $participant->update([
             'institution' => $validated['institution'] ?? null,
             'position'    => $validated['position'] ?? null,
         ]);
 
-        return redirect()->route('sessions.checkin', $session);
+        return redirect()->route('sessions.checkin', $session)->with('status', 'Saved.');
     }
 
-    public function exportPdf(Session $session)
+    /** The participant list for officials (see ParticipantList), with ?blank= rows to fill in by hand. */
+    public function exportPdf(Request $request, Session $session, \App\Services\Sessions\ParticipantList $lists)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
         abort_unless($session->event_id, 404);
 
-        $participants = Participant::with('client')
-            ->where('session_id', $session->id)
-            ->orderBy('attended_at')
-            ->get();
+        $list = $lists->forSession($session, Auth::user());
 
-        $pdf = \PDF::loadView('sessions.participants-pdf', [
-            'session'      => $session,
-            'participants' => $participants,
-            'orgName'      => $session->organization?->name ?? '',
-        ])->setPaper('a4', 'portrait');
+        return \PDF::loadView('sessions.participant-list-pdf', ['list' => $list, 'blank' => self::blankRows($request), 'logo' => \App\Support\Logo::of($session->organization)])
+            ->setPaper('a4', 'landscape')
+            ->download('participant-list-' . \Illuminate\Support\Str::slug($session->resolved_title) . ($session->date ? '-' . $session->date->format('Y-m-d') : '') . '.pdf');
+    }
 
-        return $pdf->download("ventiq-participants-{$session->id}.pdf");
+    /** Empty rows at the end of a participant list, for people who didn't check in. */
+    public static function blankRows(Request $request): int
+    {
+        return max(0, min(40, (int) $request->query('blank', 5)));
     }
 
     // The one card design — same PNG generated for the auto-sent thank-you

@@ -11,7 +11,7 @@ class ScannerAppController extends Controller
 {
     public function download(Request $request, ?AppRelease $release = null)
     {
-        // A specific build is for super admins (Filament); everyone else gets the current one.
+        // A specific build is for super admins (Admin › Scanner app); everyone else gets the current one.
         if ($release && !$request->user()->isSuperAdmin()) {
             abort(403);
         }

@@ -7,13 +7,14 @@ name: Build assets
 
 on:
   push:
-    branches: [main, email-config]
+    branches: [main, email-config, inertia-react]
     paths:
       - 'resources/**'
       - 'composer.lock'
       - 'package.json'
       - 'package-lock.json'
       - 'vite.config.js'
+      - 'tsconfig.json'
   workflow_dispatch:
 
 permissions:

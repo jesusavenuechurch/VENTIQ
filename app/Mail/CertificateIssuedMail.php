@@ -40,14 +40,7 @@ class CertificateIssuedMail extends Mailable implements ShouldQueue
 
     public function attachments(): array
     {
-        $qrBase64 = base64_encode(
-            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(300)->margin(1)->generate($this->certificate->verify_url)
-        );
-
-        $pdf = \PDF::loadView('certificates.certificate', [
-            'certificate' => $this->certificate,
-            'qrBase64'    => $qrBase64,
-        ])->setPaper('a4', 'landscape')->output();
+        $pdf = $this->certificate->pdf()->output();
 
         return [
             Attachment::fromData(fn () => $pdf, "ventiq-certificate-{$this->certificate->id}.pdf")

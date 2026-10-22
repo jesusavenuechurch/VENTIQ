@@ -1,0 +1,205 @@
+import { Link, router, usePage, usePoll } from '@inertiajs/react';
+import { BarChart3, Check, ChevronDown, Download, FileText, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
+import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
+import { Minutes, type MinutesData } from '@/components/sessions/minutes';
+import { SessionNumbers, type SessionNumbersData } from '@/components/sessions/numbers';
+import { json } from '@/lib/http';
+import { cn } from '@/lib/utils';
+import type { SessionsArea } from '@/types';
+
+interface Props {
+    session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean; takesMinutes: boolean };
+    segments: { id: number; name: string; role: string | null; summary: string | null; topic: string | null; logs: { time: string; text: string }[] }[];
+    actionPoints: ActionPointCard[];
+    carried: ActionPointCard[];
+    owners: Owner[];
+    /** A meeting's report is its minutes. */
+    minutes: MinutesData | null;
+    numbers: SessionNumbersData | null;
+}
+
+type Tab = 'report' | 'numbers';
+
+/** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
+export default function Report({ session, segments, actionPoints, carried, owners, minutes, numbers }: Props) {
+    // Writing the report, then picking out its action points: checked every few seconds.
+    const generating = (session.status === 'completed' && !session.failed) || session.findingActions;
+    // Viewers read the report; Admins and Staff edit and review it.
+    const canRun = usePage<{ sessionsArea: SessionsArea }>().props.sessionsArea.can.run;
+    const [editing, setEditing] = useState(false);
+    const [text, setText] = useState(session.report ?? '');
+    const [saved, setSaved] = useState(session.report ?? '');
+    const [saving, setSaving] = useState(false);
+    const [justSaved, setJustSaved] = useState(false);
+    const [error, setError] = useState('');
+    // The tab, kept in the address so a refresh or a shared link opens it.
+    const [tab, setTab] = useState<Tab>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'numbers' ? 'numbers' : 'report'));
+    function show(next: Tab) {
+        setTab(next);
+        const url = new URL(window.location.href);
+        if (next === 'numbers') url.searchParams.set('tab', 'numbers');
+        else url.searchParams.delete('tab');
+        window.history.replaceState(window.history.state, '', url);
+    }
+    // What was said, a line an item: the minutes as they stand, or each part's write-up.
+    const summary = minutes
+        ? minutes.items.map((i) => ({ label: i.title, text: i.discussion }))
+        : segments.map((s) => ({ label: s.topic || s.name, text: s.summary }));
+
+    // While the report is being written, check every few seconds.
+    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints', 'minutes'] }, { autoStart: generating });
+    useEffect(() => (generating ? start() : stop()), [generating, start, stop]);
+    // The report arriving from the check above.
+    useEffect(() => {
+        if (editing) return;
+        setText(session.report ?? '');
+        setSaved(session.report ?? '');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.report]);
+
+    async function save() {
+        setSaving(true);
+        setError('');
+        const { ok } = await json(route('sessions.report.update', session.id), { method: 'PATCH', body: { session_report: text } }).catch(() => ({ ok: false }));
+        setSaving(false);
+        if (!ok) return setError("That didn't save. Check your connection and try again.");
+        setSaved(text);
+        setEditing(false);
+        setJustSaved(true);
+        window.setTimeout(() => setJustSaved(false), 2000);
+    }
+
+    return (
+        <SessionsLayout title={session.title} subtitle={
+                <>
+                    {session.date}
+                    {session.reviewed && <span className="text-emerald-600"> · Reviewed {session.reviewed}</span>}
+                    {session.series && <> · <Link href={route('sessions.series.show', session.series.id)} className="font-bold text-brand hover:text-action">{session.series.title}</Link></>}
+                    {session.previous && <> · <Link href={route('sessions.report', session.previous)} className="font-bold text-brand hover:text-action">Previous meeting</Link></>}
+                </>
+            } crumbs={[['Reports', route('sessions.reports')], [session.title]]}>
+            {session.status === 'draft' || session.status === 'active' ? (
+                <Empty>This session is still going. {session.takesMinutes ? 'The minutes are written when the last item is done.' : 'Its report is written when the last presenter finishes.'}</Empty>
+            ) : session.status !== 'reported' ? (
+                session.failed ? (
+                    <div className="rounded-[2rem] border border-dashed border-rose-200 bg-rose-50/40 py-16 text-center">
+                        <p className="text-sm font-bold text-rose-600">{session.takesMinutes ? "The minutes couldn't be written" : "The report couldn't be written"}</p>
+                        <p className="mx-auto mt-1 max-w-md text-[12px] font-medium text-gray-500">The notes are safe, nothing was lost. Try again.</p>
+                        {canRun && <button type="button" onClick={() => router.post(route('sessions.report.generate', session.id))} className={cn(quietButton, 'mt-6')}><RotateCw className="size-3.5" />Try again</button>}
+                    </div>
+                ) : (
+                    <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center">
+                        <LoaderCircle className="mx-auto mb-5 size-8 animate-spin text-action" />
+                        <p className="text-sm font-bold text-gray-500">{session.takesMinutes ? 'Writing the minutes…' : 'Writing your report…'}</p>
+                        <p className="mt-1 text-[12px] font-medium text-gray-400">This usually takes a few seconds. You can leave this page; it'll be under Reports.</p>
+                    </div>
+                )
+            ) : (
+                <>
+                <div role="tablist" aria-label="Report views" className="mb-6 flex flex-wrap items-center gap-2">
+                    {([['report', session.takesMinutes ? 'Minutes' : 'Report', FileText], ['numbers', 'Summary and numbers', BarChart3]] as const).map(([key, label, Icon]) => (
+                        <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => show(key)}
+                            className={cn(quietButton, tab === key && 'border-brand bg-brand text-white hover:text-white')}>
+                            <Icon className="size-3.5" />{label}
+                        </button>
+                    ))}
+                    <a href={route('sessions.report.full', session.id)} className={cn(quietButton, 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
+                        <Download className="size-3.5" />Full report
+                    </a>
+                </div>
+                {tab === 'numbers' && numbers ? (
+                    <SessionNumbers numbers={numbers} summary={summary} minuted={session.takesMinutes} />
+                ) : (
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                    {minutes ? (
+                        <Minutes sessionId={session.id} minutes={minutes} canEdit={canRun} tracking={session.tracking} />
+                    ) : (
+                    <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8">
+                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                            <span className={cn('text-[10px] font-black uppercase tracking-widest', justSaved ? 'text-emerald-600' : 'text-gray-300')}>{justSaved ? 'Saved' : editing ? 'Editing' : ''}</span>
+                            <div className="flex flex-wrap justify-end gap-2">
+                                {editing ? (
+                                    <>
+                                        <button type="button" onClick={() => { setText(saved); setEditing(false); }} className={quietButton}>Cancel</button>
+                                        <button type="button" disabled={saving} onClick={save} className={cn(quietButton, 'border-brand bg-brand text-white hover:bg-action')}>{saving ? 'Saving…' : 'Save'}</button>
+                                    </>
+                                ) : canRun ? (
+                                    <button type="button" onClick={() => setEditing(true)} className={quietButton}><Pencil className="size-3.5" />Edit</button>
+                                ) : null}
+                                <a href={route('sessions.report.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>
+                                {session.tracking && <a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
+                            </div>
+                        </div>
+                        {error && <p className="mb-3 text-[12px] font-bold text-rose-600">{error}</p>}
+                        {editing ? (
+                            <textarea aria-label="Report" value={text} onChange={(e) => setText(e.target.value)} rows={20} className="w-full resize-y rounded-2xl border-none bg-gray-50 px-5 py-4 text-[13px] font-medium leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-action/20" />
+                        ) : (
+                            <div className="whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-gray-700">{saved}</div>
+                        )}
+
+                        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6">
+                            {session.reviewed ? (
+                                <span className="flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-emerald-600"><Check className="size-4" />Reviewed {session.reviewed}</span>
+                            ) : !canRun ? (
+                                <span className="text-[12px] font-medium text-gray-400">Not reviewed yet.</span>
+                            ) : (
+                                <>
+                                    <span className="text-[12px] font-medium text-gray-400">Marking it reviewed lets attendees know the notes are ready.</span>
+                                    <button type="button" onClick={() => router.post(route('sessions.report.review', session.id), {}, { preserveScroll: true })} className="rounded-2xl bg-action px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:shadow-lg">Mark as reviewed</button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    )}
+                    {session.findingActions && <p className="mt-6 flex items-center gap-2 rounded-2xl bg-lilac/60 px-5 py-4 text-[12px] font-bold text-lilac-ink"><LoaderCircle className="size-4 animate-spin" />Ventiq Assist is picking out the action points…</p>}
+                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} minutes={!!minutes} />
+                    </div>
+
+                    <div className="rounded-2xl bg-[#F7F3EC] p-5">
+                        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Notes it was written from</p>
+                        <div className="space-y-3">
+                            {segments.map((s) => (
+                                <details key={s.id} className="group overflow-hidden rounded-xl border border-gray-100 bg-white">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
+                                        <span>
+                                            <span className="block text-[12px] font-bold text-brand">{s.name}</span>
+                                            {s.role && <span className="block text-[10px] font-bold text-gray-400">{s.role}</span>}
+                                        </span>
+                                        <ChevronDown className="size-4 text-gray-300 transition-transform group-open:rotate-180" />
+                                    </summary>
+                                    <div className="px-4 pb-4">
+                                        {s.summary && (
+                                            <>
+                                                <p className="mb-1 mt-2 text-[9px] font-black uppercase tracking-wide text-gray-400">Summary</p>
+                                                <p className="mb-3 text-[12px] font-medium text-gray-600">{s.summary}</p>
+                                            </>
+                                        )}
+                                        {s.logs.length > 0 && (
+                                            <>
+                                                <p className="mb-1 text-[9px] font-black uppercase tracking-wide text-gray-400">As typed</p>
+                                                <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                                                    {s.logs.map((l, i) => <p key={i} className="text-[11px] text-gray-500"><span className="font-mono text-gray-300">{l.time}</span> {l.text}</p>)}
+                                                </div>
+                                            </>
+                                        )}
+                                        {!s.summary && s.logs.length === 0 && <p className="mt-2 text-[11px] italic text-gray-300">Nothing written for this one.</p>}
+                                    </div>
+                                </details>
+                            ))}
+                            {segments.length === 0 && <p className="text-[11px] italic text-gray-400">No one was added to this session.</p>}
+                        </div>
+                    </div>
+                </div>
+                )}
+                </>
+            )}
+        </SessionsLayout>
+    );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+    return <div className="rounded-[2rem] border border-dashed border-gray-200 py-16 text-center text-sm font-bold text-gray-400">{children}</div>;
+}

@@ -17,7 +17,8 @@ beforeEach(function () {
 
 it('invites someone with a role, and they join with it', function () {
     $this->actingAs($this->admin)->get(route('organizer.team.index'))
-        ->assertOk()->assertSee('Teboho')->assertSee('Invite someone');
+        ->assertOk()->assertSee('Teboho')
+        ->assertInertia(fn ($page) => $page->component('Organizer/Team')->where('canManage', true));
 
     $this->post(route('organizer.team.invite'), ['email' => 'Door@Example.com', 'role' => 'scanner'])
         ->assertSessionHas('status', fn ($s) => str_contains($s, 'as Door'));
@@ -72,7 +73,8 @@ it('refuses to demote or remove the only admin', function () {
 
 it('lets staff see the team but not change it, and keeps teams apart', function () {
     $this->actingAs($this->staff)->get(route('organizer.team.index'))
-        ->assertOk()->assertSee('Naledi')->assertDontSee('Invite someone');
+        ->assertOk()->assertSee('Naledi')
+        ->assertInertia(fn ($page) => $page->component('Organizer/Team')->where('canManage', false));
     $this->post(route('organizer.team.invite'), ['email' => 'x@example.com', 'role' => 'staff'])->assertForbidden();
 
     $stranger = User::factory()->create(['organization_id' => Organization::factory()->create()->id]);
@@ -82,4 +84,21 @@ it('lets staff see the team but not change it, and keeps teams apart', function 
 it('won\'t invite an email that already has an account', function () {
     $this->actingAs($this->admin)->post(route('organizer.team.invite'), ['email' => $this->staff->email, 'role' => 'staff'])
         ->assertSessionHasErrors(['email' => 'Teboho is already on your team.']);
+});
+
+it('shows the invite page, and says so when an invite has expired or the email has an account', function () {
+    $this->actingAs($this->admin)->post(route('organizer.team.invite'), ['email' => 'door@example.com', 'role' => 'scanner']);
+    $invite = OrganizationInvite::firstOrFail();
+    auth()->logout();
+
+    // This page used to crash: its view name had a typo, and the expired one didn't exist.
+    $this->get(route('organization.invite.show', $invite->token))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Organization/InviteAccept')->where('invite.pending', true)->where('invite.role', 'Door'));
+
+    User::factory()->create(['email' => 'door@example.com']);
+    $this->post(route('organization.invite.submit', $invite->token), ['name' => 'Door', 'password' => 'Secret-Pass-123', 'password_confirmation' => 'Secret-Pass-123'])
+        ->assertSessionHasErrors('name');
+
+    $invite->update(['expires_at' => now()->subDay()]);
+    $this->get(route('organization.invite.show', $invite->token))->assertOk()->assertInertia(fn ($page) => $page->where('invite.pending', false));
 });

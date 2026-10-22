@@ -152,7 +152,7 @@ class SessionSegmentController extends Controller
             return response()->json(['category' => 'none']);
         }
 
-        $parsed = $this->parseTagResponse($result->content);
+        $parsed = SegmentInsightPrompt::parse($result->content);
 
         if ($parsed['category'] === 'none' || $parsed['text'] === '') {
             return response()->json(['category' => 'none']);
@@ -168,21 +168,6 @@ class SessionSegmentController extends Controller
         return response()->json($parsed);
     }
 
-    private function parseTagResponse(string $content): array
-    {
-        preg_match('/CATEGORY:\s*(\w+)/i', $content, $catMatch);
-        preg_match('/TEXT:\s*(.+)/i', $content, $textMatch);
-
-        $category = strtolower(trim($catMatch[1] ?? 'none'));
-        if (!in_array($category, ['theme', 'decision', 'action', 'question'])) {
-            $category = 'none';
-        }
-
-        return [
-            'category' => $category,
-            'text'     => trim($textMatch[1] ?? ''),
-        ];
-    }
 
     private function authorizeSegment(Session $session, SessionSegment $segment): void
     {
@@ -214,7 +199,9 @@ class SessionSegmentController extends Controller
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required_without:title|nullable|string|max:255',
+            // A meeting's agenda item; name is then who leads it, if anyone.
+            'title' => 'nullable|string|max:255',
             'role' => 'nullable|string|max:255',
             'presenting' => 'nullable|boolean',
         ]);
@@ -226,7 +213,8 @@ class SessionSegmentController extends Controller
             : \App\Support\SessionType::roleIsPresenting($session->type, $validated['role'] ?? null);
 
         $segment = $session->segments()->create([
-            'presenter_name' => $validated['name'],
+            'presenter_name' => trim($validated['name'] ?? '') ?: $validated['title'],
+            'title'          => $validated['title'] ?? null,
             'role'           => $validated['role'] ?? null,
             'is_presenting'  => $isPresenting,
             'order'          => $nextOrder,
@@ -244,11 +232,23 @@ class SessionSegmentController extends Controller
             'segment' => [
                 'id'            => $segment->id,
                 'name'          => $segment->presenter_name,
+                'topic'         => $segment->title ?? '',
                 'role'          => $segment->role,
                 'is_presenting' => $segment->is_presenting,
                 'status'        => $segment->fresh()->status,
             ],
         ]);
+    }
+
+    // The presentation's name, typed on the notebook page.
+    public function update(Request $request, Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+
+        $validated = $request->validate(['title' => 'nullable|string|max:255']);
+        $segment->update(['title' => $validated['title'] ?: null]);
+
+        return response()->json(['status' => 'ok']);
     }
 
     // A lineup changes — someone drops out before their turn, or turns out

@@ -37,10 +37,13 @@ it('keeps the registration when a message fails to send after it is saved', func
     expect(collect($ticket->fresh()->delivery_log)->pluck('method'))->toContain('registration');
 });
 
-it('shows the number again without a second +266 after an error', function () {
+it('takes the 8 local digits, or a whole +266 number, and keeps it after an error', function () {
+    // The React form keeps what was typed when there's an error; the server
+    // only has to accept the number however it arrives.
     ($this->register)(['terms' => null])->assertSessionHasErrors('terms');
+    ($this->register)(['phone' => '+266 5949 4756'])->assertSessionHasNoErrors();
 
-    $this->get($this->form . '?tier=' . $this->tier->id)->assertSee('value="59494756"', false);
+    expect(Ticket::sole()->client->phone)->toBe('+26659494756');
 });
 
 it('keeps each person\'s name when two register with one phone, and never wipes an email', function () {
@@ -71,10 +74,15 @@ it('finds a ticket by phone and entry code, and shows the link to keep', functio
         ->assertRedirect(route('ticket.pay', $ticket->qr_code));
     $this->post(route('installment.find'), ['ticket_number' => $ticket->voucher_code, 'phone' => '50000000'])->assertSessionHasErrors('ticket_number');
 
-    $this->get(route('ticket.pay', $ticket->qr_code))->assertSee('Your ticket link: save it')
-        ->assertSee(route('ticket.download', $ticket->qr_code))->assertSee($ticket->voucher_code);
-    $this->get(route('ticket.find'))->assertOk()->assertSee('entry code');
+    // The page shows the ticket's link to keep, with its entry code.
+    $this->get(route('ticket.pay', $ticket->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Pay')
+        ->where('ticket.link', route('ticket.download', $ticket->qr_code))->where('ticket.voucherCode', $ticket->voucher_code));
+    $this->get(route('ticket.find'))->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Find'));
     $this->get(route('terms'))->assertOk()->assertSee('Ticket terms');
+
+    // From the React page (an Inertia request) too.
+    $this->post(route('installment.find'), ['ticket_number' => $ticket->voucher_code, 'phone' => '59494756'], ['X-Inertia' => 'true'])
+        ->assertRedirect(route('ticket.pay', $ticket->qr_code));
 });
 
 it('shows the balance and the account paid to on the confirmation page', function () {
@@ -84,7 +92,8 @@ it('shows the balance and the account paid to on the confirmation page', functio
     $account = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_name' => 'Events', 'account_number' => '62000000', 'is_active' => true]);
     $ticket->payments()->first()->update(['organization_payment_method_id' => $account->id, 'submitted_at' => now()]);
 
-    $this->get(route('ticket.registered', $ticket->qr_code))->assertSee('Balance left')->assertSee('M140.00')->assertSee('62000000');
+    $this->get(route('ticket.registered', $ticket->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Confirmation')
+        ->where('partlyPaid', true)->where('toPay', 140)->where('paidTo.number', '62000000'));
 });
 
 it('closes registration once the event day is over, but not on the day', function () {
@@ -103,5 +112,18 @@ it('sends an expired ticket to its page, which offers to register again', functi
     $ticket->update(['status' => 'expired']);
 
     $this->get(route('ticket.pay', $ticket->qr_code))->assertRedirect(route('ticket.download', $ticket->qr_code));
-    $this->get(route('ticket.download', $ticket->qr_code))->assertSee('No payment is needed')->assertSee('Register again');
+    $this->get(route('ticket.download', $ticket->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Inactive')
+        ->where('state.body', fn ($body) => str_contains($body, 'No payment is needed'))
+        ->where('registerUrl', route('registration.form', [$ticket->event->organization->slug, $ticket->event->slug])));
+});
+
+it('shows an active ticket as its pass, with its QR and entry code', function () {
+    ($this->register)();
+    $ticket = Ticket::sole();
+    $ticket->update(['status' => 'active', 'payment_status' => 'completed']);
+
+    $this->get(route('ticket.download', $ticket->qr_code))->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Pass')
+        ->where('ticket.voucherCode', $ticket->voucher_code)
+        ->where('ticket.event.name', $ticket->event->name)
+        ->where('qrUrl', route('ticket.qr', $ticket->qr_code)));
 });

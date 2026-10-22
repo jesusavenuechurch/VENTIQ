@@ -18,12 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
             // before reaching the controller.
             $middleware->alias([
                 'organizer' => \App\Http\Middleware\EnsureOrganizerAccess::class,
+                'sessions.area' => \App\Http\Middleware\EnsureSessionsAccess::class,
                 'organizer.setup' => \App\Http\Middleware\EnsureOrganizationSetUp::class,
                 'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             ]);
 
             // When people last used VENTIQ (unused accounts are removed after two months).
-            $middleware->web(append: [\App\Http\Middleware\TrackLastActive::class]);
+            $middleware->web(append: [
+                \App\Http\Middleware\TrackLastActive::class,
+                // React pages (Inertia); does nothing for Blade pages.
+                \App\Http\Middleware\HandleInertiaRequests::class,
+                \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            ]);
 
             $middleware->validateCsrfTokens(except: [
                 'payment/paylesotho/callback/*',

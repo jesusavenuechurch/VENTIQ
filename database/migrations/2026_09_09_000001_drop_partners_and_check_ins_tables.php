@@ -5,8 +5,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Removes the legacy "partners" check-in system (the pre-Ventiq
- * Angel Lounge partner-management layer). Nothing in the current
+ * Removes the legacy "partners" check-in system (a partner-management
+ * layer from before VENTIQ). Nothing in the current
  * ticketing / programme / scanner code touches these tables — see the
  * matching removal of the Partner/CheckIn models, controllers, Filament
  * resource and widgets in the same change.

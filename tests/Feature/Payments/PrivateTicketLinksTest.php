@@ -35,13 +35,15 @@ it('sends a new registration to its private link', function () {
         'tier_id' => $this->tier->id, 'full_name' => 'Thabo', 'phone' => '+26650001111', 'terms' => '1',
     ])->assertRedirect(route('ticket.pay', Ticket::latest('id')->first()->qr_code));
 
-    $this->get(route('ticket.pay', Ticket::latest('id')->first()->qr_code))->assertOk()->assertSee('Pay Online');
+    $this->get(route('ticket.pay', Ticket::latest('id')->first()->qr_code))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Tickets/Pay')->where('online.methods', fn ($m) => count($m) > 0));
 });
 
 it('shows nothing at an old numbered link, and only emails the link to the ticket\'s owner', function () {
     $old = "/register/{$this->org->slug}/{$this->event->slug}/payment/{$this->ticket->id}";
 
-    $this->get($old)->assertOk()->assertSee('new private link')->assertSee('l•••')
+    $this->get($old)->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Tickets/LinkMoved')->where('maskedEmail', fn ($e) => str_starts_with($e, 'l•••')))
         ->assertDontSee('Lerato')->assertDontSee($this->ticket->qr_code)->assertDontSee('lerato@example.com');
     $this->get("/register/{$this->org->slug}/{$this->event->slug}/confirmation/{$this->ticket->id}")->assertOk()->assertDontSee('Lerato');
     $this->get("/installment/{$this->ticket->id}")->assertOk()->assertDontSee('Lerato');
@@ -81,7 +83,7 @@ it('finds a ticket for its balance by number and phone, and takes the balance on
         ->assertRedirect(route('ticket.pay', $this->ticket->qr_code));
 
     $account = OrganizationPaymentMethod::create(['organization_id' => $this->org->id, 'payment_method' => 'ecocash', 'account_number' => '62000000', 'is_active' => true]);
-    $this->get(route('ticket.pay', $this->ticket->qr_code))->assertSee('M140.00');
+    $this->get(route('ticket.pay', $this->ticket->qr_code))->assertInertia(fn ($page) => $page->where('owed', 140));
     $this->post(route('ticket.pay.manual', $this->ticket->qr_code), ['payment_method_id' => $account->id, 'payment_type' => 'full', 'payment_reference' => 'EC1']);
 
     expect((float) $this->ticket->payments()->latest('id')->first()->amount)->toBe(140.0);

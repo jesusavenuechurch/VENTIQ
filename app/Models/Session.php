@@ -25,6 +25,10 @@ class Session extends Model
         'public_token',
         'session_code',
         'parent_session_id',
+        'series_id',
+        'counted_at',
+        'charge',
+        'session_invoice_id',
         'type',
         'title',
         'date',
@@ -36,14 +40,37 @@ class Session extends Model
         'report_job_id',
         'start_time',
         'reviewed_at',
+        'minutes',
     ];
 
     protected $casts = [
         'date'                   => 'date',
         'meta'                   => 'array',
+        'minutes'                => 'array',
         'report_last_opened_at'  => 'datetime',
         'reviewed_at'            => 'datetime',
+        'counted_at'             => 'datetime',
+        'charge'                 => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        // A programme's day has ended: anyone who now meets its rule gets their certificate.
+        static::updated(function (Session $session) {
+            if ($session->event_id && $session->wasChanged('status') && in_array($session->status, ['completed', 'reported'], true)) {
+                \App\Jobs\IssueProgrammeCertificates::dispatch($session->event_id)->afterCommit();
+            }
+        });
+
+        // Ask Ventiq's memory of it: made when it's reported, and again when it changes.
+        static::updated(function (Session $session) {
+            $reported = $session->status === 'reported' || $session->getOriginal('status') === 'reported';
+            if ($reported && $session->wasChanged(['status', 'session_report', 'minutes', 'reviewed_at', 'title', 'date', 'location', 'meta'])) {
+                \App\Jobs\IndexSessionMemory::dispatch($session->id)->afterCommit();
+            }
+        });
+        static::deleted(fn (Session $session) => \App\Models\MemoryChunk::where('session_id', $session->id)->delete());
+    }
 
     // ── Relationships ────────────────────────────────────────────────────
 
@@ -70,6 +97,18 @@ class Session extends Model
     public function childSessions(): HasMany
     {
         return $this->hasMany(Session::class, 'parent_session_id');
+    }
+
+    /** What was agreed in this session. */
+    public function actionPoints(): HasMany
+    {
+        return $this->hasMany(ActionPoint::class, 'session_id');
+    }
+
+    /** The repeating series this meeting is part of, if any. */
+    public function series(): BelongsTo
+    {
+        return $this->belongsTo(SessionSeries::class, 'series_id');
     }
 
     public function segments(): HasMany
@@ -198,6 +237,11 @@ class Session extends Model
             $participant->attended_at = now();
         }
         $participant->save();
+
+        // Coming to a programme's day puts you on the programme.
+        if ($this->event?->is_programme) {
+            app(\App\Services\Sessions\ProgrammeProgress::class)->enrolClient($this->event, $client, $participant->institution, $participant->position, 'checkin');
+        }
 
         $participant->wasAlreadyCheckedIn = $wasAlreadyCheckedIn;
 

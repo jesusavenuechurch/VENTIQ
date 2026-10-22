@@ -145,10 +145,14 @@ class Agent extends Model
 
     public function updateEarnings(): void
     {
+        // Worked out first: adding the attributes inside update() would add the old totals.
+        $commissions = (float) $this->commissions()->paid()->sum('amount');
+        $bonuses = (float) $this->bonuses()->paid()->sum('amount');
+
         $this->update([
-            'total_commissions_earned' => $this->commissions()->paid()->sum('amount'),
-            'total_bonuses_earned' => $this->bonuses()->paid()->sum('amount'),
-            'total_earnings' => $this->total_commissions_earned + $this->total_bonuses_earned,
+            'total_commissions_earned' => $commissions,
+            'total_bonuses_earned' => $bonuses,
+            'total_earnings' => $commissions + $bonuses,
         ]);
     }
 

@@ -1,0 +1,1 @@
+async function n(a,t){const o=await fetch(a,{...t,headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-TOKEN":document.querySelector("meta[name=csrf-token]")?.content??"",...t?.headers},body:t?.body===void 0?void 0:JSON.stringify(t.body)}),e=await o.json().catch(()=>({}));return{ok:o.ok,status:o.status,data:e}}export{n as j};

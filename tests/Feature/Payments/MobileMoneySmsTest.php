@@ -117,7 +117,7 @@ it('holds a payment whose balance does not follow, until a person says it is rea
     $super->assignRole('super_admin');
     $held = MobileMoneyMessage::where('transaction_id', 'MP261014.1000.A00011')->first();
 
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('EcoCash payments to check')->assertSee("doesn't follow");
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('sms.toCheck', fn ($rows) => collect($rows)->contains(fn ($r) => $r['id'] === $held->id && $r['canAccept'] && str_contains($r['note'], "doesn't follow"))));
     $this->post(route('ventiq.money.sms.decide', $held), ['decision' => 'accept']);
 
     expect($held->fresh()->status)->toBe('matched')

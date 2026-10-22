@@ -17,7 +17,11 @@ class AgentRegistrationController extends Controller
     {
         $agent = $token ? $this->resolveAgent($token) : null;
 
-        return view('public.org-register', compact('agent'));
+        return \Inertia\Inertia::render('Auth/Register', [
+            'agent'     => $agent ? ['name' => $agent->name] : null,
+            'submitUrl' => $agent ? route('agent.registration.submit', $agent->referral_token) : route('org.register.submit'),
+            'meta'      => ['title' => 'Create an account | VENTIQ', 'description' => 'Sell tickets and run registrations for your events in Lesotho. No monthly fee.'],
+        ]);
     }
 
     public function submit(Request $request, string $token = null)
@@ -53,7 +57,10 @@ class AgentRegistrationController extends Controller
                 'redirect' => route('verification.notice'),
             ]);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+            // The reason stays in the log: it can hold database details.
+            report($e);
+
+            return response()->json(['status' => 'error', 'message' => "We couldn't create your account just now. Please try again in a moment."], 422);
         }
     }
 

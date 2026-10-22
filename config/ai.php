@@ -9,6 +9,18 @@ return [
         'model'       => env('OLLAMA_MODEL', 'qwen2.5:7b'),
         'timeout'     => env('OLLAMA_TIMEOUT', 300),
         'temperature' => env('OLLAMA_TEMPERATURE', 0.7),
+        // A smaller, quicker model for the live sticky notes (e.g. qwen2.5:7b); the main one when unset.
+        'fast_model'  => env('OLLAMA_FAST_MODEL'),
+        // How much prompt the model may take (tokens). Ollama's default is small and
+        // drops the start of a longer prompt: 16384 suits Ask Ventiq and long meetings.
+        'num_ctx'     => env('OLLAMA_NUM_CTX', 16384),
+        // How long Ollama keeps a model loaded after a call (Ollama's own default is 5m; -1 is always).
+        'keep_alive'  => env('OLLAMA_KEEP_ALIVE', '24h'),
+        // Whether the model takes a thinking level (low/medium/high). Unset: gpt-oss does.
+        'thinking'    => env('OLLAMA_THINKING'),
+        // For Ask Ventiq's search: run `ollama pull nomic-embed-text` on the Mac mini.
+        'embed_model' => env('OLLAMA_EMBED_MODEL', 'nomic-embed-text'),
+        'embed_timeout' => env('OLLAMA_EMBED_TIMEOUT', 60),
     ],
 
     'openrouter' => [

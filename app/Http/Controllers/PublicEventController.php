@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\Organization;
+use App\Support\EventPage;
 use Illuminate\Http\Request;
 
 class PublicEventController extends Controller
@@ -39,7 +40,18 @@ class PublicEventController extends Controller
             ];
         }
 
-        return view('public.event', compact('organization', 'event', 'canRegister', 'closedReason', 'tierAvailability'));
+        $user = auth()->user();
+
+        return \Inertia\Inertia::render('Events/Show', [
+            'event'        => EventPage::event($event, $organization),
+            'tiers'        => $event->tiers->map(fn ($tier) => EventPage::tier($tier, $event, $tierAvailability[$tier->id] ?? null))->values(),
+            'canRegister'  => $canRegister,
+            'closedReason' => $closedReason,
+            'registerUrl'  => route('registration.form', [$organization->slug, $event->slug]),
+            // The organization's own page is for super admins until it's sold.
+            'moreEventsUrl' => $user?->isSuperAdmin() ? route('public.events', $organization->slug) : route('events.browse'),
+            'meta'         => EventPage::meta($event, $organization),
+        ]);
     }
 
     /**
@@ -57,11 +69,36 @@ class PublicEventController extends Controller
             ->where(function ($query) {
                 $query->where('event_date', '>=', now())->orWhereNull('event_date');
             })
-            ->with('tiers')
+            ->with(['organization', 'tiers' => fn ($query) => $query->where('is_active', true)])
             ->orderBy('event_date', 'asc')
             ->get();
 
-        return view('public.events', compact('organization', 'events'));
+        return \Inertia\Inertia::render('Events/Organization', [
+            'organization' => [
+                'name'          => $organization->name,
+                'tagline'       => $organization->tagline,
+                'logo'          => $organization->logo ? \Illuminate\Support\Facades\Storage::url($organization->logo) : null,
+                'contact_email' => $organization->contact_email,
+            ],
+            'events' => $events->map(fn (Event $event) => $this->card($event)),
+            'meta'   => ['title' => "Events | {$organization->name}"],
+        ])->withViewData(['noindex' => true]);
+    }
+
+    /** An event as a card on the browse and organization pages. */
+    private function card(Event $event): array
+    {
+        return [
+            'id'           => $event->id,
+            'name'         => $event->name,
+            'tagline'      => $event->tagline,
+            'organization' => $event->organization->name,
+            'url'          => route('public.event', ['orgSlug' => $event->organization->slug, 'eventSlug' => $event->slug]),
+            'banner'       => $event->banner_image ? \App\Support\Thumb::url($event->banner_image, 480) : null,
+            'date'         => $event->event_date?->format('M j, Y · g:i A'),
+            'venue'        => $event->venue,
+            'from'         => $event->tiers->min('price'),
+        ];
     }
 
     /**
@@ -102,7 +139,17 @@ class PublicEventController extends Controller
             ->paginate(12)
             ->withQueryString();
     
-        return view('events.browse', compact('events'));
+        return \Inertia\Inertia::render('Events/Browse', [
+            'events'  => $events->through(fn (Event $event) => $this->card($event)),
+            'filters' => [
+                'district' => $validDistrict ? $request->district : null,
+                'category' => $validCategory ? config("constants.categories.{$request->category}.label") : null,
+                'when'     => in_array($when, ['weekend', 'tonight'], true) ? $when : null,
+                'free'     => $free,
+                'closingSoon' => $closingSoon,
+            ],
+            'meta'    => ['title' => 'Browse events | VENTIQ', 'description' => 'Upcoming events across Lesotho, with tickets on VENTIQ.'],
+        ]);
     }
 
     /**
@@ -368,17 +415,32 @@ class PublicEventController extends Controller
             ->take(8)
             ->get();
 
-        // Explicitly empty so the conditional section in the view hides for now.
-        // Populate this with a real query (e.g. Event::where('is_sponsored', true))
-        // once sponsorship is an actual column.
-        $sponsoredEvents = collect();
+        $signedIn = auth()->check();
 
-        $metrics = [
-            'total_events' => Event::listed()->count(),
-            'total_cities' => Event::listed()->distinct('city')->count('city'),
-            'total_categories' => Event::listed()->distinct('category')->count('category'),
-        ];
-
-        return view('welcome', compact('upcomingEvents', 'sponsoredEvents', 'metrics'));
+        return \Inertia\Inertia::render('Home', [
+            'upcoming' => $upcomingEvents->map(fn ($e) => [
+                'name'           => $e->name,
+                'venue'          => $e->venue,
+                'city'           => $e->city,
+                'category_label' => $e->category_label,
+                'category_color' => $e->category_color,
+                'organizer'      => $e->organization->name ?? null,
+                'date'           => $e->event_date?->format('M d'),
+                'time'           => $e->event_date?->format('g:i A'),
+                'image'          => $e->banner_image ? \App\Support\Thumb::url($e->banner_image, 480) : null,
+                'url'            => $e->public_url,
+            ])->values(),
+            'metrics'  => [
+                'total_events'     => Event::listed()->count(),
+                'total_cities'     => Event::listed()->distinct('city')->count('city'),
+                'total_categories' => Event::listed()->distinct('category')->count('category'),
+            ],
+            'month'    => now()->format('F'),
+            'links'    => [
+                'sessions' => $signedIn ? route('sessions.index') : route('login', ['intent' => 'session']),
+                'host'     => $signedIn ? \App\Support\IntentRedirect::resolve('host') : route('login', ['intent' => 'host']),
+            ],
+            'meta'     => ['title' => 'VENTIQ | Discover what\'s happening in Lesotho', 'description' => 'Find events near you in Lesotho and get your ticket in a minute. Organizers: registrations, tickets and check-in with no monthly fee.', 'image' => asset('meta.jpg')],
+        ]);
     }
 }

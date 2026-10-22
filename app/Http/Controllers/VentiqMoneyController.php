@@ -33,47 +33,136 @@ class VentiqMoneyController extends Controller
         $toInvoice = $this->invoicing->toInvoice();
         $awaiting = $this->invoicing->awaitingPayment();
 
-        return view('ventiq-money', [
-            'summary' => [
-                'fees_from_payouts' => (float) SettlementItem::sum('gateway_fee'),
-                'fees_invoiced_paid' => (float) TicketFee::whereNotNull('invoice_paid_at')->where('sponsored', false)->sum('total_fee'),
-                'fees_invoiced_unpaid' => (float) $awaiting->sum('total'),
-                'fees_to_invoice' => (float) $toInvoice->sum('total'),
-                'fees_sponsored' => (float) TicketFee::where('sponsored', true)->sum('total_fee'),
-                'held_for_organizers' => (float) (clone $payable)->sum('amount_owed_to_org'),
-                'in_payout_batches' => (float) Settlement::where('status', 'pending')->sum('amount_owed_to_org'),
-                'paid_out' => (float) Settlement::where('status', 'settled')->sum('amount_owed_to_org'),
-                // The gateway's cut of every online payment, which VENTIQ absorbs.
-                'gateway_costs' => round((float) SettlementItem::sum('amount_received') * (float) config('constants.payment.gateway_fee_rate'), 2),
-            ],
+        $summary = [
+            'fees_from_payouts'    => (float) SettlementItem::sum('gateway_fee'),
+            'fees_invoiced_paid'   => (float) TicketFee::whereNotNull('invoice_paid_at')->where('sponsored', false)->sum('total_fee'),
+            'fees_invoiced_unpaid' => (float) $awaiting->sum('total'),
+            'fees_to_invoice'      => (float) $toInvoice->sum('total'),
+            'fees_sponsored'       => (float) TicketFee::where('sponsored', true)->sum('total_fee'),
+            'held_for_organizers'  => (float) (clone $payable)->sum('amount_owed_to_org'),
+            'in_payout_batches'    => (float) Settlement::where('status', 'pending')->sum('amount_owed_to_org'),
+            'paid_out'             => (float) Settlement::where('status', 'settled')->sum('amount_owed_to_org'),
+            // The gateway's cut of every online payment, which VENTIQ absorbs.
+            'gateway_costs'        => round((float) SettlementItem::sum('amount_received') * (float) config('constants.payment.gateway_fee_rate'), 2),
+        ];
+        $lastHeard = MobileMoneyInbox::lastHeard();
+        $quietHours = (int) config('services.mobile_money.quiet_hours', 24);
+        $ticketLine = fn (?Ticket $t) => $t ? [
+            'holder' => $t->client?->full_name, 'phone' => $t->client?->phone, 'event' => $t->event?->name,
+            'organization' => $t->event?->organization?->name, 'code' => $t->voucher_code,
+        ] : null;
+
+        return \Inertia\Inertia::render('Ventiq/Money', [
+            'summary'     => $summary,
             'gatewayRate' => (float) config('constants.payment.gateway_fee_rate'),
-            'payoutsDue' => $payoutsDue,
-            'batches'    => Settlement::with('organization')->where('status', 'pending')->latest()->get(),
-            'toInvoice'  => $toInvoice,
-            'awaiting'   => $awaiting,
-            'methods'    => ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash'],
-            'invoiceFrom' => config('constants.fees.invoice_from'),
+            'invoiceFrom' => \Illuminate\Support\Carbon::parse(config('constants.fees.invoice_from'))->format('j M Y'),
+            'methods'     => ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank_transfer' => 'Bank transfer', 'cash' => 'Cash'],
+            'payoutsDue'  => $payoutsDue->map(fn ($row) => [
+                'organizationId' => $row->organization_id,
+                'organization'   => $row->organization?->name ?? "Organization #{$row->organization_id}",
+                'lines'          => (int) $row->line_count,
+                'owed'           => (float) $row->owed,
+                'fees'           => (float) $row->fees,
+                'payoutTo'       => $this->payoutTo($row->organization),
+            ])->values(),
+            'batches'     => Settlement::with('organization')->where('status', 'pending')->latest()->get()->map(fn (Settlement $b) => [
+                'id'           => $b->id,
+                'organization' => $b->organization?->name,
+                'amount'       => (float) $b->amount_owed_to_org,
+                'created'      => $b->created_at->format('j M, H:i'),
+                'payoutTo'     => $this->payoutTo($b->organization),
+            ])->values(),
+            'toInvoice'   => $toInvoice->map(fn ($row) => [
+                'organizationId' => $row->organization_id,
+                'organization'   => $row->organization?->name,
+                'tickets'        => (int) $row->tickets,
+                'people'         => (int) $row->people,
+                'total'          => (float) $row->total,
+                'upTo'           => (int) $row->up_to,
+            ])->values(),
+            'awaiting'    => $awaiting->map(fn ($row) => [
+                'organizationId' => $row->organization_id,
+                'organization'   => $row->organization?->name,
+                'reference'      => $row->invoice_reference,
+                'tickets'        => (int) $row->tickets,
+                'total'          => (float) $row->total,
+                'invoiced'       => \Illuminate\Support\Carbon::parse($row->invoiced_at)->format('j M Y'),
+            ])->values(),
             // Online payments with no answer from PayLesotho yet: checked by
             // hand against the merchant statement until its callbacks work.
             // Pushes EcoCash never answered (after the ~2 minute wait), and
             // attendees who paid the merchant by hand (straight away).
-            'toCheck'    => PaymentSession::where('payable_type', 'ticket')->where('gateway', 'paylesotho')
+            'toCheck'     => PaymentSession::where('payable_type', 'ticket')->where('gateway', 'paylesotho')
                 ->where('status', 'pending')
                 ->where(fn ($q) => $q->where('created_at', '<', now()->subMinutes(3))->orWhereNotNull('purchase_meta'))
                 ->where('created_at', '>', now()->subDays(7))->latest()->limit(100)->get()
-                ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
+                ->map(function (PaymentSession $s) use ($ticketLine) {
+                    $hand = $s->callback_payload['by_hand'] ?? null;
+
+                    return [
+                        'id'        => $s->id,
+                        'amount'    => (float) $s->amount,
+                        'method'    => ucfirst((string) $s->payment_method),
+                        'at'        => $s->created_at->format('j M, H:i'),
+                        'reference' => $s->client_reference,
+                        'transaction' => $s->transaction_id,
+                        'ticket'    => $ticketLine(Ticket::with(['client', 'event.organization'])->find($s->payable_id)),
+                        'byHand'    => $hand ? [
+                            'from'      => $hand['paid_from'] ?? null,
+                            'reference' => $hand['reference'] ?? null,
+                            'proofUrl'  => ($hand['proof_path'] ?? null) ? route('ventiq.money.online.proof', $s) : null,
+                        ] : null,
+                        'pushTo'    => $s->callback_payload['push_to'] ?? null,
+                        'noAnswer'  => (bool) ($s->callback_payload['no_answer'] ?? false),
+                    ];
+                })->values(),
             // EcoCash SMS the merchant SIM forwarded that couldn't be matched
             // (or weren't trusted) on their own, and when it last forwarded.
-            'smsToCheck' => MobileMoneyMessage::toCheck()->with(['ticket.client', 'ticket.event'])->latest('received_at')->limit(100)->get(),
-            'smsLastHeard' => MobileMoneyInbox::lastHeard(),
-            'smsQuietHours' => (int) config('services.mobile_money.quiet_hours', 24),
-            'smsSetUp' => filled(config('services.mobile_money.token')),
+            'sms'         => [
+                'setUp'     => filled(config('services.mobile_money.token')),
+                'lastHeard' => $lastHeard?->diffForHumans(),
+                'quiet'     => !$lastHeard || $lastHeard->lt(now()->subHours($quietHours)),
+                'toCheck'   => MobileMoneyMessage::toCheck()->with(['ticket.client', 'ticket.event'])->latest('received_at')->limit(100)->get()
+                    ->map(fn (MobileMoneyMessage $m) => [
+                        'id'          => $m->id,
+                        'amount'      => (float) $m->amount,
+                        'payer'       => $m->payer_name,
+                        'payerPhone'  => $m->payer_phone,
+                        'at'          => $m->received_at->format('j M, H:i'),
+                        'transaction' => $m->transaction_id,
+                        'reference'   => $m->reference,
+                        'balance'     => (float) $m->balance_after,
+                        'note'        => $m->note,
+                        'held'        => $m->status === 'held',
+                        'canAccept'   => $m->status === 'held' && $m->balance_ok === false,
+                        'ticket'      => $m->ticket ? ['code' => $m->ticket->voucher_code, 'holder' => $m->ticket->holder_name, 'event' => $m->ticket->event?->name] : null,
+                    ])->values(),
+            ],
             // Money that came in for a ticket already paid: to send back.
-            'paidTwice'  => PaymentSession::where('payable_type', 'ticket')->where('status', 'completed')
+            'paidTwice'   => PaymentSession::where('payable_type', 'ticket')->where('status', 'completed')
                 ->where('callback_payload->paid_twice', true)->latest()->limit(200)->get()
                 ->reject(fn ($s) => isset($s->callback_payload['refunded_at']))
-                ->each(fn ($s) => $s->setRelation('ticket', Ticket::with(['client', 'event.organization'])->find($s->payable_id))),
+                ->map(fn (PaymentSession $s) => [
+                    'id'          => $s->id,
+                    'amount'      => (float) $s->amount,
+                    'method'      => ucfirst((string) $s->payment_method),
+                    'at'          => $s->created_at->format('j M, H:i'),
+                    'transaction' => $s->transaction_id,
+                    'phone'       => $s->callback_payload['push_to'] ?? null,
+                    'ticket'      => $ticketLine(Ticket::with(['client', 'event.organization'])->find($s->payable_id)),
+                ])->values(),
+            'meta'        => ['title' => 'VENTIQ money | VENTIQ'],
         ]);
+    }
+
+    /** Where an organization's payout goes, and whether to check it first. @return array<string, mixed> */
+    private function payoutTo(?Organization $org): array
+    {
+        return [
+            'summary'       => $org?->hasPayoutDetails() ? $org->payoutSummary() : null,
+            'changed'       => $org?->hasPayoutDetails() && $org->payoutRecentlyChanged() ? $org->payout_updated_at->diffForHumans() : null,
+            'phone'         => $org?->phone,
+        ];
     }
 
     public function createPayout(Request $request, Organization $organization)

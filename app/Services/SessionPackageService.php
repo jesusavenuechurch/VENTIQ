@@ -6,7 +6,7 @@ use App\Models\SessionPackage;
 
 /**
  * The single place a SessionPackage row actually gets created — called from
- * both the superadmin manual-entry Filament actions and the org self-serve
+ * both Admin › Session plans (super admins) and the org self-serve
  * PayLesotho payment callback, so the two paths can never drift apart.
  */
 class SessionPackageService

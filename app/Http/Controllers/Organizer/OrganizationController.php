@@ -16,9 +16,25 @@ class OrganizationController extends Controller
 {
     public function edit(Request $request)
     {
-        return view('organizer.organization', [
-            'organization' => $request->attributes->get('organization'),
+        $organization = $request->attributes->get('organization');
+
+        return \Inertia\Inertia::render('Organizer/Organization', [
+            'organization' => [
+                'name'         => $organization->name,
+                'tagline'      => $organization->tagline,
+                'phone'        => $organization->phone ? substr(preg_replace('/\D/', '', $organization->phone), -8) : '',
+                'contactEmail' => $organization->contact_email,
+                'website'      => $organization->website,
+                'description'  => $organization->description,
+                'logoUrl'      => $organization->logo_path ? \Illuminate\Support\Facades\Storage::url($organization->logo_path) : null,
+            ],
             'canEdit'      => $request->user()->can('edit_organization'),
+            // The organization's own events page: super admins only until it's sold.
+            'eventsPage'   => $request->user()->isSuperAdmin() ? [
+                'url'   => route('public.events', $organization->slug),
+                'fixed' => $organization->events()->ticketed()->exists(),
+            ] : null,
+            'meta'         => ['title' => 'Organization | VENTIQ'],
         ]);
     }
 

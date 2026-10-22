@@ -7,6 +7,7 @@ use App\Mail\AgentApplicationReceived;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use App\Models\User;
@@ -17,7 +18,7 @@ class AgentApplicationController extends Controller
 {
     public function showForm()
     {
-        return view('agent.apply');
+        return \Inertia\Inertia::render('Agent/Apply', ['meta' => ['title' => 'Become an agent | VENTIQ', 'description' => 'Introduce organizations to VENTIQ and earn for it.']]);
     }
 
     public function submit(Request $request)
@@ -31,9 +32,9 @@ class AgentApplicationController extends Controller
             'access_types.*' => 'in:Churches,Schools,Businesses,Event Planners',
             'motivation' => 'required|string|min:50|max:500',
         ], [
-            'motivation.min' => 'Our vetting core requires a more detailed motivation (min 50 characters).',
-            'email.unique' => 'This email protocol is already registered in our system.',
-            'phone.unique' => 'This phone line is already linked to an existing application.',
+            'motivation.min' => 'Tell us a little more: at least 50 characters.',
+            'email.unique' => 'Someone has already applied with this email.',
+            'phone.unique' => 'Someone has already applied with this number.',
         ]);
 
         if ($validator->fails()) {
@@ -84,36 +85,43 @@ class AgentApplicationController extends Controller
 
     public function showResetForm(Request $request, $token)
     {
-        return view('auth.reset-password', [
+        return \Inertia\Inertia::render('Auth/ResetPassword', [
             'token' => $token,
-            'email' => $request->email
-        ]);
+            'email' => (string) $request->query('email'),
+            'meta'  => ['title' => 'Choose a password | VENTIQ'],
+        ])->withViewData(['noindex' => true]);
     }
 
+    /**
+     * Set a password from an emailed reset link. The broker checks the
+     * token belongs to this email and hasn't expired or been used; nothing
+     * changes otherwise.
+     */
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
+            'token'    => 'required',
+            'email'    => 'required|email',
             'password' => 'required|min:8|confirmed',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $signedIn = null;
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) use (&$signedIn) {
+                $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60)])->save();
+                $signedIn = $user;
+            },
+        );
 
-        if (!$user) {
-            return back()->withErrors(['email' => 'User protocol not found.']);
+        if ($status !== Password::PASSWORD_RESET) {
+            return back()->withErrors(['email' => 'That link has expired or was already used. Ask for a new one from the sign-in page.']);
         }
 
-        // Secure the account
-        $user->update([
-            'password' => Hash::make($request->password),
-        ]);
+        Auth::login($signedIn);
+        $request->session()->regenerate();
 
-        // Authorize immediately
-        Auth::login($user);
-
-        // Redirect to Filament dashboard
-        return redirect()->intended('/admin');
+        return redirect()->to(\App\Support\IntentRedirect::resolve(null));
     }
 
 }

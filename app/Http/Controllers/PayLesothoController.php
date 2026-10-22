@@ -117,28 +117,12 @@ class PayLesothoController extends Controller
         ]);
 
         $organization = Auth::user()->organization;
-        abort_unless($organization, 403);
+        abort_unless($organization && \App\Support\SessionsAccess::can(Auth::user(), 'plan'), 403);
 
-        if ($data['type'] === 'plan') {
-            $def = SessionPackageDefinition::get($data['tier']);
-            abort_unless($def && $data['tier'] !== 'free', 404);
-
-            $amount = $def['price'];
-            $purchaseMeta = [
-                'type'              => 'plan',
-                'tier'              => $data['tier'],
-                'sessions_included' => $def['sessions_included'],
-                'whatsapp_included' => $def['whatsapp_included'],
-                'sms_included'      => $def['sms_included'],
-            ];
-        } else {
-            $quantity = (int) $data['quantity'];
-            $amount = SessionPackageDefinition::paygBundlePrice($quantity);
-            $purchaseMeta = [
-                'type'     => 'payg',
-                'quantity' => $quantity,
-            ];
-        }
+        $purchase = SessionPackageDefinition::purchase($data['type'], $data['tier'] ?? null, isset($data['quantity']) ? (int) $data['quantity'] : null);
+        abort_unless($purchase, 404);
+        $amount = $purchase['amount'];
+        $purchaseMeta = $purchase['meta'] + ['label' => $purchase['label']];
 
         $session = $this->payments->initiate(
             payableType: 'session_package',
@@ -162,6 +146,8 @@ class PayLesothoController extends Controller
     public function status(PaymentSession $session)
     {
         abort_if($session->payable_type === 'ticket', 404);
+        // A Sessions plan payment is only the paying organization's business.
+        abort_if($session->payable_type === 'session_package' && (int) $session->organization_id !== (int) Auth::user()?->organization_id, 404);
 
         return response()->json(['status' => $session->status]);
     }

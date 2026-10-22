@@ -17,7 +17,6 @@ class AgentEarningFactory extends Factory
             'package_price' => 700.00,
             'package_type' => 'standard',
             'status'       => 'pending',
-            'agent_commission_processed' => false,
         ];
     }
 

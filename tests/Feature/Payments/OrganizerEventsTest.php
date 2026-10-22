@@ -53,12 +53,13 @@ function paidForm(object $t, array $overrides = []): array
 
 describe('creating events', function () {
     it('opens the form saying payments come to VENTIQ, not the organizer\'s accounts', function () {
+        // The form says "Payments come to VENTIQ" when the event isn't sponsored.
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
             ->assertOk()
-            ->assertSee('Create an event')
-            ->assertSee('Payments come to VENTIQ')
-            ->assertSee('Write it with Ventiq Assist')
-            ->assertDontSee('EcoCash — Events Account');
+            ->assertInertia(fn ($page) => $page->component('Organizer/EventForm')
+                ->where('event.id', null)
+                ->where('event.feesSponsored', false)
+                ->where('statuses', ['draft' => 'Save as draft', 'published' => 'Publish now']));
     });
 
     it('creates a free event with a Free ticket', function () {
@@ -147,9 +148,11 @@ describe('editing events', function () {
     });
 
     it('shows the event with its ticket types and payment options', function () {
-        $page = $this->get(route('organizer.events.edit', $this->event))
-            ->assertOk()->assertSee('Edit event')->assertSee('Table of 3');
-        expect($page->getContent())->toMatch('/value="ecocash" x-model="methods"\s+checked/');
+        $this->get(route('organizer.events.edit', $this->event))
+            ->assertOk()->assertSee('Table of 3')
+            ->assertInertia(fn ($page) => $page->component('Organizer/EventForm')
+                ->where('event.id', $this->event->id)
+                ->where('onlineMethods', fn ($m) => collect($m)->contains('ecocash')));
     });
 
     it('updates details and ticket types, removing an unsold type', function () {
@@ -183,7 +186,7 @@ describe('editing events', function () {
         expect((bool) $this->table->fresh()->is_active)->toBeFalse()
             ->and($this->event->fresh()->payment_mode)->toBe('paid');
 
-        $this->get(route('organizer.events.edit', $this->event))->assertSee('can no longer switch between free and paid');
+        $this->get(route('organizer.events.edit', $this->event))->assertInertia(fn ($page) => $page->where('modeLocked', true));
     });
 
     it('hides other organizations\' events', function () {
@@ -198,7 +201,9 @@ describe('editing events', function () {
 describe('payment accounts', function () {
     it('lists, adds and edits accounts', function () {
         $this->actingAs($this->admin)->get(route('organizer.accounts.index'))
-            ->assertOk()->assertSee('EcoCash — Events Account')->assertSee('Main Account');
+            ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Accounts')
+                ->where('accounts', fn ($a) => collect($a)->pluck('label')->contains('EcoCash — Events Account')
+                    && collect($a)->pluck('label')->contains(fn ($l) => str_contains($l, 'Main Account'))));
 
         $this->post(route('organizer.accounts.store'), [
             'payment_method' => 'bank_transfer', 'account_name' => 'Conference Account', 'account_number' => '6200123',
@@ -250,30 +255,11 @@ describe('payment accounts', function () {
     });
 });
 
-describe('leaving Filament behind', function () {
-    it('sends org users from the Filament event and account screens to the organizer area', function () {
-        $event = Event::create(['organization_id' => $this->org->id, 'name' => 'E', 'slug' => 'e-' . Str::random(5), 'event_date' => now()->addWeek()]);
-
-        $this->actingAs($this->admin);
-        $this->get(route('filament.admin.events.resources.events.create'))->assertRedirect(route('organizer.events.create'));
-        $this->get(route('filament.admin.events.resources.events.edit', $event))->assertRedirect(route('organizer.events.edit', $event));
-        $this->get(route('filament.admin.events.resources.events.index'))->assertRedirect(route('organizer.home'));
-        $this->get(route('filament.admin.organization.resources.organization-payment-methods.index'))->assertRedirect(route('organizer.accounts.index'));
-    });
-
-    it('leaves super admins in Filament', function () {
-        $super = User::factory()->create(['organization_id' => null]);
-        $super->assignRole('super_admin');
-
-        $this->actingAs($super)->get(route('filament.admin.events.resources.events.create'))->assertOk();
-    });
-
+describe('the organizer pages', function () {
     it('links the organizer pages to each other, with Home instead of Sessions', function () {
-        $this->actingAs($this->admin)->get(route('organizer.home'))
-            ->assertSee(route('organizer.events.create'))
-            ->assertSee(route('organizer.accounts.index'))
-            ->assertSee(route('home'))
-            ->assertDontSee(route('filament.admin.events.resources.events.create'));
+        // Create event and the Accounts tab show for an admin (links are built by the React pages).
+        $this->actingAs($this->admin)->get(route('organizer.home'))->assertInertia(fn ($page) => $page->component('Organizer/Home')
+            ->where('organizer.can.create_event', true)->where('organizer.can.view_payment_method', true));
     });
 });
 
@@ -284,7 +270,9 @@ describe('online payment methods', function () {
 
     it('shows every method, with the ones not live yet as coming soon', function () {
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
-            ->assertOk()->assertSee('EcoCash')->assertSee('M-Pesa')->assertSee('Card')->assertSee('Coming soon');
+            ->assertOk()->assertInertia(fn ($page) => $page
+                ->where('onlineCatalog', ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'card' => 'Card'])
+                ->where('onlineDrivers', ['ecocash']));
     });
 
     it('stores the chosen methods, and attendees are offered only those that are live', function () {

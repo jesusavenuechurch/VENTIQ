@@ -63,20 +63,18 @@ describe('getting into the organizer area', function () {
             ->assertJsonPath('redirect', route('organizer.home'));
     });
 
-    it('moves org users off the Filament dashboard', function () {
+    it('sends old admin links to the right home', function () {
         $this->actingAs($this->admin)->get('/admin')->assertRedirect(route('organizer.home'));
-        $this->get(route('filament.admin.events.resources.events.create'))->assertRedirect(route('organizer.events.create'));
-    });
+        $this->get('/admin/events/events/create')->assertRedirect(route('organizer.home'));
 
-    it('keeps super admins on the Filament dashboard', function () {
         $super = User::factory()->create(['organization_id' => null]);
         $super->assignRole('super_admin');
-
-        $this->actingAs($super)->get('/admin')->assertOk();
+        $this->actingAs($super)->get('/admin')->assertRedirect(route('ventiq.money.index'));
     });
 
     it('points the home page Host link at the organizer area', function () {
-        $this->actingAs($this->admin)->get('/')->assertSee(route('organizer.home'), false);
+        $this->actingAs($this->admin)->get('/')
+            ->assertInertia(fn ($page) => $page->component('Home')->where('links.host', route('organizer.home')));
     });
 
     it('sends new organizations to email verification, then the organizer area', function () {
@@ -86,7 +84,7 @@ describe('getting into the organizer area', function () {
             'user_password' => 'Secret-Pass-123', 'user_password_confirmation' => 'Secret-Pass-123',
         ])->assertOk()->assertJsonPath('redirect', route('verification.notice'));
 
-        $this->get(route('verification.notice'))->assertOk()->assertSee('Check your email');
+        $this->get(route('verification.notice'))->assertOk()->assertInertia(fn ($page) => $page->component('Auth/VerifyEmail'));
         $this->get(route('organizer.home'))->assertRedirect(route('verification.notice'));
     });
 
@@ -95,8 +93,8 @@ describe('getting into the organizer area', function () {
 
         $this->actingAs($this->admin)->get(route('organizer.home'))
             ->assertOk()
-            ->assertSee('Maseru Youth Summit')
-            ->assertSee('1 person paid you and is waiting for their ticket');
+            ->assertInertia(fn ($page) => $page->component('Organizer/Home')
+                ->where('events.0.name', 'Maseru Youth Summit')->where('toConfirm', 1)->where('organizer.paymentsToConfirm', 1));
     });
 });
 
@@ -106,22 +104,23 @@ describe('super admin access', function () {
         $this->super->assignRole('super_admin');
     });
 
-    it('sends a super admin without an organization picked back to Filament', function () {
+    it('sends a super admin without an organization picked to the admin organizations list', function () {
         $this->actingAs($this->super)->get(route('organizer.home'))
-            ->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
+            ->assertRedirect(route('ventiq.organizations.index'));
     });
 
     it('lets a super admin open and leave an organization\'s organizer area', function () {
         $this->actingAs($this->super)->get(route('organizer.act-as.start', $this->org))->assertRedirect(route('organizer.home'));
 
-        $this->get(route('organizer.home'))->assertOk()->assertSee('Super admin view of')->assertSee($this->org->name);
+        $this->get(route('organizer.home'))->assertOk()->assertInertia(fn ($page) => $page
+            ->where('organizer.actingAs', true)->where('organizer.organization.name', $this->org->name));
 
         $payment = submittedPayment($this);
         $this->post(route('organizer.payments.decide', $payment), ['decision' => 'activate'])->assertRedirect();
         expect($payment->ticket->fresh()->status)->toBe('active');
 
-        $this->post(route('organizer.act-as.stop'))->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
-        $this->get(route('organizer.home'))->assertRedirect(route('filament.admin.organization.resources.organizations.index'));
+        $this->post(route('organizer.act-as.stop'))->assertRedirect(route('ventiq.organizations.index'));
+        $this->get(route('organizer.home'))->assertRedirect(route('ventiq.organizations.index'));
     });
 
     it('refuses act-as to anyone but a super admin', function () {
@@ -143,8 +142,8 @@ describe('confirming payments', function () {
 
         $this->actingAs($this->admin)->get(route('organizer.payments.index'))
             ->assertOk()
-            ->assertSee('MINE-1')
-            ->assertSee('EcoCash — Events Account')
+            ->assertInertia(fn ($page) => $page->component('Organizer/Payments')->has('payments', 1)
+                ->where('payments.0.reference', 'MINE-1')->where('payments.0.paidTo', 'EcoCash — Events Account'))
             ->assertDontSee('THEIRS-1');
     });
 
@@ -214,15 +213,18 @@ describe('the review link', function () {
         $payment = submittedPayment($this);
         $url = app(OrganizerNotifier::class)->reviewUrl($payment);
 
-        $page = $this->get($url)->assertOk()->assertSee('Has this payment been received?')->assertSee('ABC123');
+        $page = $this->get($url)->assertOk()->assertInertia(fn ($page) => $page->component('PaymentReview/Show')
+            ->where('decided', false)->where('payment.reference', 'ABC123'));
+        $action = $page->viewData('page')['props']['payment']['action'];
+        expect($action)->toContain('signature=');
 
-        preg_match('/action="([^"]+payment-review[^"]+)"/', $page->getContent(), $m);
-        $this->post(html_entity_decode($m[1]), ['decision' => 'activate'])->assertOk()->assertSee('is active and on its way');
+        $this->post($action, ['decision' => 'activate'])->assertOk()
+            ->assertInertia(fn ($page) => $page->component('PaymentReview/Done')->where('message', fn ($m) => str_contains($m, 'is active and on its way')));
 
         expect($payment->ticket->fresh()->status)->toBe('active')
             ->and($payment->fresh()->approved_by)->toBeNull();
 
-        $this->post(html_entity_decode($m[1]), ['decision' => 'reject'])->assertSee('already been dealt with');
+        $this->post($action, ['decision' => 'reject'])->assertInertia(fn ($page) => $page->where('message', 'This payment has already been dealt with.'));
         expect($payment->fresh()->status)->toBe('approved');
     });
 
@@ -260,13 +262,17 @@ describe('tickets before they are active', function () {
         $ticket = workflowTicket($this, ['payment_due_at' => now()->addDay()]);
 
         $this->get(route('ticket.download', $ticket->qr_code))
-            ->assertOk()->assertSee('Inactive — awaiting payment')->assertSee('Pay by')->assertDontSee('Scan at Entrance');
+            ->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Inactive')
+                ->where('state.headline', 'Inactive — awaiting payment')
+                ->where('ticket.paymentDueAt', $ticket->payment_due_at->format('d M Y, H:i'))
+                ->missing('qrUrl'));
     });
 
     it('says when an expired ticket has lost its place', function () {
         $ticket = workflowTicket($this, ['status' => 'expired']);
 
-        $this->get(route('ticket.download', $ticket->qr_code))->assertOk()->assertSee('Payment window ended');
+        $this->get(route('ticket.download', $ticket->qr_code))->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Tickets/Inactive')->where('state.headline', 'Payment window ended'));
     });
 
     it('holds a place for unpaid tickets until they expire', function () {
@@ -319,7 +325,7 @@ describe('payment windows', function () {
         $unpaid = workflowTicket($this);
 
         $this->actingAs($this->admin)->get(route('organizer.events.attendees', [$this->event, 'filter' => 'expired']))
-            ->assertOk()->assertSee('Reinstate');
+            ->assertOk()->assertInertia(fn ($page) => $page->where('tickets.data.0.status', 'expired'));
 
         $this->post(route('organizer.tickets.reinstate', $expired));
         expect($expired->fresh()->status)->toBe('pending')

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Storage;
 /**
  * A build of the VENTIQ Scanner app (Android). The current one is offered
  * on the organizer dashboard: its APK to download, and the Play Store link
- * once the app is listed there. Super admins upload them in Filament.
+ * once the app is listed there. Super admins upload them in Admin › Scanner app.
  */
 class AppRelease extends Model
 {

@@ -7,6 +7,7 @@ use App\Models\Session;
 use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class ProgrammeController extends Controller
 {
@@ -14,7 +15,7 @@ class ProgrammeController extends Controller
 
     /**
      * A "Programme" isn't a new table — it's any Event with is_programme
-     * true. Ticketed events keep using the Filament wizard untouched; this
+     * true. Ticketed events have their own form in the organizer area; this
      * is purely the lightweight, internal grouping layer.
      */
     public function index()
@@ -25,7 +26,16 @@ class ProgrammeController extends Controller
             ->latest('event_date')
             ->get();
 
-        return view('programmes.index', compact('programmes'));
+        return Inertia::render('Programmes/Index', [
+            'programmes' => $programmes->map(fn (Event $p) => [
+                'id'       => $p->id,
+                'name'     => $p->name,
+                'dates'    => $this->dates($p),
+                'sessions' => $p->sessions_count,
+            ]),
+            'canCreate' => $this->quota->meetsMinimumTier(Auth::user()->organization, 'business'),
+            'meta'      => ['title' => 'Programmes | VENTIQ Sessions'],
+        ]);
     }
 
     public function create()
@@ -39,7 +49,10 @@ class ProgrammeController extends Controller
             ]);
         }
 
-        return view('programmes.create');
+        return Inertia::render('Programmes/Create', [
+            'today' => now()->toDateString(),
+            'meta'  => ['title' => 'New programme | VENTIQ Sessions'],
+        ]);
     }
 
     public function store(Request $request)
@@ -89,56 +102,59 @@ class ProgrammeController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $issuedCertificates = $programme->certificates_enabled
-            ? $programme->certificates()->with('client')->get()
-            : collect();
+        $progress = app(\App\Services\Sessions\ProgrammeProgress::class);
+        $board = $progress->board($programme);
 
-        // Eligible = checked into at least one session in this Programme,
-        // dedup'd by client. "At least one" is the default rule for now —
-        // an explicit call, not a hidden assumption: revisit if you want
-        // an attendance threshold instead (e.g. all sessions, or a %).
-        $eligibleCount = \App\Models\Participant::whereIn('session_id', $sessions->pluck('id'))
-            ->whereNotNull('attended_at')
-            ->distinct('client_id')
-            ->count('client_id');
-
-        return view('programmes.show', compact('programme', 'sessions', 'issuedCertificates', 'eligibleCount'));
+        return Inertia::render('Programmes/Show', [
+            'programme' => [
+                'id'           => $programme->id,
+                'name'         => $programme->name,
+                'dates'        => $this->dates($programme),
+                'venue'        => $programme->venue,
+                'certificates' => (bool) $programme->certificates_enabled,
+                'minDays'      => $programme->certificate_min_days,
+                'enrolOpen'    => (bool) $programme->enrolment_open,
+                'enrolUrl'     => $progress->link($programme),
+            ],
+            'sessions' => $sessions->map(fn (Session $s) => [
+                'id'     => $s->id,
+                'title'  => $s->resolved_title,
+                'when'   => trim(($s->date?->format('d M Y') ?? '') . ($s->start_time ? ' · ' . \Carbon\Carbon::parse($s->start_time)->format('g:i A') : '')),
+                'status' => $s->status,
+            ]),
+            // Who's on it, the days each came to, and their certificate.
+            'board'    => $board,
+            'types'    => \App\Support\SessionType::forForm(),
+            'today'    => now()->toDateString(),
+            'openSchedule' => (bool) session('schedule'),
+            'meta'     => ['title' => "{$programme->name} | VENTIQ Sessions"],
+        ]);
     }
 
+    /** Every day of the programme on one participant list, a column per day. */
+    public function participantList(Request $request, Event $programme, \App\Services\Sessions\ParticipantList $lists)
+    {
+        abort_unless($programme->organization_id === Auth::user()->organization_id, 403);
+        abort_unless($programme->is_programme, 404);
+
+        return \PDF::loadView('sessions.participant-list-pdf', [
+            'list'  => $lists->forProgramme($programme, Auth::user()),
+            'blank' => SessionParticipantController::blankRows($request),
+            'logo'  => \App\Support\Logo::of($programme->organization),
+        ])->setPaper('a4', 'landscape')->download('participant-list-' . \Illuminate\Support\Str::slug($programme->name) . '.pdf');
+    }
+
+    /** Issue now, rather than waiting for the evening: to everyone who meets the rule. */
     public function issueCertificates(Event $programme)
     {
         abort_unless($programme->organization_id === Auth::user()->organization_id, 403);
         abort_unless($programme->certificates_enabled, 400);
 
-        $sessionIds = Session::where('event_id', $programme->id)->pluck('id');
-
-        $clientIds = \App\Models\Participant::whereIn('session_id', $sessionIds)
-            ->whereNotNull('attended_at')
-            ->distinct()
-            ->pluck('client_id');
-
-        $issued = 0;
-        foreach ($clientIds as $clientId) {
-            $cert = \App\Models\Certificate::firstOrNew([
-                'event_id'  => $programme->id,
-                'client_id' => $clientId,
-            ]);
-            if (!$cert->exists) {
-                $cert->organization_id = $programme->organization_id;
-                $cert->issued_at = now();
-                $cert->save();
-                $issued++;
-
-                if ($cert->client?->email) {
-                    \Illuminate\Support\Facades\Mail::to($cert->client->email)
-                        ->send(new \App\Mail\CertificateIssuedMail($cert));
-                }
-            }
-        }
+        $issued = app(\App\Services\Sessions\ProgrammeProgress::class)->issueDue($programme)->count();
 
         return back()->with('status', $issued > 0
-            ? "{$issued} certificate(s) issued."
-            : 'Everyone eligible already has a certificate.');
+            ? "{$issued} " . ($issued === 1 ? 'certificate' : 'certificates') . ' issued and emailed.'
+            : 'Everyone who meets the rule already has their certificate.');
     }
 
     public function generateReport(Event $programme)
@@ -172,8 +188,34 @@ class ProgrammeController extends Controller
 
         $sessions = Session::where('event_id', $programme->id)->orderBy('date')->orderBy('start_time')->get();
         $reportedCount = $sessions->where('status', 'reported')->count();
+        $job = $programme->programme_report_job_id
+            ? \App\Models\AiGenerationResult::where('job_id', $programme->programme_report_job_id)->value('status')
+            : null;
 
-        return view('programmes.report', compact('programme', 'sessions', 'reportedCount'));
+        return Inertia::render('Programmes/Report', [
+            'programme' => [
+                'id'         => $programme->id,
+                'name'       => $programme->name,
+                'report'     => $programme->programme_report,
+                'generating' => in_array($job, ['pending', 'processing'], true),
+                'failed'     => $job === 'failed',
+            ],
+            'reported' => $reportedCount,
+            'total'    => $sessions->count(),
+            'meta'     => ['title' => "{$programme->name}: report | VENTIQ Sessions"],
+        ])->withViewData(['noindex' => true]);
+    }
+
+    /** "12 Mar" or "12 – 14 Mar 2026". */
+    private function dates(Event $programme): ?string
+    {
+        if (!$programme->event_date) {
+            return null;
+        }
+
+        return $programme->duration_days > 1
+            ? $programme->event_date->format('d M') . ' – ' . $programme->event_date->copy()->addDays($programme->duration_days - 1)->format('d M Y')
+            : $programme->event_date->format('d M Y');
     }
 
     public function reportStatus(Event $programme)

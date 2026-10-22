@@ -14,7 +14,7 @@ beforeEach(function () {
 it('changes a password only with the current one', function () {
     $user = User::factory()->create(['password' => Hash::make('old-pass-123')]);
 
-    $this->actingAs($user)->get(route('account.edit'))->assertOk()->assertSee('Change your password')->assertSee('Current password');
+    $this->actingAs($user)->get(route('account.edit'))->assertOk()->assertInertia(fn ($page) => $page->component('Account')->where('needsCurrent', true));
 
     $this->put(route('account.password'), ['current_password' => 'wrong', 'password' => 'new-pass-1234', 'password_confirmation' => 'new-pass-1234'])
         ->assertSessionHasErrors('current_password');
@@ -27,7 +27,7 @@ it('changes a password only with the current one', function () {
 it('lets Google sign-ups add a password without one', function () {
     $user = User::factory()->create(['google_id' => 'g-1']);
 
-    $this->actingAs($user)->get(route('account.edit'))->assertSee('Add a password')->assertDontSee('Current password');
+    $this->actingAs($user)->get(route('account.edit'))->assertInertia(fn ($page) => $page->where('needsCurrent', false)->where('account.google', true));
     $this->put(route('account.password'), ['password' => 'fresh-pass-99', 'password_confirmation' => 'fresh-pass-99'])->assertSessionHas('status');
 
     expect(Hash::check('fresh-pass-99', $user->fresh()->password))->toBeTrue();

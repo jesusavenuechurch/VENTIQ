@@ -16,7 +16,9 @@ class InstallmentController extends Controller
 {
     public function search()
     {
-        return view('public.installment.search');
+        return \Inertia\Inertia::render('Tickets/Find', [
+            'meta' => ['title' => 'Find my ticket | VENTIQ', 'description' => 'Open your VENTIQ ticket with the phone you registered with.'],
+        ]);
     }
 
     public function find(Request $request)

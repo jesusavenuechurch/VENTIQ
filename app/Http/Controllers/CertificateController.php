@@ -17,7 +17,7 @@ class CertificateController extends Controller
     public function lookup(Request $request)
     {
         if (!$request->filled('number')) {
-            return view('certificates.lookup');
+            return $this->lookupPage('', null);
         }
 
         $number = trim($request->query('number'));
@@ -25,10 +25,7 @@ class CertificateController extends Controller
         $certificate = Certificate::where('certificate_number', $number)->first();
 
         if (!$certificate) {
-            return view('certificates.lookup', [
-                'error'  => "No certificate found for \"{$number}\".",
-                'number' => $number,
-            ]);
+            return $this->lookupPage($number, "No certificate found for \"{$number}\". Check the number on the document.");
         }
 
         return redirect()->route('certificates.verify', $certificate->token);
@@ -42,7 +39,23 @@ class CertificateController extends Controller
             ->with(['client', 'programme', 'organization'])
             ->firstOrFail();
 
-        return view('certificates.verify', ['certificate' => $certificate]);
+        return \Inertia\Inertia::render('Certificates/Verify', [
+            'certificate' => [
+                'holder'       => $certificate->client->full_name,
+                'programme'    => $certificate->programme->name,
+                'organization' => $certificate->organization->name,
+                'issued'       => $certificate->issued_at->format('j M Y'),
+                'number'       => $certificate->certificate_number,
+                'linkedIn'     => $certificate->linked_in_add_url,
+                'download'     => route('certificates.download.public', $certificate->token),
+            ],
+            'meta' => ['title' => "Certificate · {$certificate->client->full_name} | VENTIQ", 'description' => "{$certificate->client->full_name} took part in {$certificate->programme->name}, hosted by {$certificate->organization->name}."],
+        ]);
+    }
+
+    private function lookupPage(string $number, ?string $error)
+    {
+        return \Inertia\Inertia::render('Certificates/Lookup', ['number' => $number, 'error' => $error, 'meta' => ['title' => 'Verify a certificate | VENTIQ']]);
     }
 
     // Public, same token-as-credential model as verify() — the recruiter
@@ -70,11 +83,6 @@ class CertificateController extends Controller
 
     private function renderPdf(Certificate $certificate)
     {
-        $qrBase64 = base64_encode(
-            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(300)->margin(1)->generate($certificate->verify_url)
-        );
-
-        return \PDF::loadView('certificates.certificate', ['certificate' => $certificate, 'qrBase64' => $qrBase64])
-            ->setPaper('a4', 'landscape');
+        return $certificate->pdf();
     }
 }

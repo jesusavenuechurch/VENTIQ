@@ -9,6 +9,7 @@ use App\Support\TeamRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Log, Mail};
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
 
 /**
  * The organization's people and what each may do. Everyone can see the
@@ -22,12 +23,29 @@ class TeamController extends Controller
     {
         $organization = $this->organization($request);
 
-        return view('organizer.team', [
-            'members'   => $organization->members()->with('roles')->orderBy('name')->get(),
-            'invites'   => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->latest()->get(),
-            'roles'     => TeamRoles::ROLES,
-            'canManage' => $request->user()->can('manage_staff'),
+        $you = $request->user();
+
+        return Inertia::render('Organizer/Team', [
+            'members'   => $organization->members()->with('roles')->orderBy('name')->get()->map(fn (User $m) => [
+                'id'    => $m->id,
+                'name'  => $m->name,
+                'email' => $m->email,
+                'role'  => $m->roles->first()?->name,
+                'isYou' => $m->is($you),
+                // Signs certificates (Sessions), and has drawn their signature.
+                'signs'  => (bool) $m->can_sign_certificates,
+                'signed' => (bool) $m->signature_path,
+            ]),
+            'invites'   => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->latest()->get()->map(fn (OrganizationInvite $i) => [
+                'id'        => $i->id,
+                'email'     => $i->email,
+                'roleLabel' => TeamRoles::label($i->role),
+                'expires'   => $i->expires_at->format('d M'),
+            ]),
+            'roles'     => collect(TeamRoles::ROLES)->map(fn ($r, $value) => ['value' => $value, 'name' => $r[0], 'description' => $r[1], 'inSessions' => TeamRoles::IN_SESSIONS[$value] ?? null])->values(),
+            'canManage' => $you->can('manage_staff'),
             'seatsLeft' => $this->seatsLeft($organization),
+            'meta'      => ['title' => 'Team | VENTIQ'],
         ]);
     }
 
@@ -86,6 +104,27 @@ class TeamController extends Controller
         Log::info("User {$member->id} given role {$data['role']} by user {$request->user()->id}");
 
         return back()->with('status', "{$member->name} is now " . TeamRoles::label($data['role']) . '.');
+    }
+
+    /**
+     * Allow someone to sign certificates, or not. Allowed, they're emailed
+     * a link to draw their signature. Admins may allow themselves: signing
+     * puts only your own signature on certificates.
+     */
+    public function signs(Request $request, User $member)
+    {
+        $organization = $this->organization($request);
+        abort_unless($member->organization_id === $organization->id, 404);
+        $data = $request->validate(['signs' => 'required|boolean']);
+
+        $member->forceFill(['can_sign_certificates' => $data['signs']])->save();
+        if ($data['signs'] && !$member->signature_path && !$member->is($request->user())) {
+            Mail::to($member->email)->queue(new \App\Mail\SignCertificatesMail($member, $organization->name));
+        }
+
+        return back()->with('status', $data['signs']
+            ? ($member->is($request->user()) ? 'You can sign certificates. Draw your signature under Sessions, My signature.' : "{$member->name} can sign certificates. We've emailed them a link to draw their signature.")
+            : "{$member->name} no longer signs certificates. Ones already issued keep their signature.");
     }
 
     /** Take someone off the team. Their account stays, without access to this organization. */

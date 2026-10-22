@@ -6,13 +6,11 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Sanctum\HasApiTokens; 
 
-class User extends Authenticatable implements FilamentUser, MustVerifyEmail
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, HasApiTokens;
@@ -39,6 +37,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'signature_path',
     ];
 
     /**
@@ -53,12 +52,15 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             'password' => 'hashed',
             'last_active_at' => 'datetime',
             'removal_warned_at' => 'datetime',
+            'can_sign_certificates' => 'boolean',
+            'signature_updated_at' => 'datetime',
         ];
     }
 
-    public function canAccessPanel(Panel $panel): bool
+    /** Their drawn signature, for a certificate (it's kept on the private disk). */
+    public function signatureDataUri(): ?string
     {
-        return true;
+        return \App\Support\Signature::dataUri($this->signature_path);
     }
 
     public function isSuperAdmin(): bool

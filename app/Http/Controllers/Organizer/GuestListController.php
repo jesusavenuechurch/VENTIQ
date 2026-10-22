@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Services\Tickets\GuestListImport;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Inertia\Inertia;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use InvalidArgumentException;
@@ -23,11 +25,31 @@ class GuestListController extends Controller
     {
         $this->authorizeEvent($request, $event);
 
-        return view('organizer.guest-list', [
-            'event'   => $event,
-            'tiers'   => $event->tiers()->where('is_active', true)->orderBy('price')->get(),
+        // After "Check the list": the checked rows, kept under ?token= for half an hour.
+        $token = (string) $request->query('token');
+        $checked = $token !== '' ? Cache::get($this->key($request, $token)) : null;
+        $tier = $checked ? $event->tiers()->find($checked['event_tier_id']) : null;
+
+        return Inertia::render('Organizer/GuestList', [
+            'event'   => ['id' => $event->id, 'name' => $event->name, 'status' => $event->status, 'feesSponsored' => (bool) $event->fees_sponsored],
+            'tiers'   => $event->tiers()->where('is_active', true)->orderBy('price')->get()->map(fn ($t) => [
+                'id'     => $t->id,
+                'name'   => $t->tier_name,
+                'price'  => (float) $t->price,
+                'admits' => max(1, (int) ($t->quantity_per_purchase ?? 1)),
+            ])->values(),
             'methods' => self::METHODS,
-            'preview' => null,
+            'perPerson' => (float) config('constants.fees.operational_per_person'),
+            'preview' => $checked && $tier ? [
+                'token'        => $token,
+                'ok'           => $checked['ok'],
+                'problems'     => $checked['problems'],
+                'rows'         => collect($checked['rows'])->map(fn ($r) => Arr::only($r, ['row', 'full_name', 'phone', 'problem']))->values(),
+                'tier'         => ['name' => $tier->tier_name, 'price' => (float) $tier->price],
+                'mode'         => $checked['mode'],
+                'sendWhatsapp' => $checked['send_whatsapp'],
+            ] : null,
+            'meta'    => ['title' => "Import guest list · {$event->name} | VENTIQ"],
         ]);
     }
 
@@ -46,14 +68,14 @@ class GuestListController extends Controller
         try {
             $result = $import->check($request->file('file'), $event);
         } catch (InvalidArgumentException $e) {
-            return back()->withInput()->withErrors(['file' => $e->getMessage()]);
+            return back()->withErrors(['file' => $e->getMessage()]);
         } catch (\Throwable $e) {
             report($e);
-            return back()->withInput()->withErrors(['file' => 'We couldn\'t read that file. Save it as CSV or .xlsx with a header row (full_name, phone, email) and try again.']);
+            return back()->withErrors(['file' => 'We couldn\'t read that file. Save it as CSV or .xlsx with a header row (full_name, phone, email) and try again.']);
         }
 
         if (!$result['rows']) {
-            return back()->withInput()->withErrors(['file' => 'That file has no rows under its header.']);
+            return back()->withErrors(['file' => 'That file has no rows under its header.']);
         }
 
         $token = Str::random(32);
@@ -65,14 +87,7 @@ class GuestListController extends Controller
             'send_whatsapp' => $request->boolean('send_whatsapp'),
         ], now()->addMinutes(30));
 
-        $tier = $event->tiers()->findOrFail($data['event_tier_id']);
-
-        return view('organizer.guest-list', [
-            'event'   => $event,
-            'tiers'   => collect(),
-            'methods' => self::METHODS,
-            'preview' => $result + ['token' => $token, 'tier' => $tier, 'mode' => $data['mode'], 'send_whatsapp' => $request->boolean('send_whatsapp')],
-        ]);
+        return redirect()->route('organizer.events.guests.create', [$event, 'token' => $token]);
     }
 
     public function store(Request $request, Event $event, GuestListImport $import)
@@ -116,6 +131,6 @@ class GuestListController extends Controller
 
     private function authorizeEvent(Request $request, Event $event): void
     {
-        abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);
+        abort_unless($event->organization_id === $request->attributes->get('organization')->id && $event->kind === \App\Models\Event::KIND_EVENT, 404);
     }
 }

@@ -25,7 +25,7 @@ class TicketRegistrationNotification extends Notification
             'event_name' => $this->ticket->event->name,
             'amount' => $this->ticket->amount,
             'payment_status' => $this->ticket->payment_status,
-            'action_url' => route('filament.admin.resources.tickets.edit', $this->ticket),
+            'action_url' => route('organizer.events.attendees', [$this->ticket->event_id, 'q' => $this->ticket->voucher_code]),
             'message' => "New ticket registration from {$this->ticket->client->full_name} for {$this->ticket->event->name}",
         ];
     }

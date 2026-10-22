@@ -20,6 +20,11 @@ class GenerateSessionReport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    // One call to the AI per item, then the rollup: minutes of a long
+    // meeting on the Mac mini take several minutes. The queue's
+    // retry_after must be longer than this (config/queue.php).
+    public int $timeout = 900;
+
     public function __construct(
         public readonly string $jobId,
         public readonly int $userId,
@@ -32,6 +37,7 @@ class GenerateSessionReport implements ShouldQueue
         if (!$session) { $this->markFailed('Session no longer exists.'); return; }
 
         $sectionsConfig = SessionType::sections($session->type);
+        $agenda = SessionType::takesMinutes($session->type);
 
         // ── PASS 1 — per-segment summaries ──────────────────────────────
         $attempted = 0;
@@ -52,6 +58,8 @@ class GenerateSessionReport implements ShouldQueue
                 'topic'     => $segment->title,
                 'raw_notes' => $rawText,
                 'sections'  => $sectionsConfig,
+                'agenda'    => $agenda,
+                'lead'      => $segment->lead(),
             ]);
 
             try {
@@ -72,7 +80,7 @@ class GenerateSessionReport implements ShouldQueue
             }
 
             $succeeded++;
-            $parsed = $ai->parseSections($result->content);
+            $parsed = $ai->parseSections($result->content, array_keys($sectionsConfig));
 
             $summary = [];
             foreach (array_keys($sectionsConfig) as $key) {
@@ -104,7 +112,7 @@ class GenerateSessionReport implements ShouldQueue
                         : null)
                     ->filter()
                     ->implode("\n");
-                return "{$s->presenter_name}:\n{$lines}";
+                return ($s->title ?: $s->presenter_name) . ":\n{$lines}";
             })
             ->implode("\n\n");
 
@@ -119,7 +127,7 @@ class GenerateSessionReport implements ShouldQueue
                 $rollupResult = $ai->generate($rollupPrompt);
 
                 if ($rollupResult->success) {
-                    $parsedRollup = $ai->parseSections($rollupResult->content);
+                    $parsedRollup = $ai->parseSections($rollupResult->content, ['themes', 'recommendations']);
                     $overall['themes'] = $parsedRollup['themes'] ?? null;
                     $overall['recommendations'] = $parsedRollup['recommendations'] ?? null;
                 } else {
@@ -153,6 +161,10 @@ class GenerateSessionReport implements ShouldQueue
             'status'         => 'reported',
         ]);
         AiGenerationResult::where('job_id', $this->jobId)->update(['status' => 'completed']);
+
+        // Then the action points, proposed for someone to confirm on the report.
+        $session->update(['meta' => array_merge($session->meta ?? [], ['action_points' => 'finding'])]);
+        ExtractActionPoints::dispatch($session->id);
     }
 
     // The dispatcher that never existed. Generic on purpose — see the

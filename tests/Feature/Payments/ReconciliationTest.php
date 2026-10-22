@@ -133,12 +133,10 @@ it('lets a super admin download any organization\'s reports', function () {
 it('shows the organizer the split on the event page and totals on the home page', function () {
     $this->actingAs($this->admin)->get(route('organizer.events.attendees', $this->event))
         ->assertOk()
-        ->assertSee('Collected by VENTIQ (online)')
-        ->assertSee('M750.00')
-        ->assertSee('M1,250.00')
-        ->assertSee('Waiting for you to confirm')
-        ->assertSee('M230.25')
-        ->assertSee(route('reports.revenue', $this->event));
+        ->assertInertia(fn ($page) => $page->component('Organizer/Attendees')
+            ->where('finance.collected', fn ($v) => (float) $v === 1250.0)
+            ->where('finance', fn ($f) => collect($f)->map(fn ($v) => (float) $v)->intersect([750.0, 230.25])->unique()->count() === 2)
+            ->where('organizer.can.view_reports', true));
 
-    $this->get(route('organizer.home'))->assertSee('M1,250.00 collected');
+    $this->get(route('organizer.home'))->assertInertia(fn ($page) => $page->where('events.0.collected', 1250));
 });

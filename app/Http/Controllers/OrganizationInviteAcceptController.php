@@ -16,11 +16,17 @@ class OrganizationInviteAcceptController extends Controller
     {
         $invite = OrganizationInvite::where('token', $token)->firstOrFail();
 
-        if (!$invite->isPending()) {
-            return view('organization.invite-expired', compact('invite'));
-        }
-
-        return view('organization.invite-accept', compact('invite'));
+        return \Inertia\Inertia::render('Organization/InviteAccept', [
+            'invite' => [
+                'token'        => $invite->token,
+                'email'        => $invite->email,
+                'organization' => $invite->organization->name,
+                'role'         => \App\Support\TeamRoles::label($invite->role),
+                'pending'      => $invite->isPending(),
+                'accepted'     => (bool) $invite->accepted_at,
+            ],
+            'meta'   => ['title' => "Join {$invite->organization->name} | VENTIQ"],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function submit(Request $request, string $token)
@@ -28,6 +34,10 @@ class OrganizationInviteAcceptController extends Controller
         $invite = OrganizationInvite::where('token', $token)->firstOrFail();
 
         abort_unless($invite->isPending(), 410, 'This invite has expired.');
+
+        if (User::where('email', $invite->email)->exists()) {
+            return back()->withErrors(['name' => "There's already a VENTIQ account for {$invite->email}. Sign in with it instead, and ask your team's admin to add you."]);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',

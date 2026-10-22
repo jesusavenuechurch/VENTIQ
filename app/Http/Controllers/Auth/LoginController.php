@@ -11,10 +11,13 @@ class LoginController extends Controller
 {
     public function show(Request $request)
     {
-        return view('auth.login', [
+        return \Inertia\Inertia::render('Auth/Login', [
             // No intent: IntentRedirect works out where this person belongs.
             'intent' => in_array($request->query('intent'), ['session', 'host'], true) ? $request->query('intent') : null,
-        ]);
+            'status' => session('status'),
+            'email'  => (string) $request->query('email', ''),
+            'meta'   => ['title' => 'Sign in | VENTIQ'],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function store(Request $request)

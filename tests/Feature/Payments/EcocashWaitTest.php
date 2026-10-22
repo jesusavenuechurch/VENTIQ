@@ -102,7 +102,9 @@ it('follows the push on the phone, then allows 3 tries and no more', function ()
     ($this->pay)()->assertStatus(429)->assertJson(['attempts_left' => 0]);
 
     expect(PaymentSession::count())->toBe(3);
-    $this->get($this->paymentPage)->assertOk()->assertSee("Let's try another way", false)->assertSee('62243375');
+    // Out of tries: the page opens on another way to pay, VENTIQ's merchant.
+    $this->get($this->paymentPage)->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Pay')
+        ->where('online.attemptsLeft', 0)->where('merchant.code', '62243375'));
 });
 
 it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', function () {
@@ -114,7 +116,7 @@ it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', f
     expect($session->status)->toBe('pending')->and((float) $session->amount)->toBe(200.0)
         ->and($session->purchase_meta)->toBe(['by_hand' => true]);
     Storage::disk('local')->assertExists($session->callback_payload['by_hand']['proof_path']);
-    $this->get($this->paymentPage)->assertSee("We're checking your payment", false);
+    $this->get($this->paymentPage)->assertInertia(fn ($page) => $page->where('byHand', true));
 
     // It doesn't use up a try.
     expect(\App\Http\Controllers\PayLesothoController::attemptsLeft($this->ticket))->toBe(3);
@@ -122,7 +124,7 @@ it('takes a payment to VENTIQ\'s merchant by hand and lets VENTIQ confirm it', f
     $super = User::factory()->create(['organization_id' => null]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $super->assignRole('super_admin');
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('Paid the merchant by hand from 62552155')->assertSee('screenshot');
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->where('toCheck.0.byHand.from', '62552155')->where('toCheck.0.byHand.proofUrl', route('ventiq.money.online.proof', $session)));
     $this->get(route('ventiq.money.online.proof', $session))->assertOk();
 
     $this->withoutExceptionHandling()->post(route('ventiq.money.online.decide', $session), ['decision' => 'received']);
@@ -143,8 +145,8 @@ it('tells VENTIQ by email and WhatsApp when someone pays the merchant by hand', 
 });
 
 it('opens the pay page on paying another way from the message link', function () {
-    $this->get(route('ticket.pay.another', $this->ticket->qr_code))->assertOk()
-        ->assertSee("Let's try another way", false)->assertSee('62243375')->assertSee('Or try the payment prompt again');
+    $this->get(route('ticket.pay.another', $this->ticket->qr_code))->assertOk()->assertInertia(fn ($page) => $page->component('Tickets/Pay')
+        ->where('anotherWay', true)->where('merchant.code', '62243375')->where('online.attemptsLeft', 3));
 });
 
 it('takes just the paying number to pay the merchant by hand: the SMS does the rest', function () {
@@ -173,9 +175,9 @@ it('lists money paid for a ticket that was already paid, to refund', function ()
     $super = User::factory()->create(['organization_id' => null]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $super->assignRole('super_admin');
-    $this->actingAs($super)->get(route('ventiq.money.index'))->assertSee('Paid twice: refund these');
+    $this->actingAs($super)->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->has('paidTwice', 1));
     $this->post(route('ventiq.money.online.refunded', $second), ['reference' => 'RF1'])->assertSessionHas('status');
-    $this->withoutExceptionHandling()->get(route('ventiq.money.index'))->assertDontSee('Paid twice: refund these');
+    $this->withoutExceptionHandling()->get(route('ventiq.money.index'))->assertInertia(fn ($page) => $page->has('paidTwice', 0));
 });
 
 it('accepts a screenshot instead of a reference when paying the organizer', function () {
@@ -193,7 +195,8 @@ it('accepts a screenshot instead of a reference when paying the organizer', func
     $admin = User::factory()->create(['organization_id' => $this->org->id]);
     $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
     $admin->assignRole('org_admin');
-    $this->actingAs($admin)->get(route('organizer.payments.index'))->assertSee('View screenshot');
+    $this->actingAs($admin)->get(route('organizer.payments.index'))
+        ->assertInertia(fn ($page) => $page->where('payments.0.proofUrl', route('organizer.payments.proof', $payment)));
     $this->get(route('organizer.payments.proof', $payment))->assertOk();
 });
 

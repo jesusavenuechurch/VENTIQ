@@ -61,7 +61,7 @@ it('keeps an account that signs in, uses the link, or has created something', fu
         return true;
     });
     auth()->logout();
-    $this->get($link)->assertOk()->assertSee('Your account stays');
+    $this->get($link)->assertOk()->assertInertia(fn ($page) => $page->component('AccountKept'));
 
     $this->travel(8)->days();
     $this->artisan('accounts:remove-unused');

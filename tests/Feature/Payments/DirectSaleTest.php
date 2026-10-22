@@ -21,7 +21,7 @@ beforeEach(function () {
 
 it('sells a ticket for cash: active, paid to the organizer, its fee invoiced', function () {
     $this->actingAs($this->admin)->get(route('organizer.events.comp.create', [$this->event, 'kind' => 'sold']))
-        ->assertOk()->assertSee('Issue a ticket')->assertSee('Paid with')->assertSee("kind: 'sold'", false);
+        ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/IssueTicket')->where('kind', 'sold'));
 
     $this->actingAs($this->admin)->post(route('organizer.events.comp.store', $this->event), [
         'kind' => 'sold', 'event_tier_id' => $this->tier->id, 'full_name' => 'Lineo Mokoena', 'phone' => '58123456',
@@ -57,7 +57,8 @@ it('marks a reserved ticket as paid in cash', function () {
         'status' => 'pending', 'payment_status' => 'pending', 'amount' => 200]);
 
     $this->actingAs($this->admin)->get(route('organizer.events.attendees', $this->event))
-        ->assertOk()->assertSee(route('organizer.tickets.paid', $ticket), false);
+        ->assertOk()->assertInertia(fn ($page) => $page->component('Organizer/Attendees')
+            ->where('tickets.data.0.id', $ticket->id)->where('tickets.data.0.status', 'pending')->where('organizer.can.approve_payment', true));
 
     $this->post(route('organizer.tickets.paid', $ticket), ['method' => 'cash'])->assertRedirect();
 

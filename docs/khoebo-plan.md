@@ -30,6 +30,7 @@ VENTIQ isn't VAT registered, so products use the Exempt tax
 |---|---|---|---|
 | VENTIQ per-person fee | VQ-PERSON | 7.50 | quantity = people |
 | VENTIQ ticket sales fee (4.9%) | VQ-SALES | set per event | quantity 1, price = 4.9% of ticket sales |
+| VENTIQ Sessions: session held | VQ-SESSION | set per organization | one line per session billed on a corporate organization's monthly invoice |
 
 Type `service`.
 

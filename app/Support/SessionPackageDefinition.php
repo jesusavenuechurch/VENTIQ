@@ -57,26 +57,6 @@ class SessionPackageDefinition
         return self::tiers()[$tier] ?? null;
     }
 
-    /**
-     * One-line description per tier for use in a Filament Radio's
-     * ->descriptions([...]) — the price/session/WhatsApp/SMS numbers
-     * spelled out in the option itself, not hidden behind a selection.
-     */
-    public static function radioDescriptions(): array
-    {
-        return collect(self::tiers())->mapWithKeys(function ($def, $tier) {
-            $price = $def['price'] === null
-                ? 'Custom pricing'
-                : ($def['price'] == 0 ? 'Free' : "M{$def['price']}/month");
-
-            $line = $tier === 'enterprise'
-                ? $def['description']
-                : "{$price} — {$def['description']}";
-
-            return [$tier => $line];
-        })->toArray();
-    }
-
     public static function rankOf(string $tier): int
     {
         return self::get($tier)['rank'] ?? -1;
@@ -98,6 +78,39 @@ class SessionPackageDefinition
             $quantity >= 10 && $quantity <= 19 => round($quantity * 110, 2),
             default => round($quantity * 100, 2),
         };
+    }
+
+    /**
+     * A plan or pay-as-you-go sessions as bought: what it costs, what it's
+     * called, and what's applied once it's paid. Null when it can't be bought.
+     *
+     * @return array{amount: float, label: string, meta: array, code: string}|null
+     */
+    public static function purchase(string $type, ?string $tier, ?int $quantity): ?array
+    {
+        if ($type === 'plan') {
+            $def = $tier ? self::get($tier) : null;
+            if (!$def || in_array($tier, ['free', 'enterprise'], true)) {
+                return null;
+            }
+
+            return [
+                'amount' => (float) $def['price'],
+                'label'  => "{$def['label']} plan, M{$def['price']} a month",
+                'code'   => strtoupper($tier),
+                'meta'   => ['type' => 'plan', 'tier' => $tier, 'sessions_included' => $def['sessions_included'], 'whatsapp_included' => $def['whatsapp_included'], 'sms_included' => $def['sms_included']],
+            ];
+        }
+        if ($type === 'payg' && $quantity > 0 && $quantity <= 500) {
+            return [
+                'amount' => self::paygBundlePrice($quantity),
+                'label'  => "{$quantity} pay-as-you-go " . ($quantity === 1 ? 'session' : 'sessions'),
+                'code'   => "S{$quantity}",
+                'meta'   => ['type' => 'payg', 'quantity' => $quantity],
+            ];
+        }
+
+        return null;
     }
 
     /**

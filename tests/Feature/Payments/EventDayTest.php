@@ -67,13 +67,19 @@ it('lists WhatsApp tickets that failed', function () {
 
 it('shows the page, its live refresh, and only to the event\'s organization', function () {
     $this->actingAs($this->admin)->get(route('organizer.events.day', $this->event))
-        ->assertOk()->assertSee('People in')->assertSee('of 6 expected')->assertSee('Mokoena family')
-        ->assertSee('Not delivered to');
+        ->assertOk()->assertSee('Mokoena family')
+        ->assertInertia(fn ($page) => $page->component('Organizer/EventDay')
+            ->where('summary.expected', 6)->has('whatsapp.failed', 1));
 
-    $this->get(route('organizer.events.day', [$this->event, 'partial' => 1]))
-        ->assertOk()->assertSee('People in')->assertDontSee('<html', false);
+    // The live refresh asks for its parts only, and gets nothing else.
+    $page = $this->get(route('organizer.events.day', $this->event), [
+        'X-Inertia' => 'true', 'X-Inertia-Version' => app(\App\Http\Middleware\HandleInertiaRequests::class)->version(request()),
+        'X-Inertia-Partial-Component' => 'Organizer/EventDay', 'X-Inertia-Partial-Data' => 'summary,recent',
+    ])->assertOk()->json('props');
+    expect($page)->toHaveKeys(['summary', 'recent'])->not->toHaveKey('whatsapp');
 
-    $this->get(route('organizer.home'))->assertSee(route('organizer.events.day', $this->event));
+    // Event day shows on the home card for an event that's today.
+    $this->get(route('organizer.home'))->assertInertia(fn ($page) => $page->where('events.0.isToday', true)->where('events.0.id', $this->event->id));
 
     $outsider = User::factory()->create(['organization_id' => Organization::factory()->create()->id]);
     $outsider->assignRole('org_admin');

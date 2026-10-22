@@ -28,7 +28,7 @@ class RegistrationController extends Controller
             ->firstOrFail();
 
         if ($closedReason = $event->registrationClosedReason()) {
-            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
+            return $this->closed($event, $organization, $closedReason);
         }
 
         $selectedTierId = $request->query('tier');
@@ -45,7 +45,26 @@ class RegistrationController extends Controller
             $selectedTier = $event->tiers->first();
         }
 
-        return view('public.register', compact('organization', 'event', 'selectedTier'));
+        return \Inertia\Inertia::render('Events/Register', [
+            'event'     => \App\Support\EventPage::event($event, $organization),
+            'tier'      => \App\Support\EventPage::tier($selectedTier, $event),
+            'districts' => $event->event_type === 'workshop' ? config('constants.workshop_districts', []) : null,
+            'submitUrl' => route('registration.submit', [$organization->slug, $event->slug]),
+            'eventUrl'  => route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]),
+            'meta'      => ['title' => "Register for {$event->name} - {$organization->name}"],
+        ]);
+    }
+
+    /** Registration is closed: why, and where else to go. */
+    private function closed(Event $event, Organization $organization, string $closedReason)
+    {
+        return \Inertia\Inertia::render('Events/RegistrationClosed', [
+            'event'        => \App\Support\EventPage::event($event, $organization),
+            'closedReason' => $closedReason,
+            'longDate'     => $event->event_date?->format('F j, Y \\a\\t g:i A'),
+            'browseUrl'    => route('events.browse'),
+            'meta'         => ['title' => "Registration Closed - {$event->name}"],
+        ]);
     }
 
     public function register(Request $request, $orgSlug, $eventSlug)
@@ -59,7 +78,7 @@ class RegistrationController extends Controller
             ->firstOrFail();
 
         if ($closedReason = $event->registrationClosedReason()) {
-            return view('public.registration-closed', compact('event', 'organization', 'closedReason'));
+            return $this->closed($event, $organization, $closedReason);
         }
 
         // Only this event's ticket types that are on sale.
@@ -302,7 +321,35 @@ class RegistrationController extends Controller
             $paymentMethodDetails = null;
         }
 
-        return view('public.confirmation', compact('organization', 'event', 'ticket', 'paymentMethodDetails', 'allTickets', 'byHand'));
+        $completed = $ticket->payment_status === 'completed';
+        $phone = $ticket->client?->phone;
+
+        return \Inertia\Inertia::render('Tickets/Confirmation', [
+            'ticket'     => \App\Support\TicketPage::ticket($ticket),
+            'completed'  => $completed,
+            // Everyone registered together: a group shows each of its tickets.
+            'tickets'    => $allTickets->map(fn (Ticket $t) => [
+                'number'     => $t->ticket_number,
+                'holderName' => $t->holder_name,
+                'admissions' => (int) ($t->admissions ?? 1),
+                'tier'       => $t->tier?->tier_name,
+                'link'       => route('ticket.download', $t->qr_code),
+            ])->values(),
+            'toPay'      => round(max(0, (float) $allTickets->sum('amount') - (float) $allTickets->sum('amount_paid')), 2),
+            'partlyPaid' => (float) $allTickets->sum('amount_paid') > 0,
+            'byHand'     => $byHand,
+            'paidTo'     => $paymentMethodDetails ? [
+                'label'        => $paymentMethodDetails->display_label,
+                'number'       => $paymentMethodDetails->account_number,
+                'instructions' => $paymentMethodDetails->instructions,
+            ] : null,
+            'sentTo'     => $completed ? [
+                'email'    => $ticket->client?->email,
+                'whatsapp' => $ticket->has_whatsapp && $phone ? '+266 ' . str_replace('+266', '', $phone) : null,
+            ] : null,
+            'eventUrl'   => route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]),
+            'meta'       => ['title' => "Protocol Status | {$event->name}"],
+        ]);
     }
 
     /**
@@ -344,7 +391,42 @@ class RegistrationController extends Controller
         $merchantReference = \Illuminate\Support\Str::after((string) $ticket->voucher_code, 'VQ-');
         $paidFrom = \App\Services\MobileMoney\MobileMoneyInbox::localPhone($ticket->client?->phone);
 
-        return view('public.payment', compact('organization', 'event', 'ticket', 'paymentMethods', 'onlineEnabled', 'onlineMethods', 'attemptsLeft', 'inFlight', 'byHand', 'merchant', 'merchantReference', 'paidFrom', 'owed', 'anotherWay'));
+        $amount = (float) $ticket->amount;
+        $percent = (float) $event->minimum_deposit_percentage;
+
+        return \Inertia\Inertia::render('Tickets/Pay', [
+            'ticket'        => \App\Support\TicketPage::ticket($ticket),
+            'owed'          => $owed,
+            'online'        => [
+                'methods'      => array_values($onlineMethods),
+                'attemptsLeft' => $attemptsLeft,
+                'maxAttempts'  => (int) config('gateways.paylesotho.max_attempts', 3),
+                'waitSeconds'  => (int) config('gateways.paylesotho.page_wait_seconds', 90),
+                // A push still on the attendee's phone (the page was reloaded).
+                'inFlight'     => $inFlight ? ['id' => $inFlight->id, 'elapsed' => (int) $inFlight->created_at->diffInSeconds(now())] : null,
+                'phone'        => $paidFrom,
+            ],
+            'byHand'        => (bool) $byHand,
+            'anotherWay'    => $anotherWay,
+            'merchant'      => $merchant,
+            'merchantReference' => $merchantReference,
+            // The organizer's own accounts (only on events VENTIQ sponsors).
+            'accounts'      => $paymentMethods->map(fn ($m) => [
+                'id'           => $m->id,
+                'label'        => $m->display_label,
+                'isCash'       => $m->payment_method === 'cash',
+                'accountLabel' => config("constants.payment_methods.{$m->payment_method}.account_label") ?: 'Send to',
+                'number'       => $m->payment_method !== 'cash' ? $m->account_number : null,
+                'instructions' => $m->instructions,
+            ])->values(),
+            // Paying a deposit first, when the event allows it and nothing's been paid.
+            'installments'  => $event->allow_installments && (float) $ticket->amount_paid <= 0 ? [
+                'percent'    => $percent,
+                'minDeposit' => round($amount * $percent / 100, 2),
+                'full'       => $amount,
+            ] : null,
+            'meta'          => ['title' => "Payment | {$event->name} - {$organization->name}"],
+        ]);
     }
 
     /** The pay page opened on paying directly (organizer's account or VENTIQ's merchant) and sending proof. */

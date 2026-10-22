@@ -14,6 +14,6 @@ class KeepAccountController extends Controller
             Organization::whereKey($user->organization_id)->update(['removal_warned_at' => null]);
         }
 
-        return view('accounts.kept', ['user' => $user]);
+        return \Inertia\Inertia::render('AccountKept', ['firstName' => \Illuminate\Support\Str::before((string) $user->name, ' ') ?: 'there', 'meta' => ['title' => 'Account kept | VENTIQ']])->withViewData(['noindex' => true]);
     }
 }

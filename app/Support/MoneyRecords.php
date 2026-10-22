@@ -34,15 +34,4 @@ class MoneyRecords
             || TicketFee::where('ticket_id', $ticket->id)->exists()
             || SettlementItem::where('ticket_id', $ticket->id)->exists();
     }
-
-    /** For Filament delete actions: say why and stop. */
-    public static function guardAction($action, Model ...$records): void
-    {
-        foreach ($records as $record) {
-            if ($reason = static::blockingDelete($record)) {
-                \Filament\Notifications\Notification::make()->title($reason)->danger()->send();
-                $action->cancel();
-            }
-        }
-    }
 }

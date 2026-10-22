@@ -70,7 +70,9 @@ class EmailLoginController extends Controller
     {
         $login = $this->codes->findLink($id, $token);
 
-        return view('auth.login-link', ['login' => $login, 'id' => $id, 'token' => $token]);
+        return \Inertia\Inertia::render('Auth/LoginLink', [
+            'email' => $login?->user?->email, 'id' => $id, 'token' => $token, 'meta' => ['title' => 'Sign in | VENTIQ'],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function useLink(Request $request, int $id, string $token)

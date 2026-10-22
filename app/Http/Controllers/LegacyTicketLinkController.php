@@ -19,11 +19,13 @@ class LegacyTicketLinkController extends Controller
         $ticket = Ticket::with(['client', 'event.organization'])->find($ticketId);
         $matches = $ticket && $ticket->event?->slug === $eventSlug && $ticket->event->organization?->slug === $orgSlug;
 
-        return view('tickets.link-moved', [
-            'ticket'      => $matches ? $ticket : null,
+        return \Inertia\Inertia::render('Tickets/LinkMoved', [
+            // Only the ticket's id goes to the page (to ask for the link by email).
+            'ticketId'    => $matches ? $ticket->id : null,
             'maskedEmail' => $matches && $ticket->client?->email ? self::mask($ticket->client->email) : null,
             'organizer'   => $matches ? $ticket->event->organization->name : null,
-        ]);
+            'meta'        => ['title' => 'Your ticket link has changed | VENTIQ'],
+        ])->withViewData(['noindex' => true]);
     }
 
     public function send(Ticket $ticket)

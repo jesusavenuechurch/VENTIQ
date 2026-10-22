@@ -18,6 +18,9 @@ class GenerateProgrammeReport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    // The rollup of every day's report, on the Mac mini.
+    public int $timeout = 900;
+
     public function __construct(
         public readonly string $jobId,
         public readonly int $programmeId,
@@ -65,7 +68,7 @@ class GenerateProgrammeReport implements ShouldQueue
             $rollupResult = $ai->generate($rollupPrompt);
 
             if ($rollupResult->success) {
-                $parsed = $ai->parseSections($rollupResult->content);
+                $parsed = $ai->parseSections($rollupResult->content, ['themes', 'recommendations']);
                 $overall['themes'] = $parsed['themes'] ?? null;
                 $overall['recommendations'] = $parsed['recommendations'] ?? null;
             } else {

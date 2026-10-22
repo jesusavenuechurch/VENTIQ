@@ -7,6 +7,8 @@ use App\Models\{Event, Ticket};
 use App\Support\{PaymentWindow, TierCapacity};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Support\Organizer\EventCard;
+use Inertia\Inertia;
 
 /**
  * Who registered for an event, grouped by where their ticket stands, with
@@ -46,14 +48,82 @@ class AttendeesController extends Controller
             ->paginate(50)
             ->withQueryString();
 
-        return view('organizer.attendees', [
-            'event'   => $event,
+        $user = $request->user();
+        $superAdmin = $user->isSuperAdmin();
+
+        return Inertia::render('Organizer/Attendees', [
+            'event'   => [
+                'id'            => $event->id,
+                'name'          => $event->name,
+                'status'        => $event->status,
+                'isToday'       => (bool) $event->event_date?->isToday(),
+                'publicUrl'     => $event->share_url,
+                'feesSponsored' => (bool) $event->fees_sponsored,
+                'share'         => EventCard::share($event),
+            ],
             'finance' => \App\Services\Reports\EventFinance::for($event)->summary(),
-            'tickets' => $tickets,
+            'fees'    => [
+                'percent'   => (float) config('constants.fees.service_percent'),
+                'perPerson' => (float) config('constants.fees.operational_per_person'),
+            ],
+            // VENTIQ's own accounting for the event, for super admins.
+            'khoebo'  => $superAdmin && !$event->fees_sponsored ? [
+                'order'          => $event->khoebo_order_reference,
+                'invoice'        => $event->khoebo_invoice_reference,
+                'invoiceId'      => $event->khoebo_invoice_id,
+                'prepaid'        => (bool) $event->khoebo_invoice_prepaid,
+                'invoiceTotal'   => (float) $event->khoebo_invoice_total,
+                'balanceInvoice' => $event->khoebo_balance_invoice_reference,
+                'balanceTotal'   => (float) $event->khoebo_balance_total,
+                'owed'           => app(\App\Services\Khoebo\KhoeboPayments::class)->outstanding($event),
+                'methods'        => \App\Services\Khoebo\KhoeboPayments::METHODS,
+                'today'          => now()->toDateString(),
+            ] : null,
+            'tickets' => $tickets->through(fn (Ticket $t) => $this->row($t)),
             'filter'  => $filter,
             'search'  => $search,
             'filters' => self::FILTERS,
+            'payMethods' => \App\Services\Tickets\DirectSaleService::METHODS,
+            'meta'    => ['title' => "{$event->name} · Attendees | VENTIQ"],
         ]);
+    }
+
+    /** One attendee in the list. @return array<string, mixed> */
+    private function row(Ticket $ticket): array
+    {
+        $submitted = $ticket->payments->contains(fn ($p) => $p->status === 'pending' && $p->submitted_at);
+
+        return [
+            'id'          => $ticket->id,
+            'name'        => $ticket->holder_name,
+            'phone'       => $ticket->client->phone,
+            'code'        => $ticket->voucher_code,
+            'tier'        => $ticket->tier->tier_name,
+            'admissions'  => (int) ($ticket->admissions ?? 1),
+            'admitted'    => (int) $ticket->admitted_count,
+            'amount'      => (float) $ticket->amount,
+            'balance'     => max(0, (float) $ticket->amount - (float) $ticket->amount_paid),
+            'status'      => $ticket->status,
+            // Where it stands, in the organizer's words.
+            'state'       => match (true) {
+                $ticket->status === 'pending' && $submitted => 'to_confirm',
+                $ticket->status === 'pending'               => 'awaiting',
+                $ticket->status === 'active' && $ticket->payment_status === 'partial' => 'balance_due',
+                $ticket->status === 'active'                => 'active',
+                $ticket->status === 'checked_in'            => 'used',
+                $ticket->status === 'expired'               => 'expired',
+                default                                     => $ticket->status,
+            },
+            'payBy'       => $ticket->status === 'pending' ? $ticket->payment_due_at?->format('d M, H:i') : null,
+            'comp'        => $ticket->is_complimentary ? ($ticket->complimentary_reason ?: 'Complimentary') : null,
+            'delivery'    => match (true) {
+                !in_array($ticket->status, ['active', 'checked_in'], true) => null,
+                $ticket->delivery_status === 'failed' => 'failed',
+                (bool) $ticket->whatsapp_delivered_at => 'sent ' . $ticket->whatsapp_delivered_at->diffForHumans(),
+                default => null,
+            },
+            'ticketUrl'   => in_array($ticket->status, ['active', 'checked_in'], true) ? route('ticket.download', $ticket->qr_code) : null,
+        ];
     }
 
     /**
@@ -164,6 +234,6 @@ class AttendeesController extends Controller
 
     private function authorizeEvent(Request $request, Event $event): void
     {
-        abort_unless($event->organization_id === $request->attributes->get('organization')->id, 404);
+        abort_unless($event->organization_id === $request->attributes->get('organization')->id && $event->kind === \App\Models\Event::KIND_EVENT, 404);
     }
 }

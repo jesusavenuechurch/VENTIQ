@@ -98,7 +98,7 @@
                     </div>
                 </td>
                 <td width="40%" valign="top" class="qr-side">
-                    <img src="data:image/png;base64,{{ $qrBase64 }}" width="160" height="160">
+                    <img src="data:{{ $qrType ?? 'image/png' }};base64,{{ $qrBase64 }}" width="160" height="160">
                     <div class="label" style="margin-top: 16px;">Scan to Register</div>
                     <div class="link-box">
                         <div class="label" style="margin-bottom: 4px;">Can't scan? Go to ventiq.co.ls/join</div>

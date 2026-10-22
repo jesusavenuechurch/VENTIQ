@@ -15,7 +15,13 @@ class AccountController extends Controller
 {
     public function edit(Request $request)
     {
-        return view('account', ['user' => $request->user(), 'needsCurrent' => $this->needsCurrent($request)]);
+        $user = $request->user();
+
+        return \Inertia\Inertia::render('Account', [
+            'account'      => ['name' => $user->name, 'email' => $user->email, 'google' => (bool) $user->google_id],
+            'needsCurrent' => $this->needsCurrent($request),
+            'meta'         => ['title' => 'My account | VENTIQ'],
+        ]);
     }
 
     public function updateProfile(Request $request)

@@ -26,15 +26,18 @@ class PaymentReviewController extends Controller
     {
         $payment->load(['ticket.client', 'ticket.event.organization', 'ticket.tier', 'paymentAccount']);
 
-        return view('payment-review.show', [
-            'payment'   => $payment,
-            'decided'   => !$this->isUndecided($payment),
-            'actionUrl' => URL::temporarySignedRoute(
-                'payment-review.decide',
-                now()->addHour(),
-                ['payment' => $payment->id],
-            ),
-            'proofUrl'  => $payment->proof_path ? URL::temporarySignedRoute('payment-review.proof', now()->addHour(), ['payment' => $payment->id]) : null,
+        $proofUrl = $payment->proof_path ? URL::temporarySignedRoute('payment-review.proof', now()->addHour(), ['payment' => $payment->id]) : null;
+
+        return \Inertia\Inertia::render('PaymentReview/Show', [
+            'organization' => $payment->ticket->event->organization->name,
+            'decided'      => !$this->isUndecided($payment),
+            'status'       => $payment->status,
+            'payment'      => [
+                ...\App\Support\Organizer\PaymentCard::for($payment, $proofUrl),
+                // The signed link is the credential: it works without signing in.
+                'action' => URL::temporarySignedRoute('payment-review.decide', now()->addHour(), ['payment' => $payment->id]),
+            ],
+            'meta'         => ['title' => 'Review payment | VENTIQ'],
         ]);
     }
 
@@ -52,6 +55,10 @@ class PaymentReviewController extends Controller
             $message = $this->applyDecision($request, $payment, $decidedBy);
         }
 
-        return view('payment-review.done', ['payment' => $payment->fresh(['ticket.client', 'ticket.event']), 'message' => $message]);
+        return \Inertia\Inertia::render('PaymentReview/Done', [
+            'message' => $message,
+            'event'   => $payment->ticket->event->name,
+            'meta'    => ['title' => 'Payment reviewed | VENTIQ'],
+        ]);
     }
 }

@@ -23,9 +23,13 @@ class PaymentsController extends Controller
             ->orderBy('submitted_at')
             ->get();
 
-        return view('organizer.payments', [
-            'payments'   => $payments,
-            'canDecide'  => $request->user()->can('approve_payment'),
+        return \Inertia\Inertia::render('Organizer/Payments', [
+            'payments'  => $payments->map(fn (TicketPayment $p) => [
+                ...\App\Support\Organizer\PaymentCard::for($p, $p->proof_path ? route('organizer.payments.proof', $p) : null),
+                'action' => route('organizer.payments.decide', $p),
+            ])->values(),
+            'canDecide' => $request->user()->can('approve_payment'),
+            'meta'      => ['title' => 'Payments to confirm | VENTIQ'],
         ]);
     }
 

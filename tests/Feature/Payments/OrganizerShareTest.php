@@ -37,10 +37,10 @@ it('offers sharing with the short link on the home and event pages', function ()
     $short = route('event.short', [$this->org->slug, $this->event->slug]);
     expect($this->event->share_url)->toBe($short);
 
-    $this->actingAs($this->admin)->get(route('organizer.home'))
-        ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('qr', false);
+    $this->actingAs($this->admin)->get(route('organizer.home'))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('events.0.share.url', $short)->where('events.0.share.qr', route('organizer.events.qr', $this->event)));
     $this->get(route('organizer.events.attendees', $this->event))
-        ->assertOk()->assertSee('Share &amp; QR', false)->assertSee('Download for your poster');
+        ->assertOk()->assertInertia(fn ($page) => $page->where('event.share.url', $short));
 });
 
 it('counts payments waiting on the organizer in the tabs', function () {
@@ -55,6 +55,6 @@ it('counts payments waiting on the organizer in the tabs', function () {
 
     $this->actingAs($this->admin)->get(route('organizer.accounts.index'))
         ->assertOk()
-        ->assertSee('To confirm')       // the phone tab bar
-        ->assertSeeInOrder(['Payments to confirm', '2']);
+        // The tabs (and the phone tab bar) show the count.
+        ->assertInertia(fn ($page) => $page->where('organizer.paymentsToConfirm', 2));
 });

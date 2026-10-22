@@ -22,7 +22,8 @@ it('asks a Google sign-up who is hosting before anything else', function () {
 
     $this->actingAs($user)->get(route('organizer.home'))->assertRedirect(route('organizer.setup'));
     $this->get(route('organizer.payments.index'))->assertRedirect(route('organizer.setup'));
-    $this->get(route('organizer.setup'))->assertOk()->assertSee('tell us who')->assertSee('Thabo Mokoena', false);
+    $this->get(route('organizer.setup'))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Organizer/Setup')->where('organization.name', 'Thabo Mokoena'));
 });
 
 it('saves the organization and lets them in', function () {

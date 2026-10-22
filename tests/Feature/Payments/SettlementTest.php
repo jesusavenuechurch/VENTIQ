@@ -78,6 +78,9 @@ it('shows the breakdown of a batch', function () {
     ($this->paidOnline)();
     $batch = $this->settlements->createBatch($this->org->id);
 
-    $html = view('filament.modals.settlement-items', ['settlement' => $batch])->render();
-    expect($html)->toContain('Guest')->toContain('M182.70');
+    $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+    $this->super->assignRole('super_admin');
+
+    $this->actingAs($this->super)->get(route('ventiq.payouts.index', ['batch' => $batch->id]))
+        ->assertInertia(fn ($page) => $page->where('batch.items.0.attendee', 'Guest')->where('batch.items.0.owed', 182.7));
 });

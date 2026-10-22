@@ -9,6 +9,7 @@
 </style>
 </head>
 <body>
+    @include('sessions.partials.letterhead', ['logo' => $logo ?? null, 'name' => $session->organization?->name])
     <h1>{{ $session->resolved_title }}</h1>
     <p class="date">{{ $session->date?->format('d M Y') ?? $session->created_at->format('d M Y') }}</p>
     <pre>{{ $session->session_report }}</pre>

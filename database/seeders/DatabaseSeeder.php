@@ -2,26 +2,24 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
         $this->call([
-            RolesAndPermissionsSeeder::class, // Run this FIRST - creates roles & permissions
-            UserSeeder::class,                 // Then users - can assign roles
-            DemoDataSeeder::class, 
-            DemoAccountSeeder::class, 
-            SessionTestSeeder::class,
-            // InstallmentTestSeeder::class,         // Finally demo data - uses users & roles
+            RolesAndPermissionsSeeder::class, // first: the roles everything else is given
+            DemoAccountSeeder::class,
         ]);
+
+        // The Sessions demo: two organizations and six months of meetings
+        // (it refuses to run in production on its own, too).
+        if (!app()->environment('production')) {
+            $this->call(SessionsDemoSeeder::class);
+        }
     }
 }

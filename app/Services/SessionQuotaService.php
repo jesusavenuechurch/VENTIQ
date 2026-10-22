@@ -60,8 +60,18 @@ class SessionQuotaService
             ->get();
     }
 
+    /** On a corporate rate: sessions are invoiced, so no quota stops them. */
+    public function isCorporate(Organization $org): bool
+    {
+        return (bool) app(\App\Services\Sessions\CorporateBilling::class)->agreement($org);
+    }
+
     public function remainingSessions(Organization $org): int
     {
+        if ($this->isCorporate($org)) {
+            return PHP_INT_MAX;
+        }
+
         $plan = $this->currentPlan($org);
         $payg = $this->activePaygPackages($org)->sum('remaining_sessions');
 
@@ -80,6 +90,10 @@ class SessionQuotaService
 
     public function hasSessionQuota(Organization $org): bool
     {
+        if ($this->isCorporate($org)) {
+            return true;
+        }
+
         return $this->remainingSessions($org) > 0;
     }
 
@@ -90,6 +104,11 @@ class SessionQuotaService
      */
     public function consumeSession(Organization $org): void
     {
+        // Corporate: priced on the session itself (CorporateBilling::charge()), invoiced monthly.
+        if ($this->isCorporate($org)) {
+            return;
+        }
+
         $plan = $this->currentPlan($org);
 
         if ($plan->hasSessionsRemaining()) {
@@ -135,6 +154,11 @@ class SessionQuotaService
      */
     public function meetsMinimumTier(Organization $org, string $minimumTier): bool
     {
+        // A corporate agreement includes everything the plans do.
+        if ($this->isCorporate($org)) {
+            return true;
+        }
+
         $currentRank = SessionPackageDefinition::rankOf($this->currentTier($org));
         $requiredRank = SessionPackageDefinition::rankOf($minimumTier);
 

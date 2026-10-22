@@ -58,12 +58,3 @@ function createReferredOrg(Agent $agent): array
     $user->assignRole('org_admin');
     return [$org, $user];
 }
-
-// ── Create pending package for an org ──
-function createPendingPackage(Organization $org, string $type = 'standard'): OrganizationPackage
-{
-    return OrganizationPackage::factory()
-        ->$type()
-        ->pending()
-        ->create(['organization_id' => $org->id]);
-}
