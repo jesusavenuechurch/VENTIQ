@@ -1,12 +1,15 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, CircleCheck, GraduationCap, Mail, MapPin, MessageCircle, Tag, Users } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, GraduationCap, Mail, MapPin, MessageCircle, Tag, UserPlus, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Field } from '@/components/field';
-import { PhoneInput, formatLocal } from '@/components/phone-input';
+import { PhoneInput } from '@/components/phone-input';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EventData, TierData } from '@/types/event';
+import { cn } from '@/lib/utils';
+import { type Delivery, type RememberedPerson, forget, recall, remember } from '@/lib/remembered-attendee';
 
 /** Registering for one ticket type: who's coming, and how to send the ticket. */
 export default function Register({
@@ -27,7 +30,8 @@ export default function Register({
         full_name: '',
         email: '',
         phone: '',
-        has_whatsapp: false,
+        preferred_delivery: 'whatsapp' as Delivery,
+        has_whatsapp: true,
         position: '',
         institution: '',
         district: '',
@@ -38,9 +42,57 @@ export default function Register({
     const action = paid ? 'Continue to Payment' : 'Complete Registration';
     const errors = Object.values(form.errors);
 
+    // What this phone registered with before (kept in the browser only).
+    const [saved, setSaved] = useState(false);
+    const [people, setPeople] = useState<RememberedPerson[]>([]);
+    const [typing, setTyping] = useState(false);
+    useEffect(() => {
+        const before = recall();
+        if (!before) return;
+        setSaved(true);
+        setPeople(before.people);
+        form.setData((d) => ({ ...d, phone: before.phone, email: before.email, preferred_delivery: before.delivery, has_whatsapp: before.delivery !== 'email' }));
+        if (before.people[0]) choosePerson(before.people[0]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const wantsWhatsapp = form.data.preferred_delivery !== 'email';
+    const wantsEmail = form.data.preferred_delivery !== 'whatsapp';
+
+    /** At least one way: turning off the only one turns on the other. */
+    function setDelivery(whatsapp: boolean, email: boolean) {
+        const delivery: Delivery = whatsapp && email ? 'both' : email ? 'email' : whatsapp ? 'whatsapp' : wantsWhatsapp ? 'email' : 'whatsapp';
+        form.setData((d) => ({ ...d, preferred_delivery: delivery, has_whatsapp: delivery !== 'email' }));
+    }
+
+    function choosePerson(p: RememberedPerson) {
+        setTyping(false);
+        form.setData((d) => ({ ...d, full_name: p.name, position: p.position ?? d.position, institution: p.institution ?? d.institution, district: p.district ?? d.district }));
+    }
+
+    function someoneElse() {
+        setTyping(true);
+        form.setData((d) => ({ ...d, full_name: '', position: '', institution: '', district: '' }));
+    }
+
+    function forgetMe() {
+        forget();
+        setSaved(false);
+        setPeople([]);
+        setTyping(false);
+        form.setData((d) => ({ ...d, full_name: '', email: '', phone: '', position: '', institution: '', district: '' }));
+    }
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
-        form.post(submitUrl, { preserveScroll: true });
+        form.post(submitUrl, {
+            preserveScroll: true,
+            // Remembered once it's accepted, so a mistyped number isn't kept.
+            onSuccess: () => remember(
+                { phone: form.data.phone, email: wantsEmail ? form.data.email : '', delivery: form.data.preferred_delivery },
+                { name: form.data.full_name.trim(), ...(workshop ? { position: form.data.position, institution: form.data.institution, district: form.data.district } : {}) },
+            ),
+        });
     }
 
     const select = 'w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-50 bg-slate-50 px-6 py-4 font-bold text-gray-900 outline-none transition-all focus:border-action focus:bg-white';
@@ -68,60 +120,88 @@ export default function Register({
                         <p className="font-medium text-gray-500">Securing your spot for <span className="font-bold text-action">{event.name}</span></p>
                     </div>
 
-                    <form id="regForm" onSubmit={submit} className="space-y-8 p-8 sm:p-10">
-                        <div className="space-y-6">
-                            <Field label={<>Full Name <span className="text-rose-500">*</span></>} htmlFor="full_name" error={form.errors.full_name}>
-                                <Input id="full_name" required placeholder="e.g. Lerato Molapo" value={form.data.full_name} onChange={(e) => form.setData('full_name', e.target.value)} />
-                            </Field>
+                    <form id="regForm" onSubmit={submit} className="space-y-10 p-8 sm:p-10">
+                        {saved && (
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-5 py-4">
+                                <p className="text-[13px] font-bold text-gray-700">Welcome back. We've filled in your details from last time.</p>
+                                <button type="button" onClick={forgetMe} className="text-[11px] font-black uppercase tracking-widest text-gray-400 underline-offset-4 hover:text-action hover:underline">
+                                    Forget me on this phone
+                                </button>
+                            </div>
+                        )}
 
+                        {/* 1. How the ticket reaches them: email is asked for only when it's needed. */}
+                        <section className="space-y-4" aria-labelledby="how">
+                            <Step n={1} id="how">How would you like to receive your ticket?</Step>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <Choice checked={wantsWhatsapp} onChange={(on) => setDelivery(on, wantsEmail)} icon={<MessageCircle className="size-5 text-emerald-600" />} title="WhatsApp" text="On your phone, straight away" />
+                                <Choice checked={wantsEmail} onChange={(on) => setDelivery(wantsWhatsapp, on)} icon={<Mail className="size-5 text-brand" />} title="Email" text="With the ticket attached" />
+                            </div>
+                            {form.errors.preferred_delivery && <p className="ml-1 text-[11px] font-bold text-rose-500">{form.errors.preferred_delivery}</p>}
+                            <p className="ml-1 text-[11px] font-medium text-gray-400">Either way, you can open your ticket on the next page and find it again with your phone number.</p>
+                        </section>
+
+                        {/* 2. Their contact details. */}
+                        <section className="space-y-4" aria-labelledby="contact">
+                            <Step n={2} id="contact">Your contact details</Step>
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <Field
-                                    label="Email Address"
-                                    htmlFor="email"
-                                    error={form.errors.email}
-                                    hint={<span className="font-bold uppercase tracking-wider text-action/60"><Mail className="mr-1 inline size-3" />Ticket sent here</span>}
+                                    label={<>Phone Number <span className="text-rose-500">*</span></>}
+                                    htmlFor="phone"
+                                    error={form.errors.phone}
+                                    hint={wantsWhatsapp ? 'Your WhatsApp number' : 'To find your ticket again'}
                                 >
-                                    <Input id="email" type="email" placeholder="lerato@example.com" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
-                                </Field>
-                                <Field label={<>Phone Number <span className="text-rose-500">*</span></>} htmlFor="phone" error={form.errors.phone}>
                                     <PhoneInput id="phone" required value={form.data.phone} onChange={(v) => form.setData('phone', v)} invalid={!!form.errors.phone} />
                                 </Field>
-                            </div>
-
-                            <div className="flex items-start gap-4 rounded-2xl border border-brand/10 bg-brand/5 p-5">
-                                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand"><Mail className="size-4 text-white" /></div>
-                                <div>
-                                    <p className="mb-1 text-xs font-black uppercase tracking-wider text-brand">Getting Your Ticket</p>
-                                    <p className="text-xs font-medium leading-relaxed text-gray-500">
-                                        If you provide an email above, your ticket will be sent there once your registration is confirmed.
-                                        Either way, you can download it directly from the ticket page right after you register.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 sm:p-8">
-                                <div className="mb-6 flex items-center">
-                                    <div className="mr-4 flex size-12 items-center justify-center rounded-2xl bg-white shadow-sm"><MessageCircle className="size-6 text-emerald-500" /></div>
-                                    <div>
-                                        <h4 className="text-lg font-black text-emerald-900">WhatsApp Delivery</h4>
-                                        <p className="text-xs font-medium text-emerald-700">Instant ticket access on your phone</p>
-                                    </div>
-                                </div>
-                                <label className="group flex cursor-pointer items-start rounded-2xl border-2 border-emerald-200 bg-white/60 p-5 transition-all hover:border-emerald-400 hover:bg-white">
-                                    <input type="checkbox" checked={form.data.has_whatsapp} onChange={(e) => form.setData('has_whatsapp', e.target.checked)} className="mt-1 size-5 rounded-lg accent-emerald-600" />
-                                    <div className="ml-4">
-                                        <span className="text-sm font-black uppercase text-emerald-900">Send via WhatsApp</span>
-                                        <p className="mt-1 text-[11px] font-bold uppercase tracking-tight text-emerald-600">Instant delivery & easy access</p>
-                                    </div>
-                                </label>
-                                {form.data.has_whatsapp && (
-                                    <div className="mt-4 flex items-center rounded-xl bg-emerald-600 p-3 px-5 text-white shadow-lg shadow-emerald-200">
-                                        <CircleCheck className="mr-3 size-4" />
-                                        <p className="text-[10px] font-black uppercase tracking-widest">WhatsApp Enabled for +266 {formatLocal(form.data.phone)}</p>
-                                    </div>
+                                {wantsEmail && (
+                                    <Field label={<>Email Address <span className="text-rose-500">*</span></>} htmlFor="email" error={form.errors.email}>
+                                        <Input id="email" type="email" required autoComplete="email" placeholder="lerato@example.com" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
+                                    </Field>
                                 )}
                             </div>
-                        </div>
+                        </section>
+
+                        {/* 3. Whose ticket: names used on this phone before, or someone new. */}
+                        <section className="space-y-4" aria-labelledby="who">
+                            <Step n={3} id="who">Who's this ticket for?</Step>
+                            {people.length > 0 && (
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Names used before">
+                                    {people.map((p) => (
+                                        <button
+                                            key={p.name}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={!typing && form.data.full_name === p.name}
+                                            onClick={() => choosePerson(p)}
+                                            className={cn(
+                                                'rounded-full border-2 px-4 py-2.5 text-[13px] font-bold transition-all',
+                                                !typing && form.data.full_name === p.name ? 'border-action bg-action-soft text-action-ink' : 'border-slate-100 bg-slate-50 text-gray-700 hover:border-gray-300',
+                                            )}
+                                        >
+                                            {p.name}
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={typing}
+                                        onClick={someoneElse}
+                                        className={cn(
+                                            'inline-flex items-center gap-1.5 rounded-full border-2 border-dashed px-4 py-2.5 text-[13px] font-bold transition-all',
+                                            typing ? 'border-action text-action-ink' : 'border-slate-200 text-gray-500 hover:border-gray-400',
+                                        )}
+                                    >
+                                        <UserPlus className="size-4" />Someone else
+                                    </button>
+                                </div>
+                            )}
+                            {(typing || people.length === 0) && (
+                                <Field label={<>Full Name <span className="text-rose-500">*</span></>} htmlFor="full_name" error={form.errors.full_name} hint="The name on the ticket">
+                                    <Input id="full_name" required autoComplete="name" placeholder="e.g. Lerato Molapo" value={form.data.full_name} onChange={(e) => form.setData('full_name', e.target.value)} />
+                                </Field>
+                            )}
+                            {!typing && people.length > 0 && form.errors.full_name && <p className="ml-1 text-[11px] font-bold text-rose-500">{form.errors.full_name}</p>}
+                        </section>
 
                         {workshop && (
                             <div className="space-y-6 border-t border-gray-50 pt-6">
@@ -213,6 +293,32 @@ export default function Register({
                 </div>
             </div>
         </GuestLayout>
+    );
+}
+
+function Step({ n, id, children }: { n: number; id: string; children: React.ReactNode }) {
+    return (
+        <h3 id={id} className="flex items-center gap-3 text-[15px] font-black text-gray-900">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-action-soft text-[12px] font-black text-action-ink">{n}</span>
+            {children}
+        </h3>
+    );
+}
+
+/** A way to get the ticket: on or off, more than one allowed. */
+function Choice({ checked, onChange, icon, title, text }: { checked: boolean; onChange: (on: boolean) => void; icon: React.ReactNode; title: string; text: string }) {
+    return (
+        <label className={cn('flex cursor-pointer items-center gap-4 rounded-2xl border-2 p-4 transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-action/40', checked ? 'border-action bg-white shadow-sm' : 'border-slate-100 bg-slate-50 hover:border-gray-300')}>
+            <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">{icon}</span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-black text-gray-900">{title}</span>
+                <span className="block text-[11px] font-medium text-gray-500">{text}</span>
+            </span>
+            <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full border-2', checked ? 'border-action bg-action text-white' : 'border-gray-300')}>
+                {checked && <Check className="size-3.5" />}
+            </span>
+        </label>
     );
 }
 

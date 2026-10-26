@@ -46,6 +46,20 @@ it('takes the 8 local digits, or a whole +266 number, and keeps it after an erro
     expect(Ticket::sole()->client->phone)->toBe('+26659494756');
 });
 
+it('asks how the ticket should come, and needs an email only when it goes by email', function () {
+    ($this->register)(['preferred_delivery' => 'email'])->assertSessionHasErrors(['email' => 'Add your email address, or choose WhatsApp to get your ticket.']);
+    ($this->register)(['preferred_delivery' => 'both', 'email' => ''])->assertSessionHasErrors('email');
+    expect(Ticket::count())->toBe(0);
+
+    ($this->register)(['preferred_delivery' => 'email', 'email' => 'lerato@example.com'])->assertSessionHasNoErrors();
+    expect(Ticket::sole())->preferred_delivery->toBe('email')->has_whatsapp->toBeFalse();
+
+    // WhatsApp alone needs no email, and turns WhatsApp on whatever else is sent.
+    $vip = EventTier::create(['event_id' => $this->event->id, 'tier_name' => 'VIP', 'price' => 500, 'is_active' => true]);
+    ($this->register)(['tier_id' => $vip->id, 'phone' => '50000003', 'preferred_delivery' => 'whatsapp', 'has_whatsapp' => '0'])->assertSessionHasNoErrors();
+    expect(Ticket::latest('id')->first())->preferred_delivery->toBe('whatsapp')->has_whatsapp->toBeTrue();
+});
+
 it('keeps each person\'s name when two register with one phone, and never wipes an email', function () {
     ($this->register)(['email' => 'lerato@example.com']);
     $second = EventTier::create(['event_id' => $this->event->id, 'tier_name' => 'VIP', 'price' => 500, 'is_active' => true]);

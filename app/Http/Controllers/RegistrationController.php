@@ -90,7 +90,8 @@ class RegistrationController extends Controller
         $rules = [
             'tier_id'            => 'required|exists:event_tiers,id',
             'full_name'          => 'required|string|max:255',
-            'email'              => 'nullable|email|max:255',
+            // Asked for only when the ticket's to go by email.
+            'email'              => 'nullable|required_if:preferred_delivery,email,both|email|max:255',
             'phone'              => 'required|string|regex:/^\+266[0-9]{8}$/',
             'terms'              => 'accepted',
             'has_whatsapp'       => 'nullable|boolean',
@@ -103,7 +104,9 @@ class RegistrationController extends Controller
             $rules['district']    = ['required', \Illuminate\Validation\Rule::in(array_keys(config('constants.workshop_districts', [])))];
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'email.required_if' => 'Add your email address, or choose WhatsApp to get your ticket.',
+        ]);
 
         // Registering again for the same paid ticket type with the same
         // number picks up the unpaid ticket already held, rather than
@@ -139,7 +142,10 @@ class RegistrationController extends Controller
         $ticketStatus  = $isFree ? 'active' : 'pending';
         $paymentStatus = $isFree ? 'completed' : 'pending';
 
-        $hasWhatsApp       = $request->has('has_whatsapp') && $request->has_whatsapp;
+        // The way they chose decides; the old form only had the WhatsApp tick.
+        $hasWhatsApp       = isset($validated['preferred_delivery'])
+            ? in_array($validated['preferred_delivery'], ['whatsapp', 'both'], true)
+            : $request->boolean('has_whatsapp');
         $preferredDelivery = $this->determinePreferredDelivery($request, $validated);
 
         // ── Create tickets ────────────────────────────────────────────
