@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarDays, Check, GraduationCap, Mail, MapPin, MessageCir
 import { useEffect, useState } from 'react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Field } from '@/components/field';
-import { PhoneInput } from '@/components/phone-input';
+import { PhoneInput, formatLocal } from '@/components/phone-input';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,6 +59,12 @@ export default function Register({
 
     const wantsWhatsapp = form.data.preferred_delivery !== 'email';
     const wantsEmail = form.data.preferred_delivery !== 'whatsapp';
+
+    // Back on this phone: how the ticket comes is one line, with Change to open it up.
+    // Opened again when anything in it needs fixing.
+    const [changing, setChanging] = useState(false);
+    const contactOk = form.data.phone.length === 8 && (!wantsEmail || form.data.email.trim() !== '');
+    const summary = saved && !changing && contactOk && !form.errors.phone && !form.errors.email && !form.errors.preferred_delivery;
 
     /** At least one way: turning off the only one turns on the other. */
     function setDelivery(whatsapp: boolean, email: boolean) {
@@ -131,40 +137,56 @@ export default function Register({
                             </div>
                         )}
 
-                        {/* 1. How the ticket reaches them: email is asked for only when it's needed. */}
-                        <section className="space-y-4" aria-labelledby="how">
-                            <Step n={1} id="how">How would you like to receive your ticket?</Step>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <Choice checked={wantsWhatsapp} onChange={(on) => setDelivery(on, wantsEmail)} icon={<MessageCircle className="size-5 text-emerald-600" />} title="WhatsApp" text="On your phone, straight away" />
-                                <Choice checked={wantsEmail} onChange={(on) => setDelivery(wantsWhatsapp, on)} icon={<Mail className="size-5 text-brand" />} title="Email" text="With the ticket attached" />
-                            </div>
-                            {form.errors.preferred_delivery && <p className="ml-1 text-[11px] font-bold text-rose-500">{form.errors.preferred_delivery}</p>}
-                            <p className="ml-1 text-[11px] font-medium text-gray-400">Either way, you can open your ticket on the next page and find it again with your phone number.</p>
-                        </section>
+                        {summary ? (
+                            <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-slate-100 px-5 py-4" aria-label="How your ticket comes">
+                                <div className="min-w-0 space-y-1 text-[13px] text-gray-700">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Your ticket goes to</p>
+                                    {wantsWhatsapp && <p className="flex items-center gap-2 font-bold"><MessageCircle className="size-4 shrink-0 text-emerald-600" />WhatsApp +266 {formatLocal(form.data.phone)}</p>}
+                                    {wantsEmail && <p className="flex min-w-0 items-center gap-2 font-bold"><Mail className="size-4 shrink-0 text-brand" /><span className="truncate">{form.data.email}</span></p>}
+                                    {!wantsWhatsapp && <p className="text-[11px] text-gray-400">Phone +266 {formatLocal(form.data.phone)}, to find it again</p>}
+                                </div>
+                                <button type="button" onClick={() => setChanging(true)} className="text-[11px] font-black uppercase tracking-widest text-brand underline-offset-4 hover:text-action hover:underline">
+                                    Change
+                                </button>
+                            </section>
+                        ) : (
+                            <>
+                            {/* 1. How the ticket reaches them: email is asked for only when it's needed. */}
+                            <section className="space-y-4" aria-labelledby="how">
+                                <Step n={1} id="how">How would you like to receive your ticket?</Step>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <Choice checked={wantsWhatsapp} onChange={(on) => setDelivery(on, wantsEmail)} icon={<MessageCircle className="size-5 text-emerald-600" />} title="WhatsApp" text="On your phone, straight away" />
+                                    <Choice checked={wantsEmail} onChange={(on) => setDelivery(wantsWhatsapp, on)} icon={<Mail className="size-5 text-brand" />} title="Email" text="With the ticket attached" />
+                                </div>
+                                {form.errors.preferred_delivery && <p className="ml-1 text-[11px] font-bold text-rose-500">{form.errors.preferred_delivery}</p>}
+                                <p className="ml-1 text-[11px] font-medium text-gray-400">Either way, you can open your ticket on the next page and find it again with your phone number.</p>
+                            </section>
 
-                        {/* 2. Their contact details. */}
-                        <section className="space-y-4" aria-labelledby="contact">
-                            <Step n={2} id="contact">Your contact details</Step>
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                <Field
-                                    label={<>Phone Number <span className="text-rose-500">*</span></>}
-                                    htmlFor="phone"
-                                    error={form.errors.phone}
-                                    hint={wantsWhatsapp ? 'Your WhatsApp number' : 'To find your ticket again'}
-                                >
-                                    <PhoneInput id="phone" required value={form.data.phone} onChange={(v) => form.setData('phone', v)} invalid={!!form.errors.phone} />
-                                </Field>
-                                {wantsEmail && (
-                                    <Field label={<>Email Address <span className="text-rose-500">*</span></>} htmlFor="email" error={form.errors.email}>
-                                        <Input id="email" type="email" required autoComplete="email" placeholder="lerato@example.com" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
+                            {/* 2. Their contact details. */}
+                            <section className="space-y-4" aria-labelledby="contact">
+                                <Step n={2} id="contact">Your contact details</Step>
+                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                    <Field
+                                        label={<>Phone Number <span className="text-rose-500">*</span></>}
+                                        htmlFor="phone"
+                                        error={form.errors.phone}
+                                        hint={wantsWhatsapp ? 'Your WhatsApp number' : 'To find your ticket again'}
+                                    >
+                                        <PhoneInput id="phone" required value={form.data.phone} onChange={(v) => form.setData('phone', v)} invalid={!!form.errors.phone} />
                                     </Field>
-                                )}
-                            </div>
-                        </section>
+                                    {wantsEmail && (
+                                        <Field label={<>Email Address <span className="text-rose-500">*</span></>} htmlFor="email" error={form.errors.email}>
+                                            <Input id="email" type="email" required autoComplete="email" placeholder="lerato@example.com" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} />
+                                        </Field>
+                                    )}
+                                </div>
+                            </section>
+                            </>
+                        )}
 
                         {/* 3. Whose ticket: names used on this phone before, or someone new. */}
                         <section className="space-y-4" aria-labelledby="who">
-                            <Step n={3} id="who">Who's this ticket for?</Step>
+                            <Step n={summary ? 1 : 3} id="who">Who's this ticket for?</Step>
                             {people.length > 0 && (
                                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Names used before">
                                     {people.map((p) => (
