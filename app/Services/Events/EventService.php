@@ -111,6 +111,7 @@ class EventService
             'category'              => $data['category'],
             'city'                  => $data['city'],
             'is_public'             => (bool) ($data['is_public'] ?? false),
+            'by_invitation'         => (bool) ($data['by_invitation'] ?? false),
             'event_date'            => Carbon::parse($data['event_date'] . ' ' . $data['event_time']),
             'registration_deadline' => !empty($data['registration_deadline_date'])
                 ? Carbon::parse($data['registration_deadline_date'] . ' ' . ($data['registration_deadline_time'] ?? '23:59'))

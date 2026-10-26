@@ -173,6 +173,19 @@ describe('editing events', function () {
             ->and($this->event->enabled_payment_method_ids)->not->toContain($this->events->id);
     });
 
+    it('makes an event by invitation, and back', function () {
+        $form = fn (array $extra = []) => array_merge(paidForm($this, $extra), ['tiers' => [
+            ['id' => $this->general->id, 'tier_name' => 'General', 'price' => '250', 'quantity_available' => '80', 'quantity_per_purchase' => '1', 'is_active' => '1'],
+        ]]);
+        $this->put(route('organizer.events.update', $this->event), $form(['by_invitation' => '1']))->assertRedirect(route('organizer.events.edit', $this->event));
+        expect($this->event->fresh()->by_invitation)->toBeTrue();
+        $this->get(route('organizer.events.edit', $this->event))->assertInertia(fn ($page) => $page->where('event.byInvitation', true));
+
+        // Unticked, it isn't sent at all.
+        $this->put(route('organizer.events.update', $this->event), $form());
+        expect($this->event->fresh()->by_invitation)->toBeFalse();
+    });
+
     it('switches off a removed ticket type that has sales, and locks free/paid', function () {
         $client = Client::create(['organization_id' => $this->org->id, 'full_name' => 'L', 'phone' => '+26650001111']);
         Ticket::create(['event_id' => $this->event->id, 'client_id' => $client->id, 'event_tier_id' => $this->table->id, 'status' => 'pending', 'payment_status' => 'pending', 'amount' => 750, 'admissions' => 3]);

@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Info, MapPin, SearchCheck, Ticket } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Info, MailCheck, MapPin, SearchCheck, Ticket } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { TierCard } from '@/components/tier-card';
@@ -12,6 +12,7 @@ export default function Show({
     tiers,
     canRegister,
     closedReason,
+    byInvitation,
     registerUrl,
     moreEventsUrl,
 }: {
@@ -19,6 +20,7 @@ export default function Show({
     tiers: TierData[];
     canRegister: boolean;
     closedReason: string | null;
+    byInvitation: boolean;
     registerUrl: string;
     moreEventsUrl: string;
 }) {
@@ -65,7 +67,7 @@ export default function Show({
                             <p className="inline-flex items-center gap-2 rounded-full bg-lilac px-4 py-2 text-[12px] font-bold text-lilac-ink">
                                 Preview: only your team can see this draft. Publish it to open registration.
                             </p>
-                        ) : closedReason ? (
+                        ) : closedReason && !byInvitation ? (
                             <p className="inline-flex items-center gap-2 rounded-full bg-action-soft px-4 py-2 text-[12px] font-bold text-action-ink">
                                 <Info className="size-4" />{closedReason}
                             </p>
@@ -102,9 +104,13 @@ export default function Show({
                     <div className="sticky top-24 space-y-6">
                         <div className="rounded-[2rem] border border-gray-200 bg-white p-8 shadow-sm">
                             <h3 className="mb-8 text-center text-[9px] font-black uppercase tracking-[0.3em] text-gray-300">Access Selection</h3>
-                            <div className="space-y-3">
-                                {tiers.map((tier) => <TierCard key={tier.id} tier={tier} open={canRegister} onChoose={choose} />)}
-                            </div>
+                            {byInvitation ? (
+                                <ByInvitation organization={event.organization.name} />
+                            ) : (
+                                <div className="space-y-3">
+                                    {tiers.map((tier) => <TierCard key={tier.id} tier={tier} open={canRegister} onChoose={choose} />)}
+                                </div>
+                            )}
                             <FindTicket />
                         </div>
                         <div className="px-8">{banner('h-48', 'Official Event Identity')}</div>
@@ -116,7 +122,7 @@ export default function Show({
             <div className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 lg:hidden">
                 <button type="button" onClick={() => setDrawer(true)} className="flex items-center gap-3 whitespace-nowrap rounded-full bg-brand px-10 py-5 text-[10px] font-black uppercase tracking-[0.3em] text-white shadow-2xl transition-all active:scale-95">
                     <Ticket className="size-4 text-action" />
-                    Get Access
+                    {byInvitation ? 'Your Ticket' : 'Get Access'}
                 </button>
             </div>
 
@@ -133,12 +139,29 @@ export default function Show({
                 >
                     <div className="mx-auto mb-8 h-1 w-10 rounded-full bg-gray-100" />
                     <div className="max-h-[60vh] space-y-3 overflow-y-auto pb-10">
-                        {tiers.map((tier) => <TierCard key={tier.id} tier={tier} open={canRegister} onChoose={choose} className="border-gray-100" />)}
+                        {byInvitation ? (
+                            <ByInvitation organization={event.organization.name} />
+                        ) : (
+                            tiers.map((tier) => <TierCard key={tier.id} tier={tier} open={canRegister} onChoose={choose} className="border-gray-100" />)
+                        )}
                         <FindTicket />
                     </div>
                 </div>
             </div>
         </GuestLayout>
+    );
+}
+
+/** In place of the ticket types: nobody registers here, the organizer sends the tickets. */
+function ByInvitation({ organization }: { organization: string }) {
+    return (
+        <div className="rounded-xl bg-slate-50 p-5 text-center">
+            <MailCheck className="mx-auto size-6 text-action" />
+            <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-brand">By invitation</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-gray-500">
+                {organization} issues the tickets for this event. If you're on the guest list, your ticket comes to you on WhatsApp.
+            </p>
+        </div>
     );
 }
 

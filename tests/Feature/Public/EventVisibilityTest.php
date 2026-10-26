@@ -96,3 +96,29 @@ it('deletes an event nobody registered for, and refuses once people have', funct
     $staff->assignRole('staff');
     $this->actingAs($staff)->delete(route('organizer.events.destroy', ($this->makeEvent)('draft')))->assertForbidden();
 });
+
+it('shows an event by invitation, but nobody registers on it: the organizer issues the tickets', function () {
+    $gala = ($this->makeEvent)('published', ['by_invitation' => true, 'name' => 'Sponsors gala']);
+
+    $this->get(route('event.short', [$this->org->slug, $gala->slug]))->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Events/Show')->where('byInvitation', true)->where('canRegister', false)
+            ->where('closedReason', "By invitation: {$this->org->name} issues the tickets for this event."));
+    $this->get(route('registration.form', [$this->org->slug, $gala->slug]))
+        ->assertInertia(fn ($page) => $page->component('Events/RegistrationClosed')->where('closedReason', fn ($r) => str_starts_with($r, 'By invitation')));
+    $this->post(route('registration.submit', [$this->org->slug, $gala->slug]), [
+        'tier_id' => $gala->tiers()->first()->id, 'full_name' => 'Gate Crasher', 'phone' => '59494756', 'terms' => '1',
+    ]);
+    expect(Ticket::count())->toBe(0);
+
+    // The organizer still sends tickets.
+    $this->actingAs($this->admin)->post(route('organizer.events.comp.store', $gala), [
+        'event_tier_id' => $gala->tiers()->first()->id, 'full_name' => 'Invited Guest', 'phone' => '5949 4756',
+    ])->assertSessionHasNoErrors();
+    expect(Ticket::count())->toBe(1);
+
+    // Once it's over, it says that instead.
+    $gala->update(['status' => 'completed']);
+    $this->get(route('event.short', [$this->org->slug, $gala->slug]))
+        ->assertInertia(fn ($page) => $page->where('byInvitation', false)->where('closedReason', 'This event has ended.'));
+});
+

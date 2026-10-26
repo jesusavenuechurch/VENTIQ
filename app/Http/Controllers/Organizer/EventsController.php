@@ -101,6 +101,7 @@ class EventsController extends Controller
                 'category'                => (string) $event->category,
                 'city'                    => (string) $event->city,
                 'isPublic'                => (bool) $event->is_public,
+                'byInvitation'            => (bool) $event->by_invitation,
                 'date'                    => $event->event_date?->format('Y-m-d') ?? today()->format('Y-m-d'),
                 'time'                    => $event->event_date?->format('H:i') ?? '18:00',
                 'deadlineDate'            => (string) $event->registration_deadline?->format('Y-m-d'),

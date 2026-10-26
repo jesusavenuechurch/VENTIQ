@@ -33,6 +33,7 @@ interface EventData {
     category: string;
     city: string;
     isPublic: boolean;
+    byInvitation: boolean;
     date: string;
     time: string;
     deadlineDate: string;
@@ -97,6 +98,7 @@ export default function EventForm(props: Props) {
         city: event.city,
         banner: null as File | null,
         is_public: event.isPublic,
+        by_invitation: event.byInvitation,
         event_date: event.date,
         event_time: event.time,
         registration_deadline_date: event.deadlineDate,
@@ -244,6 +246,13 @@ export default function EventForm(props: Props) {
                         <label className="flex items-center gap-3 text-[13px] font-bold text-gray-700">
                             <input type="checkbox" checked={d.is_public} onChange={(e) => form.setData('is_public', e.target.checked)} className="size-5 rounded accent-action" />
                             Show this event publicly on Ventiq
+                        </label>
+                        <label className="flex items-start gap-3 text-[13px] font-bold text-gray-700">
+                            <input type="checkbox" checked={d.by_invitation} onChange={(e) => form.setData('by_invitation', e.target.checked)} className="mt-0.5 size-5 shrink-0 rounded accent-action" />
+                            <span>
+                                By invitation
+                                <span className="block text-[12px] font-medium text-gray-500">The event page stays up, but people can't register on it. You issue the tickets (import a guest list, complimentary or cash) and they go out on WhatsApp as usual.</span>
+                            </span>
                         </label>
                     </section>
 

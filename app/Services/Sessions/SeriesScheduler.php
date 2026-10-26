@@ -53,7 +53,8 @@ class SeriesScheduler
 
         return DB::transaction(function () use ($series, $by) {
             $series = SessionSeries::lockForUpdate()->find($series->id);
-            $comingUp = $series->sessions()->whereDate('date', '>=', today())->count();
+            // Still to be held: today's, once it's held, isn't one of the next ones.
+            $comingUp = $series->sessions()->whereDate('date', '>=', today())->whereNotIn('status', ['completed', 'reported'])->count();
             $wanted = self::AHEAD - $comingUp;
             if ($wanted <= 0) {
                 return 0;

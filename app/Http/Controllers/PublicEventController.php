@@ -47,6 +47,8 @@ class PublicEventController extends Controller
             'tiers'        => $event->tiers->map(fn ($tier) => EventPage::tier($tier, $event, $tierAvailability[$tier->id] ?? null))->values(),
             'canRegister'  => $canRegister,
             'closedReason' => $closedReason,
+            // Only when that's the one reason: an ended or cancelled event says so instead.
+            'byInvitation' => $event->by_invitation && $closedReason === $event->invitationMessage(),
             'registerUrl'  => route('registration.form', [$organization->slug, $event->slug]),
             // The organization's own page is for super admins until it's sold.
             'moreEventsUrl' => $user?->isSuperAdmin() ? route('public.events', $organization->slug) : route('events.browse'),

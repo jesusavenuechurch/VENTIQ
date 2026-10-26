@@ -24,6 +24,7 @@ class Event extends Model
         'status',
         'slug',
         'is_public',
+        'by_invitation',
         'tagline',
         'venue',
         'registration_deadline',
@@ -63,6 +64,7 @@ class Event extends Model
         'online_methods' => 'array',
         'payment_window_hours' => 'integer',
         'fees_sponsored' => 'boolean',
+        'by_invitation' => 'boolean',
         'fees_sponsored_at' => 'datetime',
     ];
 
@@ -210,8 +212,15 @@ class Event extends Model
             $this->event_date && now()->gt($this->event_date->copy()->endOfDay()) => 'This event has ended.',
             $this->registration_deadline && now()->gte($this->registration_deadline)
                 => 'Registration closed on ' . $this->registration_deadline->format('j F Y, H:i') . '.',
+            (bool) $this->by_invitation => $this->invitationMessage(),
             default => null,
         };
+    }
+
+    /** Why nobody can register for an event that's by invitation. */
+    public function invitationMessage(): string
+    {
+        return 'By invitation: ' . ($this->organization?->name ?? 'the organizer') . ' issues the tickets for this event.';
     }
 
     public function requiresDeposit(): bool

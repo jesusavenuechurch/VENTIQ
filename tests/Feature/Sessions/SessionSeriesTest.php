@@ -77,6 +77,19 @@ it('keeps four meetings ahead as the weeks go by, and never makes a skipped one 
         ->toBe(['2026-11-09', '2026-11-23', '2026-11-30', '2026-12-07']);
 });
 
+it('still keeps four ahead on the day a meeting is held', function () {
+    ($this->scheduleSeries)();
+    $series = SessionSeries::firstOrFail();
+
+    // Monday 26 Oct: that morning's meeting is held, then the series tops up.
+    $this->travelTo(Carbon::parse('2026-10-26 11:00'));
+    $series->sessions()->whereDate('date', '2026-10-26')->update(['status' => 'reported']);
+    $this->artisan('sessions:top-up-series')->assertSuccessful();
+
+    expect($series->sessions()->where('status', 'draft')->pluck('date')->map->toDateString()->all())
+        ->toBe(['2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23']);
+});
+
 it('changes the meetings ahead when the series changes, not the ones held, and ends it', function () {
     ($this->scheduleSeries)();
     $series = SessionSeries::firstOrFail();

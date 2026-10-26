@@ -25,6 +25,7 @@ class OrganizerEventRequest extends FormRequest
 
         $this->merge([
             'is_public'          => $this->boolean('is_public'),
+            'by_invitation'      => $this->boolean('by_invitation'),
             'online_methods'     => $methods,
             'online'             => !empty($methods),
             'allow_installments' => $this->boolean('allow_installments'),
@@ -47,6 +48,7 @@ class OrganizerEventRequest extends FormRequest
             'city'                       => ['required', Rule::in(config('constants.districts'))],
             'banner'                     => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             'is_public'                  => 'boolean',
+            'by_invitation'              => 'boolean',
             'event_date'                 => $editing ? 'required|date' : 'required|date|after_or_equal:today',
             'event_time'                 => 'required|date_format:H:i',
             'registration_deadline_date' => 'nullable|date',
