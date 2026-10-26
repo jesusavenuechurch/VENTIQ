@@ -153,7 +153,7 @@ function BankTransfer({ purchase, bank }: { purchase: Props['purchase']; bank: N
 
             {bank.claimed ? (
                 <p className="flex items-start gap-2 rounded-2xl bg-mint px-4 py-3 text-[12px] font-bold text-mint-ink">
-                    <Clock className="mt-0.5 size-4 shrink-0" />You've told us you paid. We add it as soon as we see it in our account, usually within a working day; you'll get an email.
+                    <Clock className="mt-0.5 size-4 shrink-0" />You've told us you paid. We confirm it within 24 hours of the money reaching our account, and you'll get an email. Your plan keeps running while you wait.
                 </p>
             ) : (
                 <form className="space-y-4 border-t border-dashed border-gray-100 pt-5" onSubmit={(e) => { e.preventDefault(); form.post(route('sessions.plan.bank-transfer')); }}>

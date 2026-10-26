@@ -30,6 +30,9 @@ class SessionPlanController extends Controller
                 'whatsapp'  => ['used' => $plan->whatsapp_used, 'included' => $plan->whatsapp_included],
                 'renews'    => $plan->period_end?->format('d M Y'),
                 'payg'      => $quota->remainingSessions($organization) - $plan->remaining_sessions,
+                // Paying for the next month: paid up, due soon, or on grace.
+                'renewal'   => app(\App\Services\Sessions\PlanRenewals::class)->status($plan),
+                'renewUrl'  => $plan->renews() ? route('organization.session-plan.payment', ['type' => 'plan', 'tier' => $plan->tier]) : null,
             ],
             // Enterprise is agreed with us, not bought here.
             'tiers' => collect($tiers)->except(['free', 'enterprise'])->map(fn ($t, $key) => [

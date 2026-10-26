@@ -24,6 +24,9 @@ class SessionPackage extends Model
         'price_paid',
         'period_start',
         'period_end',
+        'paid_until',
+        'due_notice_for',
+        'grace_notice_for',
         'notes',
     ];
 
@@ -36,6 +39,9 @@ class SessionPackage extends Model
         'sms_used'          => 'integer',
         'price_paid'        => 'decimal:2',
         'period_start'      => 'datetime',
+        'paid_until'        => 'datetime',
+        'due_notice_for'    => 'date',
+        'grace_notice_for'  => 'date',
         'period_end'        => 'datetime',
     ];
 
@@ -67,6 +73,36 @@ class SessionPackage extends Model
 
     public function hasSessionsRemaining(): bool { return $this->sessions_used < $this->sessions_included; }
     public function hasWhatsappRemaining(): bool { return $this->whatsapp_used < $this->whatsapp_included; }
+
+    /** Plans that are paid for month by month. */
+    public const RENEWING = ['team', 'business'];
+
+    /** Days a plan runs into an unpaid month before it goes back to Free. */
+    public const GRACE_DAYS = 3;
+
+    /** Paid month by month (a plan VENTIQ granted at no charge just carries on). */
+    public function renews(): bool
+    {
+        return $this->paid_until !== null && in_array($this->tier, self::RENEWING, true);
+    }
+
+    /** This month is paid for. */
+    public function isPaid(): bool
+    {
+        return !$this->renews() || ($this->period_end && $this->paid_until->toDateString() >= $this->period_end->toDateString());
+    }
+
+    /** Paid for this month but not the next. */
+    public function nextUnpaid(): bool
+    {
+        return $this->renews() && $this->isPaid() && $this->paid_until->toDateString() <= $this->period_end->toDateString();
+    }
+
+    /** Running on credit into an unpaid month, until this. */
+    public function graceEndsAt(): ?\Illuminate\Support\Carbon
+    {
+        return $this->isPaid() ? null : $this->period_start->copy()->addDays(self::GRACE_DAYS);
+    }
 
     public function getRemainingSessionsAttribute(): int { return max(0, $this->sessions_included - $this->sessions_used); }
     public function getRemainingWhatsappAttribute(): int { return max(0, $this->whatsapp_included - $this->whatsapp_used); }

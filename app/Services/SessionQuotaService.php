@@ -35,17 +35,24 @@ class SessionQuotaService
             $plan = $this->rolloverPeriod($plan);
         }
 
-        return $plan;
+        // A paid plan whose new month wasn't paid in the days' grace: Free again.
+        return app(\App\Services\Sessions\PlanRenewals::class)->lapseIfOverdue($plan) ?? $plan;
     }
 
     protected function rolloverPeriod(SessionPackage $plan): SessionPackage
     {
+        // The next month starts where the last ended (paid or not, a plan's
+        // month is the same each time); months nobody looked are skipped.
+        $start = $plan->period_end->copy();
+        while ($start->copy()->addMonthNoOverflow()->isPast()) {
+            $start->addMonthNoOverflow();
+        }
         $plan->update([
             'sessions_used' => 0,
             'whatsapp_used' => 0,
             'sms_used'      => 0,
-            'period_start'  => now(),
-            'period_end'    => now()->addMonth(),
+            'period_start'  => $start,
+            'period_end'    => $start->copy()->addMonthNoOverflow(),
         ]);
 
         return $plan->fresh();

@@ -37,3 +37,6 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('sessions:invoice')->monthlyOn(1, '06:10')->withoutOverlapping();
 // Paid Sessions plans and sessions that didn't reach the Sessions books (Khoebo down, say).
 \Illuminate\Support\Facades\Schedule::command('sessions:khoebo')->hourlyAt(25)->withoutOverlapping();
+
+// Paid Sessions plans: "renew soon", "on grace", and back to Free once the grace has passed.
+\Illuminate\Support\Facades\Schedule::command('sessions:renewals')->dailyAt('08:15')->withoutOverlapping();

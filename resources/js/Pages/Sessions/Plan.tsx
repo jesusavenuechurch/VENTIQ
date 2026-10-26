@@ -5,7 +5,7 @@ import SessionsLayout, { field, primaryButton, quietButton } from '@/Layouts/Ses
 import { cn, money } from '@/lib/utils';
 
 interface Props {
-    plan: { tier: string; label: string; sessions: { used: number; included: number }; whatsapp: { used: number; included: number }; renews: string | null; payg: number };
+    plan: { tier: string; label: string; sessions: { used: number; included: number }; whatsapp: { used: number; included: number }; renews: string | null; payg: number; renewal: Renewal | null; renewUrl: string | null };
     tiers: { key: string; label: string; price: number; description: string; current: boolean }[];
     payg: { quantity: number; price: number }[];
     history: { id: number; label: string; status: string; sessions: string; paid: number; date: string }[];
@@ -19,6 +19,37 @@ interface Props {
     bank: { label: string; value: string }[];
 }
 
+/** Paying for the next month of a Team or Business plan. */
+interface Renewal {
+    stage: 'paid' | 'due' | 'grace';
+    by: string;
+    /** A bank transfer for the plan is waiting to be confirmed: it keeps the plan going. */
+    waiting: boolean;
+}
+
+function RenewalNotice({ renewal, label, url }: { renewal: Renewal | null; label: string; url: string | null }) {
+    if (!renewal || !url) return null;
+    if (renewal.stage === 'paid') {
+        return <p className="mb-8 text-[12px] font-medium text-gray-500">Your {label} plan is paid up to <b className="text-gray-900">{renewal.by}</b>.</p>;
+    }
+    const grace = renewal.stage === 'grace';
+
+    return (
+        <div className={cn('mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4', grace ? 'bg-rose-50 text-rose-900' : 'bg-action-soft text-action-ink')}>
+            <p className="text-[13px] font-medium">
+                {renewal.waiting
+                    ? <>We're confirming your bank transfer, within 24 hours. Your {label} plan keeps running meanwhile.</>
+                    : grace
+                        ? <>This month of your {label} plan isn't paid yet. It keeps working until <b>{renewal.by}</b>, then goes back to Free. Nothing is deleted.</>
+                        : <>Your {label} plan renews on <b>{renewal.by}</b>. Pay for the next month to keep it.</>}
+            </p>
+            {!renewal.waiting && (
+                <Link href={url} className={cn(primaryButton, 'shrink-0')}>{grace ? 'Pay now' : 'Renew'}</Link>
+            )}
+        </div>
+    );
+}
+
 function Transfers({ transfers }: { transfers: Props['transfers'] }) {
     if (transfers.length === 0) return null;
 
@@ -27,7 +58,7 @@ function Transfers({ transfers }: { transfers: Props['transfers'] }) {
             {transfers.map((t) => (
                 <p key={t.id} className="flex items-start gap-3 rounded-2xl bg-amber-50 px-5 py-4 text-[12px] text-amber-800">
                     <Clock className="mt-0.5 size-4 shrink-0" />
-                    <span><b>{t.label}, {money(t.amount)}</b>: you told us you paid by bank transfer{t.paidOn ? ` on ${t.paidOn}` : ''} (reference {t.reference}). It's added as soon as we see it in our account, usually within a working day.</span>
+                    <span><b>{t.label}, {money(t.amount)}</b>: you told us you paid by bank transfer{t.paidOn ? ` on ${t.paidOn}` : ''} (reference {t.reference}). We confirm it within 24 hours of the money reaching our account.</span>
                 </p>
             ))}
         </div>
@@ -141,6 +172,7 @@ export default function Plan({ plan, tiers, payg, history, support, corporate, i
     return (
         <SessionsLayout title="Your Sessions plan" subtitle={plan.renews ? `${plan.label} plan · starts again ${plan.renews}` : `${plan.label} plan`} width="max-w-4xl">
             <Transfers transfers={transfers} />
+            <RenewalNotice renewal={plan.renewal} label={plan.label} url={plan.renewUrl} />
             <div className="mb-10 grid gap-4 sm:grid-cols-3">
                 {([['Sessions this month', plan.sessions], ['WhatsApp messages', plan.whatsapp]] as const).map(([title, q]) => (
                     <div key={title} className="rounded-2xl border border-gray-100 bg-white p-5">
@@ -167,7 +199,10 @@ export default function Plan({ plan, tiers, payg, history, support, corporate, i
                         <p className="mt-1 text-2xl font-black text-brand">M{t.price.toLocaleString('en')}<span className="text-[12px] text-gray-400">/month</span></p>
                         <p className="mt-2 flex-1 text-[12px] leading-relaxed text-gray-500">{t.description}</p>
                         {t.current ? (
-                            <span className="mt-5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600"><Check className="size-4" />Your plan</span>
+                            <span className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600"><Check className="size-4" />Your plan</span>
+                                {plan.renewUrl && <Link href={plan.renewUrl} className="text-[11px] font-bold text-brand underline-offset-4 hover:underline">Pay a month ahead</Link>}
+                            </span>
                         ) : (
                             <Link href={route('organization.session-plan.payment', { type: 'plan', tier: t.key })} className={cn(primaryButton, 'mt-5')}>Move to {t.label}</Link>
                         )}

@@ -118,7 +118,7 @@ class SessionsBooks
 
         try {
             if (!$payment->khoebo_invoice_id) {
-                $invoice = $this->invoice($organization, [$this->line($meta, (float) $payment->amount, $paidOn)], $key, $paidOn);
+                $invoice = $this->invoice($organization, [$this->line($meta, (float) $payment->amount, $paidOn, $payment->organization_id)], $key, $paidOn);
                 $payment->forceFill(['khoebo_invoice_id' => $invoice['id'], 'khoebo_reference' => $invoice['reference'] ?? null])->save();
             }
             $paid = $this->pay((int) $payment->khoebo_invoice_id, $payment->payment_method === 'bank_transfer' ? 'bank_transfer' : (string) $payment->payment_method,
@@ -134,12 +134,16 @@ class SessionsBooks
     }
 
     /** The invoice line for what was bought. */
-    private function line(array $meta, float $amount, string $date): array
+    private function line(array $meta, float $amount, string $date, int $organizationId): array
     {
         $money = number_format($amount, 2, '.', '');
         if (($meta['type'] ?? null) === 'plan') {
             $label = SessionPackageDefinition::get($meta['tier'])['label'] ?? ucfirst((string) $meta['tier']);
-            $from = Carbon::parse($date);
+            // The month this paid for: the last one added to the plan (a renewal
+            // paid early or late covers its own month, not one from the payment date).
+            $paidUntil = \App\Models\SessionPackage::where('organization_id', $organizationId)->where('tier', $meta['tier'])
+                ->whereNotNull('paid_until')->latest('id')->value('paid_until');
+            $from = $paidUntil ? Carbon::parse($paidUntil)->subMonthNoOverflow() : Carbon::parse($date);
 
             return [
                 'product_id'  => $this->productId("plan-{$meta['tier']}"),

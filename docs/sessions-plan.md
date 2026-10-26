@@ -178,3 +178,23 @@ each question the app finds the relevant ones and sends them with it
   number) for the "How to pay" box, and run `php artisan khoebo:products`
   once on each Khoebo to make VQ-SESSION.
 
+
+### Renewing a paid plan
+
+Team and Business plans are paid month by month (`SessionPackage::paid_until`).
+Paying again for the plan you're on adds a month from where it's paid to,
+early or late, never restarting from the payment date
+(`SessionPackageService::changePlan`). `sessions:renewals` (daily 08:15,
+`PlanRenewals`):
+
+- **3 days before the month ends**, unpaid next month: the Admins get
+  "Your plan renews on …" with the pay link (EcoCash, M-Pesa, bank transfer).
+- **The month ends unpaid:** the plan keeps running for 3 days of grace
+  (`SessionPackage::GRACE_DAYS`), with a second email. A bank transfer for a
+  plan that's waiting to be confirmed keeps it running until it's confirmed
+  or rejected; VENTIQ confirms within 24 hours.
+- **After the grace:** the plan is `lapsed` and the organization is on Free.
+  Nothing is deleted, and they're told.
+
+A plan a super admin gives at M0 doesn't renew: it carries on as before.
+The Plan page shows "paid up to", "renews on" or the grace deadline.
