@@ -60,6 +60,24 @@ it('asks how the ticket should come, and needs an email only when it goes by ema
     expect(Ticket::latest('id')->first())->preferred_delivery->toBe('whatsapp')->has_whatsapp->toBeTrue();
 });
 
+it('keeps a yes to future events, from the first time it was given, and never assumes it', function () {
+    ($this->register)();
+    expect(Client::sole()->updates_consent_at)->toBeNull();
+
+    $this->travel(1)->day();
+    $vip = EventTier::create(['event_id' => $this->event->id, 'tier_name' => 'VIP', 'price' => 500, 'is_active' => true]);
+    ($this->register)(['tier_id' => $vip->id, 'updates' => '1']);
+    $agreed = Client::sole()->updates_consent_at;
+    expect($agreed)->not->toBeNull()->and(Client::sole()->updates_consent_event_id)->toBe($this->event->id);
+
+    // Unticked next time isn't a no, and the first yes is kept.
+    $this->travel(1)->day();
+    $table = EventTier::create(['event_id' => $this->event->id, 'tier_name' => 'Table', 'price' => 900, 'is_active' => true]);
+    ($this->register)(['tier_id' => $table->id, 'updates' => '1']);
+    ($this->register)(['tier_id' => $table->id]);
+    expect(Client::sole()->updates_consent_at->equalTo($agreed))->toBeTrue();
+});
+
 it('keeps each person\'s name when two register with one phone, and never wipes an email', function () {
     ($this->register)(['email' => 'lerato@example.com']);
     $second = EventTier::create(['event_id' => $this->event->id, 'tier_name' => 'VIP', 'price' => 500, 'is_active' => true]);

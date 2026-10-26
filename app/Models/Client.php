@@ -12,7 +12,9 @@ class Client extends Model
 {
     use Notifiable, HasFactory;
     
-    protected $fillable = ['organization_id', 'full_name', 'email', 'phone', 'photo_path', 'created_by', 'notes', 'status'];
+    protected $fillable = ['organization_id', 'full_name', 'email', 'phone', 'photo_path', 'created_by', 'notes', 'status', 'updates_consent_at', 'updates_consent_event_id'];
+
+    protected $casts = ['updates_consent_at' => 'datetime'];
 
     public function organization(): BelongsTo
     {

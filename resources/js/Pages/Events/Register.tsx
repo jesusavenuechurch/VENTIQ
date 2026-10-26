@@ -35,6 +35,7 @@ export default function Register({
         position: '',
         institution: '',
         district: '',
+        updates: false,
         terms: false,
     });
     const paid = tier.price > 0;
@@ -250,6 +251,14 @@ export default function Register({
                         )}
 
                         <div className="space-y-6 border-t border-gray-50 pt-10">
+                            {/* Off unless they tick it: only then may the organizer invite them to future events. */}
+                            <label className="flex cursor-pointer items-start">
+                                <input type="checkbox" checked={form.data.updates} onChange={(e) => form.setData('updates', e.target.checked)} className="mt-1 size-5 rounded accent-action" />
+                                <span className="ml-4 text-[13px] font-medium leading-relaxed text-gray-600">
+                                    Keep me posted about future events from <b className="font-bold text-gray-900">{event.organization.name}</b>
+                                    <span className="block text-[11px] text-gray-400">By WhatsApp or email. You can say stop at any time.</span>
+                                </span>
+                            </label>
                             <label className="flex cursor-pointer items-start">
                                 <input type="checkbox" required checked={form.data.terms} onChange={(e) => form.setData('terms', e.target.checked)} className="mt-1 size-5 rounded accent-action" />
                                 <span className="ml-4 text-[11px] font-bold uppercase tracking-wide text-gray-500">

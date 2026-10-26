@@ -20,6 +20,7 @@ interface Row {
     id: number;
     name: string;
     phone: string;
+    updates: boolean;
     code: string;
     tier: string;
     admissions: number;
@@ -160,6 +161,7 @@ export default function Attendees({ event, finance, fees, khoebo, tickets, filte
                                     <div className="min-w-0">
                                         <p className="text-[14px] font-black text-brand">
                                             {t.name}
+                                            {t.updates && <span title="Agreed to hear about your future events" className="ml-1 rounded-full bg-mint px-2 py-0.5 align-middle text-[9px] font-black uppercase tracking-widest text-mint-ink">Updates</span>}
                                             {t.comp && <span title={t.comp} className="ml-1 rounded-full bg-lilac px-2 py-0.5 align-middle text-[9px] font-black uppercase tracking-widest text-lilac-ink"><Gift className="mr-0.5 inline size-2.5" />Comp</span>}
                                         </p>
                                         <p className="text-[11px] font-semibold text-gray-400">

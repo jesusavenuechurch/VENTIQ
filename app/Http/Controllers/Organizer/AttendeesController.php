@@ -97,6 +97,7 @@ class AttendeesController extends Controller
             'id'          => $ticket->id,
             'name'        => $ticket->holder_name,
             'phone'       => $ticket->client->phone,
+            'updates'     => $ticket->client->updates_consent_at !== null,
             'code'        => $ticket->voucher_code,
             'tier'        => $ticket->tier->tier_name,
             'admissions'  => (int) ($ticket->admissions ?? 1),

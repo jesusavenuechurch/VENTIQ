@@ -96,6 +96,7 @@ class RegistrationController extends Controller
             'terms'              => 'accepted',
             'has_whatsapp'       => 'nullable|boolean',
             'preferred_delivery' => 'nullable|in:email,whatsapp,both',
+            'updates'            => 'nullable|boolean',
         ];
 
         if ($event->event_type === 'workshop') {
@@ -121,6 +122,9 @@ class RegistrationController extends Controller
                 $held->update(['attendee_name' => $this->differentName($held->client, $validated['full_name'])]);
                 if (!empty($validated['email']) && !$held->client->email) {
                     $held->client->update(['email' => $validated['email']]);
+                }
+                if ($request->boolean('updates') && !$held->client->updates_consent_at) {
+                    $held->client->forceFill(['updates_consent_at' => now(), 'updates_consent_event_id' => $event->id])->save();
                 }
                 if ($held->payment_due_at) {
                     $held->update(['payment_due_at' => \App\Support\PaymentWindow::dueAt($event)]);
@@ -176,6 +180,12 @@ class RegistrationController extends Controller
             // carries its own instead of renaming the earlier ones. An
             // email is added, never wiped.
             $attendeeName = $primaryClient->wasRecentlyCreated ? null : $this->differentName($primaryClient, $validated['full_name']);
+
+            // Agreed to hear about this organizer's future events: kept from
+            // the first time they said yes. Leaving it unticked later isn't a no.
+            if ($request->boolean('updates') && !$primaryClient->updates_consent_at) {
+                $primaryClient->forceFill(['updates_consent_at' => now(), 'updates_consent_event_id' => $event->id])->save();
+            }
             if (!$primaryClient->wasRecentlyCreated && !empty($validated['email']) && !$primaryClient->email) {
                 $primaryClient->update(['email' => $validated['email']]);
             }
