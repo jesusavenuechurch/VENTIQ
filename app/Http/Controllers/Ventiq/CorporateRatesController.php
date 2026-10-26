@@ -33,6 +33,7 @@ class CorporateRatesController extends Controller
                 'starts_on'      => $a->starts_on->toDateString(),
                 'startsLabel'    => $a->starts_on->format('j M Y'),
                 'ended'          => $a->ended_at?->format('j M Y'),
+                'pilotEnds'      => $a->ends_on?->format('j M Y'),
                 'month'          => $a->organization && !$a->ended_at ? $this->billing->monthToDate($a->organization) : null,
             ]),
             'invoices' => SessionInvoice::with('organization')->latest()->limit(100)->get()->map(fn (SessionInvoice $i) => [
@@ -71,9 +72,30 @@ class CorporateRatesController extends Controller
             'starts_on'       => ['required', 'date'],
         ]);
 
-        $agreement = SessionAgreement::updateOrCreate(['organization_id' => $data['organization_id']], $data + ['ended_at' => null, 'created_by' => $request->user()->id]);
+        $existing = SessionAgreement::where('organization_id', $data['organization_id'])->first();
+        // A pilot (M0) runs three months from its start; one already running keeps its end.
+        // A paid rate has no end.
+        $endsOn = (float) $data['rate'] === 0.0
+            ? ($existing?->isPilot() && !$existing->ended_at && $existing->ends_on ? $existing->ends_on : Carbon::parse($data['starts_on'])->addMonthsNoOverflow(SessionAgreement::PILOT_MONTHS))
+            : null;
+        $agreement = SessionAgreement::updateOrCreate(['organization_id' => $data['organization_id']], $data + [
+            'ends_on' => $endsOn, 'end_notice_at' => $existing?->ends_on && $endsOn && $existing->ends_on->isSameDay($endsOn) ? $existing->end_notice_at : null,
+            'ended_at' => null, 'created_by' => $request->user()->id,
+        ]);
 
-        return back()->with('status', "{$agreement->organization->name} is on M" . number_format((float) $agreement->rate, 2) . ' a session, ' . ($agreement->free_per_month ?: 'none') . ' free a month. Sessions held from now on are invoiced monthly.');
+        return back()->with('status', $agreement->isPilot()
+            ? "{$agreement->organization->name} is on a pilot: sessions at no charge until {$agreement->ends_on->format('j M Y')}. You'll be told a week before it ends."
+            : "{$agreement->organization->name} is on M" . number_format((float) $agreement->rate, 2) . ' a session, ' . ($agreement->free_per_month ?: 'none') . ' free a month. Sessions held from now on are invoiced monthly.');
+    }
+
+    /** Another three months of a pilot, from its end (or from today, if it has already ended). */
+    public function renew(SessionAgreement $agreement)
+    {
+        abort_unless($agreement->isPilot(), 422, 'Only a pilot is renewed.');
+        $from = $agreement->ends_on && $agreement->ends_on->gte(today()) && !$agreement->ended_at ? $agreement->ends_on : today();
+        $agreement->update(['ends_on' => $from->copy()->addMonthsNoOverflow(SessionAgreement::PILOT_MONTHS), 'end_notice_at' => null, 'ended_at' => null]);
+
+        return back()->with('status', "{$agreement->organization->name}'s pilot now runs until {$agreement->ends_on->format('j M Y')}.");
     }
 
     /** Back to the plans: sessions held so far still go on their month's invoice. */

@@ -22,6 +22,8 @@ interface Agreement {
     starts_on: string;
     startsLabel: string;
     ended: string | null;
+    /** A pilot (M0): its last day. */
+    pilotEnds: string | null;
     month: { held: number; free: number; owed: number } | null;
 }
 
@@ -90,13 +92,23 @@ export default function CorporateRates({ agreements, invoices, organizations, me
                         {agreements.map((a) => (
                             <tr key={a.id} className={cn(a.ended && 'opacity-50')}>
                                 <td className="px-5 py-3"><OrgLink id={a.organization.id} name={a.organization.name} />{a.notes && <span className="block max-w-[220px] truncate text-[11px] text-gray-400" title={a.notes}>{a.notes}</span>}</td>
-                                <td className="px-5 py-3 font-black text-brand">{money(a.rate)}</td>
+                                <td className="px-5 py-3 font-black text-brand">
+                                    {a.pilotEnds ? <span className="rounded-full bg-lilac px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-lilac-ink">Pilot</span> : money(a.rate)}
+                                </td>
                                 <td className="px-5 py-3 text-gray-600">{a.free_per_month}</td>
                                 <td className="px-5 py-3 text-gray-600">{a.month ? <>{a.month.held} held · <b className="text-brand">{money(a.month.owed)}</b></> : '—'}</td>
                                 <td className="px-5 py-3 text-gray-500">{a.billing_email || 'Its Admins'}</td>
-                                <td className="whitespace-nowrap px-5 py-3 text-gray-500">{a.ended ? `Ended ${a.ended}` : a.startsLabel}</td>
+                                <td className="whitespace-nowrap px-5 py-3 text-gray-500">
+                                    {a.ended ? `Ended ${a.ended}` : a.startsLabel}
+                                    {a.pilotEnds && !a.ended && <span className="block text-[11px] font-bold text-lilac-ink">Ends {a.pilotEnds}</span>}
+                                </td>
                                 <td className="whitespace-nowrap px-5 py-3 text-right">
                                     <button type="button" onClick={() => setEditing(a)} className="text-[10px] font-black uppercase tracking-widest text-brand hover:text-action">{a.ended ? 'Start again' : 'Change'}</button>
+                                    {a.pilotEnds && (
+                                        <button type="button" onClick={() => router.post(route('ventiq.corporate.renew', a.id), {}, opts)} className="ml-4 text-[10px] font-black uppercase tracking-widest text-lilac-ink hover:text-action">
+                                            Renew 3 months
+                                        </button>
+                                    )}
                                     {!a.ended && <button type="button" onClick={() => setEnding(a)} className="ml-4 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-rose-600">End</button>}
                                 </td>
                             </tr>
@@ -180,7 +192,7 @@ function RateForm({ agreement, organizations, onDone }: { agreement: Agreement |
                 </NativeSelect>
             </Field>
             <div className="grid grid-cols-2 gap-3">
-                <Field label="Per session (M)" htmlFor="cr-rate" error={form.errors.rate}>
+                <Field label="Per session (M)" htmlFor="cr-rate" error={form.errors.rate} hint={Number(form.data.rate) === 0 ? 'M0 is a pilot: three months, then it ends unless you renew it.' : undefined}>
                     <Input id="cr-rate" type="number" min={0} step="0.01" required className={field} value={form.data.rate} onChange={(e) => form.setData('rate', Number(e.target.value))} />
                 </Field>
                 <Field label="Free a month" htmlFor="cr-free" error={form.errors.free_per_month}>

@@ -182,3 +182,42 @@ it('goes back to the plan when the rate ends, still invoicing what was held', fu
     $this->post(route('ventiq.corporate.invoice'), ['organization_id' => $this->org->id, 'month' => '2026-10'])->assertSessionHas('status', fn ($s) => str_contains($s, 'VQS-2026-0001'));
     expect(SessionInvoice::sole()->sessions_count)->toBe(1);
 });
+
+it('runs a pilot for three months, tells VENTIQ a week before, and ends it unless renewed', function () {
+    config(['ventiq.billing.email' => 'billing@example.com']);
+    $this->actingAs($this->super)->post(route('ventiq.corporate.store'), [
+        'organization_id' => $this->org->id, 'rate' => 0, 'free_per_month' => 0, 'starts_on' => '2026-10-05',
+    ])->assertSessionHas('status', fn ($s) => str_contains($s, 'pilot') && str_contains($s, '5 Jan 2027'));
+    $pilot = SessionAgreement::sole();
+    expect($pilot->ends_on->toDateString())->toBe('2027-01-05')->and($pilot->isPilot())->toBeTrue();
+
+    // Saving it again keeps its end; a paid rate has none.
+    $this->post(route('ventiq.corporate.store'), ['organization_id' => $this->org->id, 'rate' => 0, 'free_per_month' => 0, 'starts_on' => '2026-10-05', 'notes' => 'Pilot with HR']);
+    expect($pilot->fresh()->ends_on->toDateString())->toBe('2027-01-05');
+
+    // A week before: VENTIQ is told, once.
+    $this->travelTo(Carbon::parse('2026-12-29 08:20'));
+    $this->artisan('sessions:pilots');
+    $this->travelTo(Carbon::parse('2026-12-30 08:20'));
+    $this->artisan('sessions:pilots');
+    Mail::assertQueued(\App\Mail\SessionPilotMail::class, 1);
+    Mail::assertQueued(\App\Mail\SessionPilotMail::class, fn ($m) => $m->stage === 'ending' && $m->hasTo('billing@example.com') && !$m->hasTo('palesa@example.com'));
+
+    // Renewed: three more months from its end, and told again before that.
+    $this->actingAs($this->super)->post(route('ventiq.corporate.renew', $pilot))->assertSessionHas('status', fn ($s) => str_contains($s, '5 Apr 2027'));
+    expect($pilot->fresh())->ends_on->toDateString()->toBe('2027-04-05')->end_notice_at->toBeNull();
+
+    // Its last day is still a pilot day; the day after, it's over: the organization and VENTIQ are told.
+    $this->travelTo(Carbon::parse('2027-04-05 18:00'));
+    expect(app(\App\Services\Sessions\CorporateBilling::class)->agreement($this->org))->not->toBeNull();
+    $this->travelTo(Carbon::parse('2027-04-06 08:20'));
+    expect(app(\App\Services\Sessions\CorporateBilling::class)->agreement($this->org))->toBeNull();   // before the run, too
+    $this->artisan('sessions:pilots');
+    expect($pilot->fresh()->ended_at)->not->toBeNull();
+    Mail::assertQueued(\App\Mail\SessionPilotMail::class, fn ($m) => $m->stage === 'ended' && $m->hasTo('palesa@example.com') && $m->hasTo('billing@example.com'));
+    expect((new \App\Mail\SessionPilotMail($pilot->fresh(), 'ended'))->render())->toContain('Nothing has been deleted');
+
+    // A paid rate set later has no end.
+    $this->actingAs($this->super)->post(route('ventiq.corporate.store'), ['organization_id' => $this->org->id, 'rate' => 350, 'free_per_month' => 1, 'starts_on' => '2027-04-06']);
+    expect($pilot->fresh())->ends_on->toBeNull()->ended_at->toBeNull();
+});

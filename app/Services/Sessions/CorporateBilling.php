@@ -31,7 +31,9 @@ class CorporateBilling
     public function agreement(Organization $organization): ?SessionAgreement
     {
         return SessionAgreement::where('organization_id', $organization->id)
-            ->whereNull('ended_at')->whereDate('starts_on', '<=', today())->first();
+            ->whereNull('ended_at')->whereDate('starts_on', '<=', today())
+            // A pilot past its last day has ended, whether or not the daily run has got to it.
+            ->where(fn ($q) => $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', today()))->first();
     }
 
     /** A session being held: its price under the organization's agreement, kept on it. */

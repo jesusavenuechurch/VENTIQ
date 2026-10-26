@@ -198,3 +198,14 @@ early or late, never restarting from the payment date
 
 A plan a super admin gives at M0 doesn't renew: it carries on as before.
 The Plan page shows "paid up to", "renews on" or the grace deadline.
+
+### Pilots
+
+A pilot is a corporate rate at M0: no invoices, and it runs for three
+months from its start (`SessionAgreement::PILOT_MONTHS`). `sessions:pilots`
+(daily 08:20) emails VENTIQ a week before it ends, to renew it or set the
+agreed rate; the day after its last day it ends, and the organization's
+Admins and VENTIQ are told (back on their plan, nothing deleted). It also
+stops counting as a corporate rate the day after its end even before the
+daily run. **Renew 3 months** on the Corporate rates page adds three months
+from its end. Setting a paid rate removes the end.

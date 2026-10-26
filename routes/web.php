@@ -388,6 +388,7 @@ Route::middleware(['auth', 'super_admin'])->prefix('ventiq')->name('ventiq.')->g
     Route::get('/session-plans', [App\Http\Controllers\Ventiq\SessionPlansController::class, 'index'])->name('session-plans.index');
     Route::get('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'index'])->name('corporate.index');
     Route::post('/corporate-rates', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'store'])->name('corporate.store');
+    Route::post('/corporate-rates/{agreement}/renew', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'renew'])->name('corporate.renew');
     Route::post('/corporate-rates/{agreement}/end', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'end'])->name('corporate.end');
     Route::post('/corporate-rates/invoice', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'invoice'])->name('corporate.invoice');
     Route::post('/corporate-invoices/{invoice}/khoebo', [App\Http\Controllers\Ventiq\CorporateRatesController::class, 'khoebo'])->name('corporate.khoebo');

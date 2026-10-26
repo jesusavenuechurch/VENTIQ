@@ -40,3 +40,5 @@ Artisan::command('inspire', function () {
 
 // Paid Sessions plans: "renew soon", "on grace", and back to Free once the grace has passed.
 \Illuminate\Support\Facades\Schedule::command('sessions:renewals')->dailyAt('08:15')->withoutOverlapping();
+// Sessions pilots: VENTIQ told a week before one ends; ended after their last day.
+\Illuminate\Support\Facades\Schedule::command('sessions:pilots')->dailyAt('08:20')->withoutOverlapping();
