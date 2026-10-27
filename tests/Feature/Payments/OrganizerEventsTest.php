@@ -294,6 +294,15 @@ describe('online payment methods', function () {
             ->where('onlineDrivers', ['ecocash', 'mpesa', 'bank'])->where('manualMethods', ['mpesa', 'bank']));
     });
 
+    it('saves EcoCash with a bank transfer by hand, and attendees are offered both', function () {
+        config(['ventiq.bank.account_number' => '63212657621']);
+        $this->actingAs($this->admin)->post(route('organizer.events.store'), paidForm($this, ['online' => null, 'online_methods' => ['ecocash', 'bank']]))
+            ->assertSessionHasNoErrors();
+        $event = Event::latest('id')->first();
+        expect($event->online_methods)->toBe(['ecocash', 'bank'])
+            ->and(app(\App\Services\Payments\PaymentAccountService::class)->manualMethodsForEvent($event))->toBe(['bank']);
+    });
+
     it('stores the chosen methods, and attendees are offered only those that are live', function () {
         $this->actingAs($this->admin)->post(route('organizer.events.store'), paidForm($this, ['online' => null, 'online_methods' => ['ecocash']]))
             ->assertSessionHasNoErrors();

@@ -60,7 +60,8 @@ class OrganizerEventRequest extends FormRequest
             'payment_mode'               => [$editing ? 'sometimes' : 'required', Rule::in(['free', 'paid'])],
             'online'                     => 'boolean',
             'online_methods'             => ['array'],
-            'online_methods.*'           => [\Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::enabledMethods())],
+            // Online, or paid to VENTIQ by hand (M-Pesa to its number, a bank transfer).
+            'online_methods.*'           => [\Illuminate\Validation\Rule::in(\App\Services\Payments\PaymentGatewayFactory::availableMethods())],
             'account_ids'                => 'array',
             'account_ids.*'              => 'integer',
             'allow_installments'         => 'boolean',
@@ -134,7 +135,7 @@ class OrganizerEventRequest extends FormRequest
             'tiers.*.quantity_available.required' => 'Enter how many tickets of each type you expect to sell.',
             'tiers.*.quantity_available.min'      => 'Each ticket type needs at least 1 ticket.',
             'expected_attendance.required'        => 'Enter how many people you expect.',
-            'online_methods.*.in' => 'That online payment method isn\'t available yet.',
+            'online_methods.*.in' => 'That way to pay isn\'t available yet.',
             'tiers.*.tier_name.required' => 'Every ticket type needs a name.',
             'tiers.*.tier_name.distinct' => 'Two ticket types have the same name.',
             'tiers.*.price.required'     => 'Every ticket type needs a price.',
