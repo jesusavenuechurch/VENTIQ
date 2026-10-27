@@ -98,7 +98,7 @@ export default function SessionsLayout({
     const firstError = Object.values(errors ?? {})[0];
 
     return (
-        <div className={width}>
+        <div className={cn('mx-auto w-full', width)}>
             {crumbs && (
                 <nav aria-label="Breadcrumb" className="mb-2 mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-bold text-gray-400 sm:mt-0">
                     {crumbs.map(([label, url], i) => (

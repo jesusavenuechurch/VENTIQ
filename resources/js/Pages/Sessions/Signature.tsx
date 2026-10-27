@@ -18,6 +18,38 @@ export default function Signature({ allowed, signature, title, updated, name }: 
     const [redrawing, setRedrawing] = useState(!signature);
     const [drawn, setDrawn] = useState(false);
     const form = useForm({ signature: '', title });
+    // Or a picture of one already on paper: white paper made see-through.
+    const [uploaded, setUploaded] = useState<string | null>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+
+    function readPicture(file: File | undefined) {
+        setUploadError(null);
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            setUploadError('Choose a photo or picture (PNG or JPG). For a PDF, take a screenshot of the signature first.');
+            return;
+        }
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, 800 / img.width);
+            const c = document.createElement('canvas');
+            c.width = Math.round(img.width * scale);
+            c.height = Math.round(img.height * scale);
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+            const px = ctx.getImageData(0, 0, c.width, c.height);
+            for (let i = 0; i < px.data.length; i += 4) {
+                const light = (px.data[i] + px.data[i + 1] + px.data[i + 2]) / 3;
+                if (light > 190) px.data[i + 3] = 0;
+            }
+            ctx.putImageData(px, 0, 0);
+            setUploaded(c.toDataURL('image/png'));
+            URL.revokeObjectURL(img.src);
+        };
+        img.onerror = () => setUploadError("That picture couldn't be opened. Try another one.");
+        img.src = URL.createObjectURL(file);
+    }
 
     if (!allowed) {
         return (
@@ -37,16 +69,35 @@ export default function Signature({ allowed, signature, title, updated, name }: 
                 className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 md:p-8"
                 onSubmit={(e) => {
                     e.preventDefault();
-                    const image = redrawing ? pad.current?.toDataUrl() ?? '' : '';
+                    const image = redrawing ? uploaded ?? pad.current?.toDataUrl() ?? '' : '';
                     form.transform((d) => ({ ...d, signature: image }));
-                    form.put(route('sessions.signature.update'), { preserveScroll: true, onSuccess: () => setRedrawing(false) });
+                    form.put(route('sessions.signature.update'), { preserveScroll: true, onSuccess: () => { setRedrawing(false); setUploaded(null); } });
                 }}
             >
                 {redrawing ? (
                     <div>
-                        <p className={fieldLabel}>Draw your signature</p>
-                        <SignaturePad ref={pad} onChange={setDrawn} />
-                        <p className="ml-1 mt-2 text-[11px] text-gray-400">With a finger on a phone or tablet, or the mouse. Certificates already issued keep the signature they had.</p>
+                        <p className={fieldLabel}>{uploaded ? 'Your signature, from the picture' : 'Draw your signature'}</p>
+                        {uploaded ? (
+                            <div className="flex h-48 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white"><img src={uploaded} alt="Your signature, from the picture" className="max-h-36 max-w-[80%]" /></div>
+                        ) : (
+                            <SignaturePad ref={pad} onChange={setDrawn} />
+                        )}
+                        <p className="ml-1 mt-2 text-[11px] text-gray-400">
+                            {uploaded ? (
+                                <button type="button" onClick={() => setUploaded(null)} className="font-bold text-brand underline">Draw it instead</button>
+                            ) : (
+                                <>With a finger or pen on a phone or tablet, or the mouse. </>
+                            )}
+                            {' '}Certificates already issued keep the signature they had.
+                        </p>
+                        {!uploaded && (
+                            <label className="ml-1 mt-3 inline-flex cursor-pointer items-center gap-2 text-[11px] font-bold text-brand">
+                                <input type="file" accept="image/*" className="sr-only" onChange={(e) => readPicture(e.target.files?.[0])} />
+                                <span className="rounded-full border border-gray-200 px-3 py-1.5 hover:border-brand">Or upload a picture of your signature</span>
+                                <span className="font-medium text-gray-400">signed on white paper, PNG or JPG</span>
+                            </label>
+                        )}
+                        {uploadError && <p role="alert" className="ml-1 mt-2 text-[11px] font-bold text-rose-600">{uploadError}</p>}
                     </div>
                 ) : (
                     <div>
@@ -64,7 +115,7 @@ export default function Signature({ allowed, signature, title, updated, name }: 
                     <input id="sig-title" value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} placeholder="e.g. Programme Director" className={field} />
                     <p className="ml-1 mt-1 text-[11px] text-gray-400">Printed as: {name}{form.data.title && `, ${form.data.title}`}</p>
                 </div>
-                <button disabled={form.processing || (redrawing && !drawn)} className={primaryButton}>{redrawing ? 'Save my signature' : 'Save'}</button>
+                <button disabled={form.processing || (redrawing && !drawn && !uploaded)} className={primaryButton}>{redrawing ? 'Save my signature' : 'Save'}</button>
             </form>
         </SessionsLayout>
     );

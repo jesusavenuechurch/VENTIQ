@@ -5,6 +5,7 @@ import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLa
 import { PhoneInput, formatLocal } from '@/components/phone-input';
 import { json } from '@/lib/http';
 import { cn, money } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Props {
     purchase: { type: 'plan' | 'payg'; tier: string | null; quantity: number | null; amount: number; label: string };
@@ -153,10 +154,14 @@ function BankTransfer({ purchase, bank }: { purchase: Props['purchase']; bank: N
 
             {bank.claimed ? (
                 <p className="flex items-start gap-2 rounded-2xl bg-mint px-4 py-3 text-[12px] font-bold text-mint-ink">
-                    <Clock className="mt-0.5 size-4 shrink-0" />You've told us you paid. We confirm it within 24 hours of the money reaching our account, and you'll get an email. Your plan keeps running while you wait.
+                    <Clock className="mt-0.5 size-4 shrink-0" />
+                    <span>
+                        You've told us you paid. We confirm it within 24 hours of the money reaching our account, and you'll get an email. Your plan keeps running while you wait.
+                        <a href={route('sessions.plan')} className="mt-2 block underline">Back to your plan</a>
+                    </span>
                 </p>
             ) : (
-                <form className="space-y-4 border-t border-dashed border-gray-100 pt-5" onSubmit={(e) => { e.preventDefault(); form.post(route('sessions.plan.bank-transfer')); }}>
+                <form className="space-y-4 border-t border-dashed border-gray-100 pt-5" onSubmit={(e) => { e.preventDefault(); form.post(route('sessions.plan.bank-transfer'), { preserveScroll: true, onSuccess: () => toast.success("Thanks: we've got it. We'll confirm your transfer within 24 hours.") }); }}>
                     <p className="text-[12px] font-bold text-gray-600">Once you've paid, tell us and we'll add it.</p>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label className="block">

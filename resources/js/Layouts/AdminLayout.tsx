@@ -38,6 +38,8 @@ const SECTIONS: Section[] = [
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
     const { isOn } = useAreaTabs('admin', SECTIONS);
+    // Waiting to be checked (bank transfers, payments by hand): a count on its tab.
+    const waiting = (usePage().props as { adminWaiting?: Record<string, number> | null }).adminWaiting ?? {};
     const row = useActiveInView<HTMLElement>();
 
     return (
@@ -58,6 +60,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                             )}
                         >
                             <s.icon className="mr-1 inline size-3.5" />{s.label}
+                            {(waiting[s.route] ?? 0) > 0 && (
+                                <span aria-label={`${waiting[s.route]} waiting`} className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-action px-1.5 text-[9px] text-white">{waiting[s.route]}</span>
+                            )}
                         </Link>
                     ))}
                 </nav>

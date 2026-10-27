@@ -34,7 +34,7 @@ class SignatureController extends Controller
         abort_unless($user->can_sign_certificates, 403, 'An Admin has to allow you to sign certificates first.');
 
         $data = $request->validate([
-            'signature' => 'nullable|string|max:800000',
+            'signature' => 'nullable|string|max:1500000', // drawn, or a picture of one (base64 PNG)
             'title'     => 'nullable|string|max:80',
         ]);
 

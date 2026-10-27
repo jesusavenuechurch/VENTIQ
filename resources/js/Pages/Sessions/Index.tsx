@@ -73,14 +73,30 @@ export default function Index({ columns, filter, members, pendingInvites, series
     return (
         <SessionsLayout
             title={`${greeting}, ${auth.user?.firstName ?? 'there'}`}
-            subtitle="What's happening today?"
+            subtitle={
+                <span className="flex flex-wrap items-center gap-2">
+                    What's happening today?
+                    {/* The plan and the team at a glance: small badges, out of the way of the buttons. */}
+                    {can.plan && (
+                        <AppLink to="sessions.plan" className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest', outOfSessions && !sessionsArea.quota.corporate ? 'bg-rose-50 text-rose-700' : 'bg-mint text-mint-ink')}>
+                            <Ticket className="size-3" />
+                            {sessionsArea.quota.corporate ? `${sessionsArea.quota.used} this month` : `${Math.max(0, sessionsArea.quota.remaining)} ${sessionsArea.quota.remaining === 1 ? 'session' : 'sessions'} left`}
+                        </AppLink>
+                    )}
+                    <AppLink to="organizer.team.index" params={{ from: 'sessions' }} title={`${members} ${members === 1 ? 'member' : 'members'}${pendingInvites ? `, ${pendingInvites} invited` : ''}: your team`} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-brand">
+                        <UsersRound className="size-3" />{members}{pendingInvites > 0 && <span className="text-amber-600">+{pendingInvites}</span>}
+                    </AppLink>
+                </span>
+            }
             actions={
                 <>
                     {can.run && <button type="button" onClick={() => schedule(true)} className={primaryButton}><Sparkles className="size-4" />Schedule a session</button>}
                     {/* A meeting started now, nothing to fill in: straight into the notes. */}
-                    {can.run && <button type="button" onClick={() => router.post(route('sessions.quick'))} className={quietButton} title="A meeting that starts now: you chair it, add items as you go"><Zap className="size-3.5 text-action" />Quick catch-up</button>}
-                    <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
-                    {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.corporate ? `${sessionsArea.quota.used} this month` : `${sessionsArea.quota.used}/${sessionsArea.quota.included} sessions`}</AppLink>}
+                    {can.run && (
+                        <button type="button" onClick={() => router.post(route('sessions.quick'))} title="A meeting that starts now: you chair it, add items as you go" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-lilac px-5 py-3 text-[11px] font-black uppercase tracking-widest text-lilac-ink shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg">
+                            <Zap className="size-4" />Quick catch-up
+                        </button>
+                    )}
                     {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}
                 </>
             }

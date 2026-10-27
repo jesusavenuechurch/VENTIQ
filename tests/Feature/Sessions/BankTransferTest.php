@@ -32,8 +32,10 @@ it("shows VENTIQ's bank account with the purchase's reference, even when mobile 
 
 it('takes "we\'ve paid" once, tells VENTIQ, and shows it waiting', function () {
     $this->actingAs($this->admin);
-    $claim = fn () => $this->post(route('sessions.plan.bank-transfer'), ['type' => 'plan', 'tier' => 'team', 'paid_on' => '2026-10-20', 'note' => 'From our Standard Lesotho account']);
-    $claim()->assertRedirect(route('sessions.plan'))->assertSessionHas('status');
+    $page = route('organization.session-plan.payment', ['type' => 'plan', 'tier' => 'team']);
+    $claim = fn () => $this->from($page)->post(route('sessions.plan.bank-transfer'), ['type' => 'plan', 'tier' => 'team', 'paid_on' => '2026-10-20', 'note' => 'From our Standard Lesotho account']);
+    // Back on the payment page, which shows it waiting.
+    $claim()->assertRedirect($page)->assertSessionHas('status');
     $claim();
 
     $payment = PaymentSession::sole();
@@ -58,7 +60,8 @@ it('applies the plan once a super admin confirms it, and tells the Admins', func
     $this->actingAs($this->admin)->post(route('sessions.plan.bank-transfer'), ['type' => 'plan', 'tier' => 'team', 'paid_on' => '2026-10-20']);
     $payment = PaymentSession::sole();
 
-    $this->actingAs($this->super)->get(route('ventiq.session-plans.index'))->assertInertia(fn (Assert $page) => $page->where('transfers.0.reference', $this->ref)->where('transfers.0.amount', 500));
+    $this->actingAs($this->super)->get(route('ventiq.session-plans.index'))->assertInertia(fn (Assert $page) => $page->where('transfers.0.reference', $this->ref)->where('transfers.0.amount', 500)
+        ->where('adminWaiting', fn ($w) => $w['ventiq.session-plans.index'] === 1));
     $this->post(route('ventiq.session-plans.transfers.confirm', $payment), ['bank_reference' => 'FNB 99812'])->assertSessionHas('status');
 
     expect($payment->fresh())->status->toBe('completed')->transaction_id->toBe('FNB 99812')

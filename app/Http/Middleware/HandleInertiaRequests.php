@@ -47,6 +47,13 @@ class HandleInertiaRequests extends Middleware
             'site' => [
                 'districts' => config('constants.districts'),
             ],
+            // Super admins: what's waiting for them, as a count on the admin tab.
+            'adminWaiting' => fn () => $user?->isSuperAdmin() ? [
+                'ventiq.session-plans.index' => \App\Models\PaymentSession::where('gateway', \App\Services\Sessions\BankTransfers::GATEWAY)
+                    ->where('payable_type', 'session_package')->where('status', 'pending')->count(),
+                'ventiq.money.index' => \App\Models\PaymentSession::where('payable_type', 'ticket')->whereIn('gateway', ['paylesotho', 'bank'])
+                    ->where('status', 'pending')->whereNotNull('purchase_meta')->where('created_at', '>', now()->subDays(7))->count(),
+            ] : null,
             // The "status" flash every controller already uses.
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),

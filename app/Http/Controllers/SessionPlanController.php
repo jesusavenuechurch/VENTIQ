@@ -130,6 +130,7 @@ class SessionPlanController extends Controller
 
         $transfers->claim(Auth::user()->organization, Auth::user(), $purchase, $data['paid_on'], trim($data['note'] ?? '') ?: null);
 
-        return redirect()->route('sessions.plan')->with('status', "Thanks. We'll check our account for your transfer and add {$purchase['label']} as soon as we see it, usually within a working day.");
+        // Back on the payment page, which now shows the transfer waiting to be confirmed.
+        return back()->with('status', "Thanks. We'll check our account for your transfer and add {$purchase['label']} within 24 hours of the money reaching us. Your plan keeps running meanwhile.");
     }
 }
