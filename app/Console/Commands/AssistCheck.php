@@ -111,6 +111,8 @@ class AssistCheck extends Command
             'agreed: pre-position a month of ORS at every clinic beyond the river',
             'Teboho to ask the council to grade the Mphaki road by Friday',
             'tea break',
+            // An observation, not a decision or an action: should make no note.
+            'we can add multiple agendas, I love it',
         ];
         $recent = [];
         $found = 0;

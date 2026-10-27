@@ -103,10 +103,13 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         const d = readDraft<Data>();
         return d && (d.data.programme_id ?? null) === (programme?.id ?? null) ? d : null;
     })()).current;
-    const { sessionsArea } = usePage<{ sessionsArea: SessionsArea }>().props;
+    const { sessionsArea, auth } = usePage<{ sessionsArea: SessionsArea; auth: { user: { name: string } | null } }>().props;
+    // Agenda items are led by whoever's scheduling, unless they say otherwise.
+    const me = auth?.user?.name ?? '';
     const blank: Data = {
         title: '',
-        type: types[0]?.key ?? 'presentation',
+        // Most sessions are meetings.
+        type: types.find((t) => t.key === 'meeting')?.key ?? types[0]?.key ?? 'presentation',
         custom_type_label: '',
         date: today,
         start_time: '',
@@ -124,7 +127,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
     // An older draft may not have every field yet.
     const form = useForm<Data>(draft ? { ...blank, ...draft.data } : blank);
     const [step, setStep] = useState<1 | 2>(draft?.step ?? 1);
-    const [person, setPerson] = useState<Person>(draft?.person ?? emptyPerson);
+    const [person, setPerson] = useState<Person>(draft?.person ?? { ...emptyPerson, name: me });
     const nameRef = useRef<HTMLInputElement>(null);
     const roles = types.find((t) => t.key === form.data.type)?.roles ?? [];
     const agenda = !!types.find((t) => t.key === form.data.type)?.minutes;
@@ -134,7 +137,11 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         saveDraft({ data: form.data, step, person });
     }, [form.data, step, person]);
     useEffect(() => {
-        if (step === 2) nameRef.current?.focus();
+        if (step !== 2) return;
+        // Presenters are typed in; agenda items start led by whoever's scheduling.
+        setPerson((p) => (agenda ? (p.title || p.name ? p : { ...p, name: me }) : p.name === me && !p.title ? { ...p, name: '' } : p));
+        nameRef.current?.focus();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step]);
 
     // A person, or for a meeting an agenda item (and who leads it).
@@ -150,7 +157,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         const next = typed(person);
         if (!next) return;
         form.setData('people', [...form.data.people, next]);
-        setPerson({ ...emptyPerson, role: person.role, presenting: person.presenting });
+        setPerson({ ...emptyPerson, name: agenda ? me : '', role: person.role, presenting: person.presenting });
         nameRef.current?.focus();
     };
     const pickRole = (value: string) => {
@@ -178,7 +185,7 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
         form.setData(blank);
         form.clearErrors();
         clearDraft();
-        setPerson(emptyPerson);
+        setPerson({ ...emptyPerson, name: me });
         setStep(1);
         setRestored(false);
     };
@@ -306,21 +313,6 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
 
                     {agenda ? (
                         <>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                                <div>
-                                    <label htmlFor="chair" className={fieldLabel}>Chair</label>
-                                    <input id="chair" value={form.data.chair} onChange={(e) => form.setData('chair', e.target.value)} placeholder="Who chairs it" className={field} />
-                                </div>
-                                <div>
-                                    <label htmlFor="secretary" className={fieldLabel}>Secretary</label>
-                                    <input id="secretary" value={form.data.secretary} onChange={(e) => form.setData('secretary', e.target.value)} placeholder="Who minutes it" className={field} />
-                                </div>
-                                <div>
-                                    <label htmlFor="location" className={fieldLabel}>Venue</label>
-                                    <input id="location" value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} placeholder="e.g. Boardroom" className={field} />
-                                </div>
-                            </div>
-
                             <div>
                                 <p className={fieldLabel}>Agenda</p>
                                 <form
@@ -388,6 +380,25 @@ function ScheduleForm({ types, programme, today, onDone }: Props & { onDone: () 
                         </ol>
                     ) : (
                         <p className="rounded-2xl border border-dashed border-gray-200 py-6 text-center text-[12px] text-gray-400">{agenda ? 'No items yet. They come up in the order you add them.' : 'No one yet. They present in the order you add them.'}</p>
+                    )}
+
+                    {/* Who chairs and minutes it, and where: after the agenda. */}
+                    {agenda && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div>
+                                <label htmlFor="chair" className={fieldLabel}>Chair</label>
+                                <input id="chair" value={form.data.chair} onChange={(e) => form.setData('chair', e.target.value)} placeholder="Who chairs it" className={field} />
+                            </div>
+                            <div>
+                                <label htmlFor="secretary" className={fieldLabel}>Secretary</label>
+                                <input id="secretary" value={form.data.secretary} onChange={(e) => form.setData('secretary', e.target.value)} placeholder="Who minutes it" className={field} />
+                            </div>
+                            <div>
+                                <label htmlFor="location" className={fieldLabel}>Venue</label>
+                                <input id="location" value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} placeholder="e.g. Boardroom" className={field} />
+                            </div>
+                        </div>
+
                     )}
 
                     <div className="flex flex-col-reverse gap-3 sm:flex-row">

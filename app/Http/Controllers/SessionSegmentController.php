@@ -43,6 +43,12 @@ class SessionSegmentController extends Controller
             return response()->json(['status' => 'empty'], 404);
         }
 
+        // Its sticky note goes with it: Ventiq Assist's notes made since the line was written.
+        if (!empty($popped['time'])) {
+            $segment->insights()->where('is_ai_generated', true)
+                ->where('created_at', '>=', now()->setTimeFromTimeString($popped['time'])->subSecond())->delete();
+        }
+
         return response()->json(['status' => 'ok', 'text' => $popped['text']]);
     }
 
@@ -65,7 +71,8 @@ class SessionSegmentController extends Controller
             // something that's just there next time someone opens Ventiq,
             // not something they had to remember to ask for.
             $session->queueReportGeneration();
-            $this->notifyParticipantsSessionEnded($session);
+            // Cards and thank-yous after the reply: finishing never waits on them.
+            dispatch(fn () => $this->notifyParticipantsSessionEnded($session->fresh()))->afterResponse();
         }
 
         return response()->json([
@@ -155,6 +162,11 @@ class SessionSegmentController extends Controller
         $parsed = SegmentInsightPrompt::parse($result->content);
 
         if ($parsed['category'] === 'none' || $parsed['text'] === '') {
+            return response()->json(['category' => 'none']);
+        }
+
+        // Taken back while Ventiq Assist was thinking: no note for a line that's gone.
+        if (!collect($segment->fresh()->raw_log ?? [])->pluck('text')->contains($validated['line'])) {
             return response()->json(['category' => 'none']);
         }
 

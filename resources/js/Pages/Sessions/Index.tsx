@@ -1,8 +1,8 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
-import { ArrowLeft, CalendarPlus, ChevronRight, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import { cn } from '@/lib/utils';
@@ -77,6 +77,8 @@ export default function Index({ columns, filter, members, pendingInvites, series
             actions={
                 <>
                     {can.run && <button type="button" onClick={() => schedule(true)} className={primaryButton}><Sparkles className="size-4" />Schedule a session</button>}
+                    {/* A meeting started now, nothing to fill in: straight into the notes. */}
+                    {can.run && <button type="button" onClick={() => router.post(route('sessions.quick'))} className={quietButton} title="A meeting that starts now: you chair it, add items as you go"><Zap className="size-3.5 text-action" />Quick catch-up</button>}
                     <AppLink to="organizer.team.index" params={{ from: 'sessions' }} className={quietButton}><UsersRound className="size-3.5" />{members} {members === 1 ? 'member' : 'members'}{pendingInvites > 0 && <span className="text-amber-600">· {pendingInvites} invited</span>}</AppLink>
                     {can.plan && <AppLink to="sessions.plan" className={cn(quietButton, outOfSessions && 'border-rose-200 bg-rose-50 text-rose-700')}><Ticket className="size-3.5" />{sessionsArea.quota.corporate ? `${sessionsArea.quota.used} this month` : `${sessionsArea.quota.used}/${sessionsArea.quota.included} sessions`}</AppLink>}
                     {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}

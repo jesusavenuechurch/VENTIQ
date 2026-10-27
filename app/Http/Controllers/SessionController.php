@@ -296,14 +296,45 @@ class SessionController extends Controller
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
 
+        if ($stopped = $this->begin($session)) {
+            return response()->json(['status' => 'quota', 'message' => $stopped], 402);
+        }
+
+        return response()->json(['status' => 'ok', 'active_segment_id' => $session->segments()->where('status', 'active')->value('id')]);
+    }
+
+    /**
+     * A quick catch-up: a meeting started now, with nothing to fill in.
+     * The one starting it chairs it and leads its one item; more items can
+     * be added in the console. Straight into the live notes.
+     */
+    public function quick(\App\Services\Sessions\SessionMaker $maker)
+    {
+        $user = Auth::user();
+        $session = $maker->make($user->organization, $user, [
+            'title'      => 'Quick catch-up',
+            'type'       => 'meeting',
+            'date'       => now()->toDateString(),
+            'start_time' => now()->format('H:i'),
+            'chair'      => $user->name,
+            'people'     => [['title' => 'Catch-up', 'name' => $user->name]],
+        ]);
+
+        if ($stopped = $this->begin($session)) {
+            return redirect()->route('sessions.show', $session)->with('error', $stopped);
+        }
+
+        return redirect()->route('sessions.show', $session);
+    }
+
+    /** Held: counted against the plan (once), started, and its first part live. Why not, when it can't be. */
+    private function begin(Session $session): ?string
+    {
         // A session counts against the plan when it's held, once.
         if (!$session->counted_at) {
             $organization = $session->organization;
             if (!$this->quota->hasSessionQuota($organization)) {
-                return response()->json([
-                    'status'  => 'quota',
-                    'message' => "You've used this month's sessions. Add more under Plan to start this one.",
-                ], 402);
+                return "You've used this month's sessions. Add more under Plan to start this one.";
             }
             $this->quota->consumeSession($organization);
             $session->update(['counted_at' => now()]);
@@ -314,11 +345,9 @@ class SessionController extends Controller
         }
 
         $session->start();
+        $session->segments()->orderBy('order')->first()?->start();
 
-        $first = $session->segments()->orderBy('order')->first();
-        $first?->start();
-
-        return response()->json(['status' => 'ok', 'active_segment_id' => $first?->id]);
+        return null;
     }
 
     public function generateReport(Session $session)

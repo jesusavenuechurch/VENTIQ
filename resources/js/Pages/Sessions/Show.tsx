@@ -19,6 +19,8 @@ interface Insight {
     type: InsightType | string;
     text: string;
     pending?: boolean;
+    /** The line it came from, typed here: taking the line back takes the note too. */
+    line?: string;
 }
 
 interface Segment {
@@ -103,6 +105,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
     const [flipping, setFlipping] = useState(false);
     const [fill, setFill] = useState(0);
     const [finishing, setFinishing] = useState(false);
+    const [finishFailed, setFinishFailed] = useState(false);
     // On a phone the notebook has the screen; the agenda and Ventiq Assist slide in when wanted.
     const [drawer, setDrawer] = useState<null | 'agenda' | 'assist'>(null);
     const [startError, setStartError] = useState('');
@@ -227,12 +230,12 @@ export default function Show({ session, segments, roles, carried }: Props) {
     async function surface(speakerId: number, line: string) {
         const pendingId = -Date.now();
         setThinking((n) => n + 1);
-        update(speakerId, (s) => ({ insights: [...s.insights, { id: pendingId, type: 'theme', text: '', pending: true }] }));
+        update(speakerId, (s) => ({ insights: [...s.insights, { id: pendingId, type: 'theme', text: '', pending: true, line }] }));
         const data = await call<{ category: string; text?: string }>(`${base}/segments/${speakerId}/tag`, 'POST', { line });
         update(speakerId, (s) => ({
             insights: !data || data.category === 'none' || !data.text
                 ? s.insights.filter((i) => i.id !== pendingId)
-                : s.insights.map((i) => (i.id === pendingId ? { id: pendingId, type: data.category, text: data.text! } : i)),
+                : s.insights.map((i) => (i.id === pendingId ? { id: pendingId, type: data.category, text: data.text!, line } : i)),
         }));
         setThinking((n) => n - 1);
     }
@@ -253,7 +256,9 @@ export default function Show({ session, segments, roles, carried }: Props) {
         const last = live.logs[live.logs.length - 1];
         update(live.id, (s) => {
             const breaks = s.breaks.filter((b) => b < s.logs.length - 1 || b === 0);
-            return { logs: s.logs.slice(0, -1), breaks, page: Math.min(s.page, breaks.length - 1) };
+            // Its sticky note (or the one still being thought about) goes with it.
+            const noteIndex = s.insights.map((i) => i.line).lastIndexOf(last.text);
+            return { logs: s.logs.slice(0, -1), breaks, page: Math.min(s.page, breaks.length - 1), insights: noteIndex >= 0 ? s.insights.filter((_, j) => j !== noteIndex) : s.insights };
         });
         setDraft(last.text);
         void send(`${base}/segments/${live.id}/log/undo`);
@@ -268,9 +273,13 @@ export default function Show({ session, segments, roles, carried }: Props) {
         if (!live || finishing) return;
         setFinishing(true);
         await queue.current;
+        setFinishFailed(false);
         const data = await call<{ next_segment_id: number | null }>(`${base}/segments/${live.id}/finish`);
         setFinishing(false);
-        if (!data) return;
+        if (!data) {
+            setFinishFailed(true);
+            return;
+        }
         update(live.id, () => ({ status: 'completed' }));
         const next = data.next_segment_id;
         if (next) {
@@ -561,11 +570,20 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             )}
                             {capturingHere && !paused && (
                                 <button type="button" disabled={finishing} onClick={finishSegment} className={cn(pill, 'bg-slate-900 transition hover:opacity-80 disabled:opacity-50')}>
-                                    {isLastSpeaker ? (agenda ? 'Finish meeting' : 'Finish session') : agenda ? 'Next item' : 'Next speaker'} →
+                                    {finishing ? (isLastSpeaker ? 'Finishing…' : 'Moving on…') : <>{isLastSpeaker ? (agenda ? 'Finish meeting' : 'Finish session') : agenda ? 'Next item' : 'Next speaker'} →</>}
                                 </button>
                             )}
                         </div>
                     </header>
+                    {finishFailed && (
+                        <p role="alert" className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-[12px] font-bold text-amber-800">
+                            That didn't get a reply. Your notes are saved.
+                            <span className="flex gap-3">
+                                <button type="button" onClick={finishSegment} className="underline">Try again</button>
+                                <a href={route('sessions.report', session.id)} className="underline">Open the report</a>
+                            </span>
+                        </p>
+                    )}
 
                     <div ref={notesRef} className={cn('relative z-10 flex-1 overflow-hidden px-6 pb-6 sm:pl-14 lg:pl-16 lg:pr-14', flipping ? 'animate-out fade-out slide-out-to-left-6 duration-200' : 'animate-in fade-in slide-in-from-right-6 duration-200')}>
                         <div className="max-w-2xl">

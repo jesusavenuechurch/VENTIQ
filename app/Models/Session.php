@@ -168,7 +168,10 @@ class Session extends Model
 
         $this->update(['report_job_id' => $jobId]);
 
-        \App\Jobs\GenerateSessionReport::dispatch($jobId, $this->created_by, $this->id);
+        // With no queue worker (a local copy), after the reply rather than holding it up.
+        config('queue.default') === 'sync'
+            ? \App\Jobs\GenerateSessionReport::dispatchAfterResponse($jobId, $this->created_by, $this->id)
+            : \App\Jobs\GenerateSessionReport::dispatch($jobId, $this->created_by, $this->id);
     }
 
     // ── Attendee check-in ────────────────────────────────────────────────
