@@ -50,6 +50,8 @@ class RegistrationController extends Controller
             'tier'      => \App\Support\EventPage::tier($selectedTier, $event),
             'districts' => $event->event_type === 'workshop' ? config('constants.workshop_districts', []) : null,
             'submitUrl' => route('registration.submit', [$organization->slug, $event->slug]),
+            // Buying for several people at once (switched on in config).
+            'groupMax'  => config('ventiq.group_purchase') && $event->event_type !== 'workshop' ? (int) config('ventiq.group_purchase_max', 10) : 1,
             'eventUrl'  => route('public.event', ['orgSlug' => $organization->slug, 'eventSlug' => $event->slug]),
             'meta'      => ['title' => "Register for {$event->name} - {$organization->name}"],
         ]);
@@ -105,14 +107,24 @@ class RegistrationController extends Controller
             $rules['district']    = ['required', \Illuminate\Validation\Rule::in(array_keys(config('constants.workshop_districts', [])))];
         }
 
+        // Buying for several people (when switched on): names besides the
+        // buyer's, each a ticket of this type, paid together.
+        $groups = config('ventiq.group_purchase') && $event->event_type !== 'workshop';
+        if ($groups) {
+            $rules['others']   = ['nullable', 'array', 'max:' . (config('ventiq.group_purchase_max', 10) - 1)];
+            $rules['others.*'] = ['required', 'string', 'max:255'];
+        }
+
         $validated = $request->validate($rules, [
             'email.required_if' => 'Add your email address, or choose WhatsApp to get your ticket.',
         ]);
 
+        $others = $groups ? array_values(array_filter(array_map('trim', $validated['others'] ?? []))) : [];
+
         // Registering again for the same paid ticket type with the same
         // number picks up the unpaid ticket already held, rather than
         // holding a second place (one unpaid ticket per number per type).
-        if (!$isFree) {
+        if (!$isFree && $others === []) {
             $held = Ticket::where('event_id', $event->id)->where('event_tier_id', $tier->id)
                 ->where('status', 'pending')->whereIn('payment_status', ['pending', 'partial'])
                 ->whereHas('client', fn ($q) => $q->where('organization_id', $organization->id)->where('phone', $validated['phone']))
@@ -159,9 +171,11 @@ class RegistrationController extends Controller
             // and paid tickets reach its quantity. The lock stops two people
             // taking the last place at the same moment.
             $lockedTier = EventTier::whereKey($tier->id)->lockForUpdate()->first();
-            if (!\App\Support\TierCapacity::hasRoom($lockedTier)) {
+            if (!\App\Support\TierCapacity::hasRoom($lockedTier, 1 + count($others))) {
                 DB::rollBack();
-                return back()->withInput()->with('error', "Sorry, {$tier->tier_name} is sold out.");
+                return back()->withInput()->with('error', $others && \App\Support\TierCapacity::hasRoom($lockedTier)
+                    ? "Sorry, there aren't " . (1 + count($others)) . " {$tier->tier_name} tickets left."
+                    : "Sorry, {$tier->tier_name} is sold out.");
             }
 
             $primaryClient = Client::firstOrCreate(
@@ -198,7 +212,8 @@ class RegistrationController extends Controller
                 'qr_code'           => 'QR-' . Str::uuid(),
                 'status'            => $ticketStatus,
                 'payment_method'    => $paymentMethodName,
-                'amount'            => $ticketPrice,
+                // Bought for several people: this one carries the price of them all.
+                'amount'            => $ticketPrice * (1 + count($others)),
                 'amount_paid'       => 0,
                 'admissions'        => max(1, (int) $quantityPerPurchase),
                 'payment_due_at'    => $isFree ? null : \App\Support\PaymentWindow::dueAt($event),
@@ -215,7 +230,7 @@ class RegistrationController extends Controller
             if (!$isFree) {
                 TicketPayment::create([
                     'ticket_id'         => $ticket->id,
-                    'amount'            => $ticketPrice,
+                    'amount'            => $ticket->amount,
                     'payment_method'    => null,
                     'payment_reference' => null,
                     'status'            => 'pending',
@@ -235,6 +250,35 @@ class RegistrationController extends Controller
 
             $createdTickets = [$ticket];
 
+            // The others in the purchase: a ticket each, in their own name,
+            // sent to the buyer, and paid for with the first one.
+            foreach ($others as $name) {
+                $createdTickets[] = Ticket::create([
+                    'event_id'           => $event->id,
+                    'client_id'          => $primaryClient->id,
+                    'group_ticket_id'    => $ticket->id,
+                    'attendee_name'      => $this->differentName($primaryClient, $name),
+                    'event_tier_id'      => $tier->id,
+                    'qr_code'            => 'QR-' . Str::uuid(),
+                    'status'             => $ticketStatus,
+                    'payment_method'     => $paymentMethodName,
+                    'amount'             => 0,
+                    'amount_paid'        => 0,
+                    'admissions'         => max(1, (int) $quantityPerPurchase),
+                    'payment_status'     => $paymentStatus,
+                    'delivery_method'    => $ticket->delivery_method,
+                    'delivered_at'       => $isFree ? now() : null,
+                    'has_whatsapp'       => $hasWhatsApp,
+                    'preferred_delivery' => $preferredDelivery,
+                    'delivery_status'    => 'pending',
+                ]);
+            }
+            // Free: its fee was charged as it was made, before the others; again, for everyone.
+            if ($others && $isFree) {
+                \App\Models\TicketFee::where('ticket_id', $ticket->id)->whereNull('invoiced_at')->delete();
+                app(\App\Services\Fees\FeeService::class)->charge($ticket->fresh());
+            }
+
             DB::commit();
 
             // ── Emails + WhatsApp ────────────────────────────────────────
@@ -244,6 +288,11 @@ class RegistrationController extends Controller
             foreach ($createdTickets as $ticket) {
               try {
                 $ticket->load(['client', 'event', 'tier', 'event.organization']);
+
+                // Unpaid: only the one being paid for says so.
+                if (!$isFree && $ticket->group_ticket_id) {
+                    continue;
+                }
 
                 if ($ticket->client->email) {
                     if ($isFree) {
@@ -377,6 +426,11 @@ class RegistrationController extends Controller
     public function payment(string $code, bool $anotherWay = false)
     {
         [$ticket, $event, $organization] = $this->ticketByCode($code, ['client', 'tier']);
+
+        // Bought with others: paid on the group's first ticket.
+        if ($ticket->group_ticket_id && $ticket->status === 'pending' && ($lead = $ticket->groupLead)) {
+            return redirect()->route('ticket.pay', $lead->qr_code);
+        }
 
         // Paid, or expired/cancelled: nothing to pay; the ticket page says which.
         if ($ticket->payment_status === 'completed' || !in_array($ticket->status, ['pending', 'active'], true)) {

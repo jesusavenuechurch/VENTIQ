@@ -1,6 +1,11 @@
 <?php
 
 return [
+    // Buying tickets for several people at once (one payment, a ticket each).
+    // Built, and off until it's ready to go out.
+    'group_purchase' => (bool) env('VENTIQ_GROUP_PURCHASE', false),
+    'group_purchase_max' => 10,
+
     'emails' => [
         'noreply' => env('MAIL_FROM_ADDRESS', 'noreply@ventiq.co.ls'),
         'support' => env('SUPPORT_EMAIL', 'support@ventiq.co.ls'),

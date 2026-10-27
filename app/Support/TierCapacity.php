@@ -19,9 +19,9 @@ class TierCapacity
         return $tier->tickets()->whereIn('status', self::HOLDING_STATUSES)->count();
     }
 
-    public static function hasRoom(EventTier $tier): bool
+    public static function hasRoom(EventTier $tier, int $places = 1): bool
     {
-        return !$tier->quantity_available || static::taken($tier) < $tier->quantity_available;
+        return !$tier->quantity_available || static::taken($tier) + $places <= $tier->quantity_available;
     }
 
     /**

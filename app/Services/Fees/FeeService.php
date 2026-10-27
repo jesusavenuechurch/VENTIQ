@@ -26,7 +26,9 @@ class FeeService
     /** @return array{service: float, operational: float, total: float, people: int} */
     public function calculate(Ticket $ticket): array
     {
-        $people = max(1, (int) ($ticket->admissions ?? 1));
+        // A group's first ticket carries the fees for everyone in it.
+        $people = max(1, (int) ($ticket->admissions ?? 1))
+            + (int) Ticket::where('group_ticket_id', $ticket->id)->sum(\DB::raw('GREATEST(COALESCE(admissions, 1), 1)'));
         $price = $ticket->is_complimentary ? 0.0 : (float) $ticket->amount;
 
         $service = round($price * (float) config('constants.fees.service_percent'), 2);
@@ -45,6 +47,10 @@ class FeeService
     {
         if ($existing = TicketFee::where('ticket_id', $ticket->id)->first()) {
             return $existing;
+        }
+        // Bought with others: its fee is on the group's first ticket.
+        if ($ticket->group_ticket_id && ($lead = Ticket::find($ticket->group_ticket_id))) {
+            return $this->charge($lead);
         }
 
         $ticket->loadMissing('event');

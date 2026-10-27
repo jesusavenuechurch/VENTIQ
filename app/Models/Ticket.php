@@ -29,7 +29,7 @@ class Ticket extends Model
     public const SCAN_INVALID               = 'invalid';
 
     protected $fillable = [
-        'event_id', 'client_id', 'attendee_name', 'event_tier_id', 'ticket_number', 'qr_code',
+        'event_id', 'client_id', 'group_ticket_id', 'attendee_name', 'event_tier_id', 'ticket_number', 'qr_code',
         'qr_code_path', 'status', 'payment_method', 'amount', 'payment_status',
         'payment_date', 'payment_reference', 'delivery_method', 'delivered_at',
         'checked_in_at', 'checked_in_by', 'created_by', 'ticket_preference',
@@ -178,6 +178,18 @@ class Ticket extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /** Bought with others: the group's first ticket, which is the one that's paid. */
+    public function groupLead(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class, 'group_ticket_id');
+    }
+
+    /** The others bought with this one, when it's a group's first ticket. */
+    public function groupMembers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Ticket::class, 'group_ticket_id');
     }
 
     public function client(): BelongsTo
@@ -444,6 +456,30 @@ class Ticket extends Model
 
             if ($becameActive) {
                 app(\App\Services\Fees\FeeService::class)->charge($ticket);
+            }
+        });
+
+        // A group's first ticket paid (by any route): the others bought with it
+        // go out too. Expired or cancelled unpaid: so do they.
+        static::saved(function ($ticket) {
+            if ($ticket->group_ticket_id || !($ticket->wasChanged('status') || $ticket->wasChanged('payment_status'))) {
+                return;
+            }
+            $members = static::where('group_ticket_id', $ticket->id)->where('status', 'pending')->get();
+            foreach ($members as $member) {
+                // Paid in full, not on a deposit.
+                if (in_array($ticket->status, ['active', 'checked_in'], true) && $ticket->payment_status === 'completed') {
+                    $member->update([
+                        'status'         => 'active',
+                        'payment_status' => 'completed',
+                        'payment_method' => $ticket->payment_method,
+                        'payment_date'   => now(),
+                        'payment_due_at' => null,
+                    ]);
+                    $member->tier?->increment('quantity_sold');
+                } elseif (in_array($ticket->status, ['expired', 'cancelled'], true)) {
+                    $member->update(['status' => $ticket->status]);
+                }
             }
         });
 

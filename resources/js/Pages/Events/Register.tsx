@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Check, GraduationCap, Mail, MapPin, MessageCircle, Tag, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, GraduationCap, Mail, MapPin, MessageCircle, Plus, Tag, UserPlus, Users, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Field } from '@/components/field';
@@ -8,7 +8,7 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { EventData, TierData } from '@/types/event';
-import { cn } from '@/lib/utils';
+import { cn, money } from '@/lib/utils';
 import { type Delivery, type RememberedPerson, forget, recall, remember } from '@/lib/remembered-attendee';
 
 /** Registering for one ticket type: who's coming, and how to send the ticket. */
@@ -18,12 +18,15 @@ export default function Register({
     districts,
     submitUrl,
     eventUrl,
+    groupMax = 1,
 }: {
     event: EventData;
     tier: TierData;
     districts: Record<string, string> | null;
     submitUrl: string;
     eventUrl: string;
+    /** Up to this many people on one purchase (1: just the buyer). */
+    groupMax?: number;
 }) {
     const form = useForm({
         tier_id: tier.id,
@@ -95,16 +98,30 @@ export default function Register({
         form.setData((d) => ({ ...d, full_name: '', email: '', phone: '', position: '', institution: '', district: '' }));
     }
 
+    // Others on the same purchase: names used before, ticked, and names typed.
+    const [alsoSaved, setAlsoSaved] = useState<string[]>([]);
+    const [alsoTyped, setAlsoTyped] = useState<string[]>([]);
+    const others = groupMax > 1
+        ? [...alsoSaved.filter((n) => n !== form.data.full_name), ...alsoTyped.map((n) => n.trim()).filter(Boolean)]
+        : [];
+    const count = 1 + others.length;
+    const total = tier.price * count;
+    const totalLabel = count > 1 ? money(total) : tier.priceLabel;
+
     function submit(e: React.FormEvent) {
         e.preventDefault();
+        const details = { phone: form.data.phone, email: wantsEmail ? form.data.email : '', delivery: form.data.preferred_delivery };
+        const updates = { organizer: event.organization.slug, yes: form.data.updates };
+        const names = [...others];
+        form.transform((d) => (names.length ? { ...d, others: names } : d));
         form.post(submitUrl, {
             preserveScroll: true,
-            // Remembered once it's accepted, so a mistyped number isn't kept.
-            onSuccess: () => remember(
-                { phone: form.data.phone, email: wantsEmail ? form.data.email : '', delivery: form.data.preferred_delivery },
-                { name: form.data.full_name.trim(), ...(workshop ? { position: form.data.position, institution: form.data.institution, district: form.data.district } : {}) },
-                { organizer: event.organization.slug, yes: form.data.updates },
-            ),
+            // Remembered once it's accepted, so a mistyped number isn't kept: the
+            // others too, then the buyer, first next time.
+            onSuccess: () => {
+                names.forEach((name) => remember(details, { name }, updates));
+                remember(details, { name: form.data.full_name.trim(), ...(workshop ? { position: form.data.position, institution: form.data.institution, district: form.data.district } : {}) }, updates);
+            },
         });
     }
 
@@ -230,6 +247,45 @@ export default function Register({
                                 </Field>
                             )}
                             {!typing && people.length > 0 && form.errors.full_name && <p className="ml-1 text-[11px] font-bold text-rose-500">{form.errors.full_name}</p>}
+
+                            {/* Buying for others too: a ticket each, all sent to this number, paid together. */}
+                            {groupMax > 1 && (
+                                <div className="space-y-3 rounded-2xl border-2 border-dashed border-slate-100 p-4">
+                                    <p className="text-[13px] font-bold text-gray-700">
+                                        Buying for others too? <span className="font-medium text-gray-400">Each gets their own ticket, sent to you.</span>
+                                    </p>
+                                    {people.some((p) => p.name !== form.data.full_name) && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {people.filter((p) => p.name !== form.data.full_name).map((p) => {
+                                                const on = alsoSaved.includes(p.name);
+                                                return (
+                                                    <button
+                                                        key={p.name}
+                                                        type="button"
+                                                        aria-pressed={on}
+                                                        disabled={!on && count >= groupMax}
+                                                        onClick={() => setAlsoSaved((a) => (on ? a.filter((n) => n !== p.name) : [...a, p.name]))}
+                                                        className={cn('inline-flex items-center gap-1.5 rounded-full border-2 px-4 py-2 text-[13px] font-bold transition-all disabled:opacity-40', on ? 'border-action bg-action-soft text-action-ink' : 'border-slate-100 bg-slate-50 text-gray-700 hover:border-gray-300')}
+                                                    >
+                                                        {on ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}{p.name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {alsoTyped.map((name, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <Input aria-label={`Person ${i + 2}'s name`} placeholder="Their full name" value={name} onChange={(e) => setAlsoTyped((a) => a.map((n, j) => (j === i ? e.target.value : n)))} />
+                                            <button type="button" aria-label="Remove" onClick={() => setAlsoTyped((a) => a.filter((_, j) => j !== i))} className="shrink-0 p-2 text-gray-400 hover:text-rose-600"><X className="size-4" /></button>
+                                        </div>
+                                    ))}
+                                    <button type="button" disabled={count >= groupMax} onClick={() => setAlsoTyped((a) => [...a, ''])} className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-brand hover:text-action disabled:opacity-40">
+                                        <UserPlus className="size-4" />Add a person
+                                    </button>
+                                    {count > 1 && <p className="text-[12px] font-bold text-gray-700">{count} tickets · {money(total)}</p>}
+                                    {Object.entries(form.errors).some(([k]) => k.startsWith('others')) && <p className="text-[11px] font-bold text-rose-500">Check the names: each person needs one.</p>}
+                                </div>
+                            )}
                         </section>
 
                         {workshop && (
@@ -304,7 +360,7 @@ export default function Register({
                         <div className="space-y-8 p-8">
                             <div className="flex items-end justify-between border-b border-white/5 pb-6">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Investment</span>
-                                <span className="text-3xl font-black tracking-tighter text-white">{tier.priceLabel}</span>
+                                <span className="text-3xl font-black tracking-tighter text-white">{totalLabel}</span>
                             </div>
                             <div className="space-y-4 text-white/60">
                                 <Detail icon={<CalendarDays className="size-3.5 text-action" />}>{event.shortDate}</Detail>
@@ -321,7 +377,7 @@ export default function Register({
                 <div className="flex items-center justify-between gap-6">
                     <div className="flex flex-col">
                         <span className="mb-1 text-[9px] font-black uppercase leading-none tracking-widest text-gray-400">Payable</span>
-                        <span className="text-3xl font-black leading-none tracking-tighter text-gray-900">{tier.priceLabel}</span>
+                        <span className="text-3xl font-black leading-none tracking-tighter text-gray-900">{totalLabel}</span>
                     </div>
                     <Button type="submit" form="regForm" className="flex-1 text-[11px] tracking-[0.3em]" disabled={form.processing}>{paid ? 'Continue to Payment' : 'Register'}</Button>
                 </div>
