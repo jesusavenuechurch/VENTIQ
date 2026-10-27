@@ -56,12 +56,41 @@ class ExpireUnpaidTickets extends Command
                 }
             });
 
+        // A payment being made or checked: no reminder to pay (it could make them pay twice).
+        $beingPaid = fn ($q) => $q->select(\DB::raw(1))->from('payment_sessions')
+            ->whereColumn('payment_sessions.payable_id', 'tickets.id')->where('payment_sessions.payable_type', 'ticket')
+            ->where(fn ($s) => $s->where(fn ($p) => $p->where('payment_sessions.status', 'pending')->where('payment_sessions.created_at', '>', now()->subDay()))
+                ->orWhere('payment_sessions.created_at', '>', now()->subMinutes(30)));
+
+        // Registered and left without starting to pay: reminded ~15 minutes
+        // later with the pay button, when there's an hour or more to go.
+        Ticket::with(['client', 'event.organization'])
+            ->where('status', 'pending')
+            ->whereNull('group_ticket_id')
+            ->whereNotNull('payment_due_at')
+            ->where('payment_due_at', '>', now()->addHour())
+            ->where('created_at', '<=', now()->subMinutes(15))
+            ->where('created_at', '>', now()->subHours(2))
+            ->whereNull('payment_nudge_sent_at')
+            ->whereNull('payment_reminder_sent_at')
+            ->whereDoesntHave('payments', fn ($q) => $q->where('status', 'pending')->whereNotNull('submitted_at'))
+            ->whereNotExists(fn ($q) => $q->select(\DB::raw(1))->from('payment_sessions')
+                ->whereColumn('payment_sessions.payable_id', 'tickets.id')->where('payment_sessions.payable_type', 'ticket'))
+            ->chunkById(100, function ($tickets) use ($notifier, &$reminded) {
+                foreach ($tickets as $ticket) {
+                    $ticket->update(['payment_nudge_sent_at' => now()]);
+                    $notifier->paymentReminder($ticket);
+                    $reminded++;
+                }
+            });
+
         Ticket::with(['client', 'event.organization'])
             ->where('status', 'pending')
             ->whereNotNull('payment_due_at')
             ->where('payment_due_at', '>', now())
             ->whereNull('payment_reminder_sent_at')
             ->whereDoesntHave('payments', fn ($q) => $q->where('status', 'pending')->whereNotNull('submitted_at'))
+            ->whereNotExists($beingPaid)
             ->chunkById(100, function ($tickets) use ($notifier, &$reminded) {
                 foreach ($tickets as $ticket) {
                     $halfway = $ticket->created_at->copy()->addSeconds(

@@ -560,6 +560,7 @@ class RegistrationController extends Controller
         $session = \App\Models\PaymentSession::where('payable_type', 'ticket')->where('payable_id', $ticket->id)
             ->where('status', 'pending')->whereNotNull('purchase_meta')->latest('id')->first()
             ?? new \App\Models\PaymentSession();
+        $firstClaim = !$session->exists;
         $session->fill([
             'payable_type'     => 'ticket',
             'payable_id'       => $ticket->id,
@@ -589,6 +590,17 @@ class RegistrationController extends Controller
         }
 
         $this->alertVentiq($session, $ticket);
+
+        // "Received, being checked, no need to pay again": once, when they first say they paid.
+        if ($firstClaim && $ticket->shouldDeliverViaWhatsApp()) {
+            try {
+                if (!app(\App\Services\WhatsAppCloudService::class)->sendTicketPending($ticket->fresh(['client', 'event']))) {
+                    $ticket->logDeliveryFailure('whatsapp', 'Failed to send ticket_registered via Meta WhatsApp Cloud API');
+                }
+            } catch (\Throwable $e) {
+                \Log::error('ticket_registered failed', ['ticket' => $ticket->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         return redirect()->route('ticket.registered', $ticket->qr_code)->with('all_tickets', [$ticket]);
     }

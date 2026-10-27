@@ -11,6 +11,33 @@ Every template is listed in `config/constants.php` under `whatsapp_templates`. W
 
 ---
 
+## The journey: what each message means
+
+Every message answers: what's happening with my ticket, do I need to do
+anything, and what happens if I don't.
+
+| Template | Sent when | Ticket | They need to |
+|---|---|---|---|
+| ticket_registered | They've **said they paid** and it's being checked: proof sent to the organizer, or VENTIQ paid by hand (EcoCash merchant code, M-Pesa, bank transfer). Once per claim. **Not** when a PIN prompt goes out (it may still fail) | Pending, being checked | Nothing; don't pay again |
+| ticket_ready | The ticket is active: paid online, confirmed by VENTIQ or the organizer, cash, free or complimentary | Active | Nothing; show it at the door |
+| payment_failed | A PIN prompt failed or got no answer and they haven't paid since: after the 3rd try, or 30 minutes after the last | Pending | Try again, pay another way, or send proof if money left their account |
+| payment_reminder | ~15 minutes after registering if they haven't started paying (when there's an hour or more left), and halfway through the time to pay. Never while a payment is being made or checked | Pending | Pay before the deadline |
+| payment_rejected | The organizer says the payment they were sent never arrived | Pending, place still held | Check it and send it again, or pay another way |
+| payment_expired | The time to pay ran out with nothing being checked; the place is released. Button: the event's page | Expired | Get another ticket if they still want to go |
+
+Rules the code keeps so messages never contradict each other:
+- Each follow-up looks at the ticket again just before it's sent (active, expired or being paid: skipped).
+- A ticket with a payment being checked doesn't expire and isn't reminded (proof sent, by hand to VENTIQ, or a prompt still waiting).
+- ticket_ready only once the ticket is active; a group's other tickets only once it's paid in full.
+- Each of payment_failed, the 15-minute reminder and the halfway reminder goes once per ticket.
+
+To submit next (see the review of October 2026): ticket_ready with an image header (the ticket's
+picture, sent only once it's active), and clearer wording for payment_rejected ("we couldn't verify
+your payment with the details sent") and payment_expired ("your reservation has expired… check whether
+another ticket is available"). The code picks up a new template by its name in `config/constants.php`.
+
+---
+
 ## 1. payment_failed (new)
 
 Sent once per ticket when an online payment fails or gets no answer and the person hasn't paid since: straight away once all 3 tries are used, otherwise 30 minutes after their last try.
@@ -57,7 +84,7 @@ Sent when the time to pay ran out and the place was released.
   > Hi {{1}}, your payment window for the {{2}} ticket has expired. Your ticket is no longer active and the place has been released. No payment is required for this ticket.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`
-- **Button:** none. The email version still links to the event page so they can register again.
+- **Button:** "Get another ticket", dynamic: the code sends the event's page (`e/<organization>/<event>`).
 
 ## 5. payment_submitted (to the organizer)
 

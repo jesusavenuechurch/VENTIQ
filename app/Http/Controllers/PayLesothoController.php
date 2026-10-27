@@ -83,17 +83,10 @@ class PayLesothoController extends Controller
             organizationId: $ticket->event->organization_id,
         );
 
-        // WhatsApp "ticket_registered" fires here, not at initial details
-        // submission — this is the moment the customer has actually
-        // submitted their number and a push went out, not just filled in
-        // their name. Same reasoning as submitManualPayment().
-        if ($ticket->shouldDeliverViaWhatsApp() && static::pushesFor($ticket)->count() === 1) {
-            $sent = app(\App\Services\WhatsAppCloudService::class)->sendTicketPending($ticket);
-
-            if (!$sent) {
-                $ticket->logDeliveryFailure('whatsapp', 'Failed to send ticket_registered via Meta WhatsApp Cloud API');
-            }
-        }
+        // No WhatsApp here: "ticket_registered" says the payment is being
+        // checked and nothing's needed, which isn't true of a PIN prompt
+        // that may still fail. A prompt that works sends ticket_ready; one
+        // that fails sends payment_failed (tickets:payment-follow-ups).
 
         return $this->closing($this->state($session, $ticket));
     }

@@ -296,7 +296,8 @@ return [
         'payment_failed'    => ['name' => 'payment_failed',    'approved' => true,  'button' => true],
         'payment_reminder'  => ['name' => 'payment_reminder',  'approved' => true,  'button' => true],
         'payment_rejected'  => ['name' => 'payment_rejected',  'approved' => true,  'button' => true],
-        'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => false],
+        // Its "Get another ticket" button is dynamic: it opens the event's page.
+        'payment_expired'   => ['name' => 'payment_expired',   'approved' => true,  'button' => true],
         // Organizers
         'payment_submitted' => ['name' => 'payment_submitted', 'approved' => true,  'button' => true],
         'tickets_sold_out'  => ['name' => 'tickets_sold_out',  'approved' => false, 'button' => true],

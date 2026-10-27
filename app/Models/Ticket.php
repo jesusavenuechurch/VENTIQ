@@ -38,7 +38,7 @@ class Ticket extends Model
         'preferred_delivery', 'has_whatsapp', 'delivery_status',
         'whatsapp_delivered_at', 'email_delivered_at', 'delivery_log', 'amount_paid',
         'is_complimentary', 'complimentary_issued_by', 'complimentary_reason', 'organization_package_id',
-        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at', 'payment_reminder_sent_at',
+        'voucher_code', 'admissions', 'admitted_count', 'payment_due_at', 'payment_reminder_sent_at', 'payment_nudge_sent_at',
     ];
 
     protected $casts = [
@@ -59,6 +59,7 @@ class Ticket extends Model
         'admitted_count' => 'integer',
         'payment_due_at' => 'datetime',
         'payment_reminder_sent_at' => 'datetime',
+        'payment_nudge_sent_at' => 'datetime',
     ];
 
     public function isComplimentary(): bool
