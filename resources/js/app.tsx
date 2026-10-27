@@ -1,5 +1,6 @@
 import '../css/inertia.css';
 import { createInertiaApp } from '@inertiajs/react';
+import { Toaster } from '@/components/ui/sonner';
 import { createRoot } from 'react-dom/client';
 import { AdminShell } from '@/Layouts/AdminLayout';
 import { OrganizerShell } from '@/Layouts/OrganizerLayout';
@@ -48,6 +49,7 @@ createInertiaApp({
             <>
                 <App {...props} />
                 <CookieNotice />
+                <Toaster />
             </>,
         );
     },
