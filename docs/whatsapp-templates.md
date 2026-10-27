@@ -31,10 +31,9 @@ Rules the code keeps so messages never contradict each other:
 - ticket_ready only once the ticket is active; a group's other tickets only once it's paid in full.
 - Each of payment_failed, the 15-minute reminder and the halfway reminder goes once per ticket.
 
-To submit next (see the review of October 2026): ticket_ready with an image header (the ticket's
-picture, sent only once it's active), and clearer wording for payment_rejected ("we couldn't verify
-your payment with the details sent") and payment_expired ("your reservation has expired… check whether
-another ticket is available"). The code picks up a new template by its name in `config/constants.php`.
+Later: `ticket_ready_v2` with an image header (the ticket's QR, sent only once it's active). Meta read
+the first draft as an Authentication template because of "entry code"; the wording to try avoids the
+word "code" ("Pass number: {{7}}"). Until then `ticket_ready` stays as it is.
 
 ---
 
@@ -67,9 +66,9 @@ Sent halfway through the payment window, while the ticket is still unpaid.
 Sent when the organizer says a payment they were sent never arrived.
 
 - **Name:** `payment_rejected`
-- **Body:**
+- **Body (edited October 2026; still two details):**
 
-  > Hi {{1}}, the organizer of {{2}} couldn't confirm your payment. Your place is still held. Tap below to check your payment and send it again.
+  > ⚠️ Hi {{1}}, your payment for {{2}} couldn't be verified with the details you sent. Your ticket isn't active yet, but your place is still held. Tap below to check the details and send them again, or pay another way. If money left your account, check your statement before paying again.
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`
 - **Button:** "Check my payment" → `https://ventiq.co.ls/{{1}}` (sample: `ticket/QR-1b2c3d4e/pay`). Opens the ticket's pay page.
@@ -79,12 +78,14 @@ Sent when the organizer says a payment they were sent never arrived.
 Sent when the time to pay ran out and the place was released.
 
 - **Name:** `payment_expired`
-- **Body (as submitted, after the first version was rejected):**
+- **Body (edited October 2026):**
 
-  > Hi {{1}}, your payment window for the {{2}} ticket has expired. Your ticket is no longer active and the place has been released. No payment is required for this ticket.
+  > Hi {{1}}, your reservation for {{2}} has expired. This ticket is no longer valid and your place has been released. No payment is required for this ticket.
+  >
+  > Tap below to start again
 
 - **Samples:** {{1}} `Lerato`, {{2}} `Maseru Youth Summit`
-- **Button:** "Get another ticket", dynamic: the code sends the event's page (`e/<organization>/<event>`).
+- **Button:** "Get another ticket", dynamic → `https://ventiq.co.ls/{{1}}`: the code sends the event's page (`e/<organization>/<event>`).
 
 ## 5. payment_submitted (to the organizer)
 
