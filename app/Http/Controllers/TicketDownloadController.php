@@ -65,6 +65,8 @@ class TicketDownloadController extends Controller
             'ticket' => TicketPage::ticket($ticket),
             'qrUrl'  => route('ticket.qr', $ticket->qr_code),
             'pdfUrl' => route('ticket.avatar.download', $qrCode),
+            // Bought on one purchase for several people (not a group ticket, which is one QR for many).
+            'together' => $this->boughtTogether($ticket),
             'meta'   => ['title' => "Ventiq Pass: {$ticket->event->name}"],
         ]);
     }
@@ -133,5 +135,33 @@ class TicketDownloadController extends Controller
 
         return Storage::disk(Ticket::FILES_DISK)->response($ticket->qr_code_path, null, ['Content-Type' => $type, 'Cache-Control' => 'private, max-age=3600']);
     }
-}
 
+    /**
+     * The other tickets bought on the same purchase. The buyer's (the first)
+     * page lists each with its link; the others only say who bought them, so
+     * a ticket passed on doesn't open the rest.
+     */
+    private function boughtTogether(Ticket $ticket): ?array
+    {
+        $lead = $ticket->group_ticket_id ? $ticket->groupLead : $ticket;
+        if (!$lead) {
+            return null;
+        }
+        $members = Ticket::where('group_ticket_id', $lead->id)->orderBy('id')->get();
+        if ($members->isEmpty()) {
+            return null;
+        }
+        $isBuyer = $ticket->id === $lead->id;
+
+        return [
+            'count'  => $members->count() + 1,
+            'buyer'  => $lead->holder_name,
+            'others' => $isBuyer ? $members->map(fn (Ticket $m) => [
+                'name'   => $m->holder_name,
+                'number' => $m->ticket_number,
+                'status' => $m->status,
+                'link'   => route('ticket.download', $m->qr_code),
+            ])->values() : null,
+        ];
+    }
+}

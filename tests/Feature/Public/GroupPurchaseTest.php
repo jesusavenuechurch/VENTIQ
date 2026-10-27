@@ -74,3 +74,17 @@ it('takes only the buyer while it is switched off', function () {
     expect(Ticket::count())->toBe(1)->and((float) Ticket::sole()->amount)->toBe(150.0);
     $this->get(route('registration.form', [$this->org->slug, $this->event->slug]))->assertInertia(fn ($page) => $page->where('groupMax', 1));
 });
+
+it("lists the others on the buyer's ticket, with their links, and only who bought it on theirs", function () {
+    $this->tier->update(['price' => 0]);
+    ($this->register)(['others' => ['Thabo Molapo', 'Mpho Molapo']]);
+    [$lead, $thabo] = Ticket::orderBy('id')->get();
+
+    $this->get(route('ticket.download', $lead->qr_code))->assertInertia(fn ($page) => $page->component('Tickets/Pass')
+        ->where('together.count', 3)
+        ->where('together.others.0.name', 'Thabo Molapo')
+        ->where('together.others.0.link', route('ticket.download', $thabo->qr_code)));
+
+    $this->get(route('ticket.download', $thabo->qr_code))->assertInertia(fn ($page) => $page
+        ->where('together.buyer', 'Lerato Molapo')->where('together.others', null));
+});

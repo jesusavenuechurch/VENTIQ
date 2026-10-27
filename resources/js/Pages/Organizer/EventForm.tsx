@@ -578,10 +578,23 @@ function TierRow({ tier, index: i, colours, errors, removable, onChange, onRemov
             </div>
             <Textarea rows={1} placeholder="What's included (optional)" aria-label="What's included" className="bg-white" value={tier.description} onChange={(e) => onChange({ description: e.target.value })} />
             <div className="flex flex-wrap items-center gap-4 text-[12px] font-bold text-gray-600">
-                <label className="flex items-center gap-2">
-                    People per ticket
-                    <input type="number" min={1} max={100} value={tier.quantity_per_purchase} onChange={(e) => onChange({ quantity_per_purchase: e.target.value })} className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2" />
+                {/* A group ticket: one ticket and one QR that lets several people in, like a table. */}
+                <label className="flex items-center gap-2" title="One ticket and one QR for several people, like a table of 4">
+                    <input
+                        type="checkbox"
+                        checked={per > 1}
+                        onChange={(e) => onChange({ quantity_per_purchase: e.target.checked ? 4 : 1 })}
+                        className="size-4 accent-action"
+                    />
+                    Group ticket
                 </label>
+                {per > 1 && (
+                    <label className="flex items-center gap-2">
+                        Admits
+                        <input type="number" min={2} max={100} aria-label="People it admits" value={tier.quantity_per_purchase} onChange={(e) => onChange({ quantity_per_purchase: e.target.value })} className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2" />
+                        people
+                    </label>
+                )}
                 <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                     QR colour
                     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="QR colour">
@@ -614,7 +627,7 @@ function TierRow({ tier, index: i, colours, errors, removable, onChange, onRemov
             </div>
             {per > 1 && (
                 <p className="text-[11px] font-medium text-gray-500">
-                    One ticket and one QR for {per} people; the price is for the whole group.{qty ? ` ${qty} tickets is ${qty * per} people.` : ''}
+                    Group ticket: one ticket and one QR lets {per} people in (like a table), and the price is for all {per}.{qty ? ` ${qty} tickets is ${qty * per} people.` : ''}
                 </p>
             )}
         </div>

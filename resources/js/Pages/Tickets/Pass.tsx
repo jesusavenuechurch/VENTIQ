@@ -4,7 +4,15 @@ import { useRef, useState } from 'react';
 import type { TicketData } from '@/types/ticket';
 
 /** The active ticket: the pass shown at the door, saved as an image or a PDF. */
-export default function Pass({ ticket, qrUrl, pdfUrl }: { ticket: TicketData; qrUrl: string; pdfUrl: string }) {
+/** Tickets bought on one purchase for several people: each its own ticket and QR. */
+interface Together {
+    count: number;
+    buyer: string;
+    /** On the buyer's ticket: the others, each with its link. Null on theirs. */
+    others: { name: string; number: string; status: string; link: string }[] | null;
+}
+
+export default function Pass({ ticket, qrUrl, pdfUrl, together }: { ticket: TicketData; qrUrl: string; pdfUrl: string; together?: Together | null }) {
     const pass = useRef<HTMLDivElement>(null);
     const [saving, setSaving] = useState(false);
     const tierColour = ticket.tier.isVip ? '#D4AF37' : '#10b981';
@@ -129,6 +137,27 @@ export default function Pass({ ticket, qrUrl, pdfUrl }: { ticket: TicketData; qr
                         <span>PDF Ticket</span>
                     </a>
                 </div>
+
+                {together && (
+                    <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Bought together · {together.count} tickets</p>
+                        {together.others ? (
+                            <ul className="mt-3 divide-y divide-white/10">
+                                {together.others.map((o) => (
+                                    <li key={o.number} className="flex items-center justify-between gap-3 py-2.5">
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-[13px] font-bold">{o.name}</span>
+                                            <span className="block font-mono text-[10px] text-white/40">{o.number}{o.status !== 'active' && o.status !== 'checked_in' ? ` · ${o.status}` : ''}</span>
+                                        </span>
+                                        <a href={o.link} className="shrink-0 text-[10px] font-black uppercase tracking-widest text-action hover:underline">Open</a>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="mt-2 text-[13px] text-white/70">Bought by {together.buyer}, with {together.count - 1 === 1 ? 'one other ticket' : `${together.count - 1} other tickets`}. Each person has their own ticket and QR.</p>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
