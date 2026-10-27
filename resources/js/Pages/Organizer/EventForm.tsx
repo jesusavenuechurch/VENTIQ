@@ -1,5 +1,5 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Gift, ImageIcon, Plus, Sparkles, Trash2, Upload, Wallet } from 'lucide-react';
+import { Gift, ImageIcon, Plus, Rocket, Sparkles, Trash2, Upload, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import OrganizerLayout from '@/Layouts/OrganizerLayout';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -65,6 +65,8 @@ interface Props {
     onlineDrivers: string[];
     onlineCatalog: Record<string, string>;
     onlineMethods: string[];
+    /** Offered without a PIN prompt: attendees pay VENTIQ by hand, and VENTIQ confirms it. */
+    manualMethods: string[];
     modeLocked: boolean;
     tiers: Tier[];
     expected: number | null;
@@ -85,7 +87,7 @@ const optional = <span className="normal-case text-gray-300">(optional)</span>;
 
 /** Creating and editing an event: the basics, when and where, tickets and payment, publishing. */
 export default function EventForm(props: Props) {
-    const { event, accounts, onlineDrivers, onlineCatalog, modeLocked, freeTaken, statuses, categories, colours, fees, windowDefault, canDelete } = props;
+    const { event, accounts, onlineDrivers, manualMethods, onlineCatalog, modeLocked, freeTaken, statuses, categories, colours, fees, windowDefault, canDelete } = props;
     const { site } = usePage<SharedProps>().props;
     const editing = event.id !== null;
     const direct = event.feesSponsored; // paying the organizer directly is only for events VENTIQ sponsors
@@ -148,9 +150,14 @@ export default function EventForm(props: Props) {
 
     function submit(e: React.FormEvent) {
         e.preventDefault();
+        save();
+    }
+
+    /** Saved as it stands, or with the status a button gives it (Save as draft, Publish). */
+    function save(status?: string) {
         // Send only what applies, as the old form did by disabling fields.
         form.transform((data) => {
-            const out: Record<string, unknown> = { ...data, tiers: data.tiers.map(({ sold: _s, taken: _t, ...t }) => t) };
+            const out: Record<string, unknown> = { ...data, status: status ?? data.status, tiers: data.tiers.map(({ sold: _s, taken: _t, ...t }) => t) };
             if (data.payment_mode === 'free') delete out.tiers;
             else delete out.expected_attendance;
             if (!direct) delete out.account_ids;
@@ -320,7 +327,7 @@ export default function EventForm(props: Props) {
                                 <Field label="How many people are you expecting?" htmlFor="expected_attendance" error={errors.expected_attendance} hint={freeTaken ? `${freeTaken} registered so far.` : undefined}>
                                     <Input id="expected_attendance" type="number" required min={Math.max(1, freeTaken)} placeholder="e.g. 150" className={cn(field, 'sm:max-w-xs')} value={d.expected_attendance} onChange={(e) => form.setData('expected_attendance', e.target.value)} />
                                 </Field>
-                                <OrderSummary order={order} paid={false} sponsored={event.feesSponsored} />
+                                <OrderSummary order={order} paid={false} sponsored={event.feesSponsored} fees={fees} />
                             </div>
                         ) : (
                             <div className="space-y-6">
@@ -346,7 +353,7 @@ export default function EventForm(props: Props) {
                                     </button>
                                 </div>
 
-                                <OrderSummary order={order} paid sponsored={event.feesSponsored} />
+                                <OrderSummary order={order} paid sponsored={event.feesSponsored} fees={fees} />
 
                                 <div className="space-y-3">
                                     <p className={smallLabel}>How people pay</p>
@@ -371,6 +378,7 @@ export default function EventForm(props: Props) {
                                                         <span className="min-w-0">
                                                             <span className="block text-[13px] font-black text-gray-900">{label}</span>
                                                             {!live && <span className="block text-[10px] font-black uppercase tracking-widest text-gray-400">Coming soon</span>}
+                                                            {live && manualMethods.includes(method) && <span className="block text-[10px] font-bold text-gray-400">Paid to VENTIQ by hand · VENTIQ confirms</span>}
                                                         </span>
                                                     </label>
                                                 );
@@ -413,7 +421,7 @@ export default function EventForm(props: Props) {
                                         {online && (
                                             <div className="mb-2">
                                                 <p className="font-bold text-gray-700">Pay online</p>
-                                                <ul className="ml-5 list-disc text-gray-600">{d.online_methods.map((m) => <li key={m}>{onlineCatalog[m]} via VENTIQ</li>)}</ul>
+                                                <ul className="ml-5 list-disc text-gray-600">{d.online_methods.map((m) => <li key={m}>{onlineCatalog[m]} {manualMethods.includes(m) ? 'to VENTIQ, with a reference' : 'via VENTIQ'}</li>)}</ul>
                                             </div>
                                         )}
                                         {!direct && (
@@ -454,9 +462,10 @@ export default function EventForm(props: Props) {
                         )}
                     </section>
 
-                    {/* 4. Publish */}
+                    {/* 4. Status: once it's out, it can be ongoing, completed or cancelled. A new event or a draft is saved or published by the buttons below. */}
+                    {editing && event.status !== 'draft' && (
                     <section className={cn(card, 'space-y-4')}>
-                        <h2 className={heading}>4 · Publish</h2>
+                        <h2 className={heading}>4 · Status</h2>
                         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Status">
                             {Object.entries(statuses).map(([value, text]) => (
                                 <button
@@ -471,13 +480,28 @@ export default function EventForm(props: Props) {
                                 </button>
                             ))}
                         </div>
-                        <p className="text-[12px] font-medium text-gray-500">Drafts aren't visible to the public. Publishing makes registration open straight away.</p>
+                        <p className="text-[12px] font-medium text-gray-500">Cancelled or completed closes registration. Everything is kept.</p>
                     </section>
+                    )}
 
-                    <div className="flex items-center justify-end gap-3">
+                    <div className="flex flex-wrap items-center justify-end gap-3">
                         <a href={route('organizer.home')} className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-brand">Cancel</a>
-                        <Button type="submit" variant="brand" className="px-6 py-4 text-[11px]" disabled={form.processing}>{editing ? 'Save changes' : 'Create event'}</Button>
+                        {!editing || event.status === 'draft' ? (
+                            <>
+                                <Button type="button" variant="outline" className="px-6 py-4 text-[11px]" disabled={form.processing} onClick={() => save('draft')}>
+                                    {editing ? 'Save draft' : 'Save as draft'}
+                                </Button>
+                                <Button type="button" variant="brand" className="bg-emerald-600 px-6 py-4 text-[11px] hover:bg-emerald-700" disabled={form.processing} onClick={() => save('published')}>
+                                    <Rocket className="size-4" />Publish event
+                                </Button>
+                            </>
+                        ) : (
+                            <Button type="submit" variant="brand" className="px-6 py-4 text-[11px]" disabled={form.processing}>Save changes</Button>
+                        )}
                     </div>
+                    {(!editing || event.status === 'draft') && (
+                        <p className="-mt-3 text-right text-[11px] font-medium text-gray-400">A draft is only seen by your team. Publishing opens registration straight away.</p>
+                    )}
                 </form>
 
                 {editing && canDelete && (
@@ -536,15 +560,15 @@ function TierRow({ tier, index: i, colours, errors, removable, onChange, onRemov
     return (
         <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-                <Field className="sm:col-span-3" label="Ticket name" htmlFor={`tier-name-${i}`} error={err('tier_name')}>
+                <Field className="sm:col-span-3" label={<>Ticket name <span className="text-rose-500">*</span></>} htmlFor={`tier-name-${i}`} error={err('tier_name')}>
                     <Input id={`tier-name-${i}`} required placeholder="e.g. VIP" className={cn(field, 'bg-white')} value={tier.tier_name} onChange={(e) => onChange({ tier_name: e.target.value })} />
                 </Field>
-                <Field className="sm:col-span-1" label="Price (M)" htmlFor={`tier-price-${i}`} error={err('price')}>
-                    <Input id={`tier-price-${i}`} type="number" required min={0} step="0.01" placeholder="100" className={cn(field, 'bg-white')} value={tier.price ?? ''} onChange={(e) => onChange({ price: e.target.value })} />
+                <Field className="sm:col-span-1" label={<>Price (M) <span className="text-rose-500">*</span></>} htmlFor={`tier-price-${i}`} error={err('price')}>
+                    <Input id={`tier-price-${i}`} type="number" required min={0} step="0.01" placeholder="100" className={cn(field, 'bg-white', (tier.price === null || tier.price === '') && 'border-action ring-2 ring-action/30')} value={tier.price ?? ''} onChange={(e) => onChange({ price: e.target.value })} />
                 </Field>
                 <Field
                     className="sm:col-span-2"
-                    label="Number of tickets"
+                    label={<>Number of tickets <span className="text-rose-500">*</span></>}
                     htmlFor={`tier-qty-${i}`}
                     error={err('quantity_available')}
                     hint={tier.taken ? `${tier.taken} taken${qty && tier.taken >= qty ? ' · sold out' : ''}` : undefined}
@@ -598,7 +622,10 @@ function TierRow({ tier, index: i, colours, errors, removable, onChange, onRemov
 }
 
 /** If every ticket sells: the people, the sales, VENTIQ's fees, and what's left. */
-function OrderSummary({ order, paid, sponsored }: { order: { people: number; sales: number; fees: number; keep: number }; paid: boolean; sponsored: boolean }) {
+function OrderSummary({ order, paid, sponsored, fees }: { order: { people: number; sales: number; fees: number; keep: number }; paid: boolean; sponsored: boolean; fees: { percent: number; perPerson: number } }) {
+    const perPersonFee = fees.perPerson;
+    // The price at which a one-person ticket just covers its own fees.
+    const minPrice = Math.ceil((fees.perPerson / (1 - fees.percent)) * 100) / 100;
     if (order.people <= 0) return null;
     return (
         <div className="rounded-2xl border border-gray-100 bg-white p-5">
@@ -621,10 +648,15 @@ function OrderSummary({ order, paid, sponsored }: { order: { people: number; sal
                 {paid && (
                     <div>
                         <dt className="text-[11px] font-bold text-gray-500">You keep</dt>
-                        <dd className="text-lg font-black text-mint-ink">{money(order.keep)}</dd>
+                        <dd className={cn('text-lg font-black', order.keep < 0 ? 'text-rose-600' : 'text-mint-ink')}>{money(order.keep)}</dd>
                     </div>
                 )}
             </dl>
+            {paid && !sponsored && order.keep < 0 && (
+                <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-[12px] font-bold text-rose-700">
+                    At these prices VENTIQ's fees are more than the tickets bring in. Check each ticket's price: the {money(perPersonFee)} per person fee alone needs a price above {money(minPrice)}.
+                </p>
+            )}
             <p className="mt-3 text-[12px] font-medium text-gray-500">
                 Fees are charged on the tickets actually issued, so you pay for what you sell. We'll let you know if a ticket type sells out, and you can allow more tickets any time.
             </p>

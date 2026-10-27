@@ -26,7 +26,7 @@ beforeEach(function () {
     TicketPayment::create(['ticket_id' => $this->ticket->id, 'amount' => 200, 'status' => 'pending', 'payment_type' => 'full']);
 
     $this->pay = fn () => $this->postJson(route('ticket.pay.online', $this->ticket->qr_code), [
-        'method' => 'ecocash', 'mobile_number' => '59494756',
+        'method' => 'ecocash', 'mobile_number' => '62494756',
     ]);
     $this->callback = function (PaymentSession $session) {
         return $this->postJson('/payment/paylesotho/callback/ecocash', ['client_reference' => $session->client_reference, 'status' => 'completed']);

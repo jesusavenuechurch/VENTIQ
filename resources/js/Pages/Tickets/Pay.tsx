@@ -5,7 +5,7 @@ import GuestLayout from '@/Layouts/GuestLayout';
 import { DirectPay } from '@/components/pay/direct-pay';
 import { MerchantPay } from '@/components/pay/merchant-pay';
 import { OnlinePay, type Panel } from '@/components/pay/online-pay';
-import type { Account, Merchant, OnlineOptions } from '@/components/pay/types';
+import type { Account, ManualOption, Merchant, OnlineOptions } from '@/components/pay/types';
 import { SaveLink } from '@/components/save-link';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ export default function Pay({
     merchant,
     merchantReference,
     accounts,
+    manual,
     installments,
 }: {
     ticket: TicketData;
@@ -36,10 +37,13 @@ export default function Pay({
     merchant: Merchant | null;
     merchantReference: string;
     accounts: Account[];
+    manual: ManualOption[];
     installments: { percent: number; minDeposit: number; full: number } | null;
 }) {
     const { errors } = usePage().props;
     const onlineEnabled = online.methods.length > 0;
+    // The pay card: online methods, and those paid to VENTIQ by hand.
+    const payCard = onlineEnabled || manual.length > 0;
     const direct = accounts.length > 0;
     // The other way to pay: the organizer's accounts, or VENTIQ's merchant.
     const merchantCard = !direct && !!merchant;
@@ -78,11 +82,16 @@ export default function Pay({
                 </Alert>
             )}
 
-            {onlineEnabled && (
+            {!payCard && <SaveLink ticket={ticket} className="mb-6" />}
+
+            {payCard && (
                 <OnlinePay
                     code={ticket.code}
                     ticketUrl={ticket.link}
                     options={online}
+                    manual={manual}
+                    owed={owed}
+                    top={<SaveLink ticket={ticket} />}
                     startPanel={startPanel}
                     fallback={({ attemptsLeft, retry }) => (
                         <div className="py-2">
@@ -158,7 +167,6 @@ export default function Pay({
                 </div>
             </div>
 
-            <SaveLink ticket={ticket} className="mt-6" />
         </GuestLayout>
     );
 }

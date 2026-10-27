@@ -29,3 +29,10 @@ export interface PushState {
     attempts_left?: number;
     wait_seconds?: number;
 }
+
+/** A way to pay VENTIQ by hand, with no PIN prompt (M-Pesa to its number, a bank transfer). */
+export interface ManualOption {
+    method: 'mpesa' | 'bank';
+    label: string;
+    lines: { label: string; value: string }[];
+}

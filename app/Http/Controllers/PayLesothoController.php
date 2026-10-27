@@ -43,6 +43,11 @@ class PayLesothoController extends Controller
             return response()->json(['message' => 'Online payment is not available for this event.'], 422);
         }
 
+        // EcoCash numbers start with 6, M-Pesa numbers with 5.
+        if ($wrong = \App\Services\Payments\PaymentGatewayFactory::numberMismatch($data['method'], $data['mobile_number'])) {
+            return response()->json(['message' => $wrong], 422);
+        }
+
         if ($ticket->payment_status === 'completed') {
             return response()->json(['message' => 'This ticket is already paid.'], 422);
         }

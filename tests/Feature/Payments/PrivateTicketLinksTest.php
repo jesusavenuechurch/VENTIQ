@@ -58,8 +58,8 @@ it('shows nothing at an old numbered link, and only emails the link to the ticke
 it('starts and follows a push only through the ticket\'s private link', function () {
     $other = ($this->makeTicket)();
 
-    $this->postJson('/ticket/QR-not-a-ticket/pay/online', ['method' => 'ecocash', 'mobile_number' => '+26659494756'])->assertNotFound();
-    $this->postJson(route('ticket.pay.online', $this->ticket->qr_code), ['method' => 'ecocash', 'mobile_number' => '+26659494756'])->assertOk();
+    $this->postJson('/ticket/QR-not-a-ticket/pay/online', ['method' => 'ecocash', 'mobile_number' => '+26662494756'])->assertNotFound();
+    $this->postJson(route('ticket.pay.online', $this->ticket->qr_code), ['method' => 'ecocash', 'mobile_number' => '+26662494756'])->assertOk();
     $session = PaymentSession::sole();
 
     $this->getJson(route('paylesotho.status', $session))->assertNotFound();

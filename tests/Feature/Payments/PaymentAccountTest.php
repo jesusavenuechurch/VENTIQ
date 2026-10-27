@@ -150,7 +150,7 @@ it('refuses online payment when the event does not offer it', function () {
     $ticket = accountTicket($this);
 
     $this->postJson("/ticket/{$ticket->qr_code}/pay/online", [
-        'method' => 'ecocash', 'mobile_number' => '+26650001234',
+        'method' => 'ecocash', 'mobile_number' => '+26660001234',
     ])->assertUnprocessable()->assertJsonPath('message', 'Online payment is not available for this event.');
 });
 

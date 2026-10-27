@@ -53,7 +53,7 @@ class SessionPlanController extends Controller
             ]),
             'support' => config('ventiq.emails.support'),
             // Paid by bank transfer, waiting for VENTIQ to see it in the account.
-            'transfers' => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)
+            'transfers' => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)->where('payable_type', 'session_package')
                 ->where('status', 'pending')->latest()->get()->map(fn (PaymentSession $p) => [
                     'id'        => $p->id,
                     'label'     => $p->purchase_meta['label'] ?? 'Sessions',
@@ -107,7 +107,7 @@ class SessionPlanController extends Controller
                 'lines'     => BankDetails::lines($reference),
                 'reference' => $reference,
                 // Already said it was paid: waiting for VENTIQ to see it.
-                'claimed'   => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)
+                'claimed'   => PaymentSession::where('organization_id', $organization->id)->where('gateway', BankTransfers::GATEWAY)->where('payable_type', 'session_package')
                     ->where('client_reference', $reference)->where('status', 'pending')->exists(),
             ] : null,
             'support' => config('ventiq.emails.support'),

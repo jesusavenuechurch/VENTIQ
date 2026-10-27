@@ -12,6 +12,8 @@ export type RememberedAttendee = {
     email: string;
     delivery: Delivery;
     people: RememberedPerson[];
+    /** Organizers (by slug) they said yes to hearing from: the box is ticked for them next time. */
+    updatesFor: string[];
 };
 
 const KEY = 'ventiq.attendee';
@@ -26,6 +28,7 @@ export function recall(): RememberedAttendee | null {
             email: typeof saved.email === 'string' ? saved.email : '',
             delivery: ['whatsapp', 'email', 'both'].includes(saved.delivery) ? saved.delivery : 'whatsapp',
             people: saved.people.filter((p: RememberedPerson) => p && typeof p.name === 'string' && p.name.trim() !== '').slice(0, MAX_PEOPLE),
+            updatesFor: Array.isArray(saved.updatesFor) ? saved.updatesFor.filter((s: unknown) => typeof s === 'string') : [],
         };
     } catch {
         return null;
@@ -33,13 +36,15 @@ export function recall(): RememberedAttendee | null {
 }
 
 /** Saved after registering: this person first, then the others used before. */
-export function remember(details: Omit<RememberedAttendee, 'people'>, person: RememberedPerson): void {
+export function remember(details: Omit<RememberedAttendee, 'people' | 'updatesFor'>, person: RememberedPerson, updates: { organizer: string; yes: boolean }): void {
     try {
         const before = recall();
         // A different number is a different person's phone details: start again.
-        const others = before && before.phone === details.phone ? before.people : [];
-        const same = (p: RememberedPerson) => p.name.trim().toLowerCase() === person.name.trim().toLowerCase();
-        localStorage.setItem(KEY, JSON.stringify({ ...details, people: [person, ...others.filter((p) => !same(p))].slice(0, MAX_PEOPLE) }));
+        const same = before && before.phone === details.phone;
+        const others = same ? before.people : [];
+        const isPerson = (p: RememberedPerson) => p.name.trim().toLowerCase() === person.name.trim().toLowerCase();
+        const updatesFor = (same ? before.updatesFor : []).filter((s) => s !== updates.organizer).concat(updates.yes ? [updates.organizer] : []);
+        localStorage.setItem(KEY, JSON.stringify({ ...details, people: [person, ...others.filter((p) => !isPerson(p))].slice(0, MAX_PEOPLE), updatesFor }));
     } catch {
         // Private browsing, storage full or blocked: registering works the same without it.
     }

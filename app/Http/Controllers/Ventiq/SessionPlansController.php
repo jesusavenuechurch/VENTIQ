@@ -47,7 +47,7 @@ class SessionPlansController extends Controller
             'paygPresets'   => collect(SessionPackageDefinition::paygPresets())->map(fn ($price, $qty) => ['quantity' => $qty, 'price' => $price])->values(),
             'organizations' => Organization::orderBy('name')->get(['id', 'name'])->map(fn ($o) => ['value' => $o->id, 'label' => $o->name]),
             // Organizations that say they've paid by bank transfer: check the account, then confirm.
-            'transfers'     => PaymentSession::where('gateway', BankTransfers::GATEWAY)->where('status', 'pending')->with('organization')->oldest()->get()
+            'transfers'     => PaymentSession::where('gateway', BankTransfers::GATEWAY)->where('payable_type', 'session_package')->where('status', 'pending')->with('organization')->oldest()->get()
                 ->map(fn (PaymentSession $p) => [
                     'id'           => $p->id,
                     'organization' => ['id' => $p->organization_id, 'name' => $p->organization?->name],

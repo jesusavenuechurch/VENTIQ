@@ -4,7 +4,8 @@ import { PhoneInput } from '@/components/phone-input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { OnlineOptions, PushState } from './types';
+import { ManualPay } from './manual-pay';
+import type { ManualOption, OnlineOptions, PushState } from './types';
 
 export type Panel = 'form' | 'waiting' | 'pin' | 'timeout' | 'failed' | 'fallback' | 'byhand';
 
@@ -21,17 +22,28 @@ export function OnlinePay({
     code,
     ticketUrl,
     options,
+    manual = [],
+    owed,
+    top,
     startPanel,
     fallback,
 }: {
     code: string;
     ticketUrl: string;
     options: OnlineOptions;
+    /** Ways to pay VENTIQ by hand: chosen like a provider, shown as instructions. */
+    manual?: ManualOption[];
+    owed: number;
+    /** Under the heading: the ticket link to keep. */
+    top?: React.ReactNode;
     startPanel: Panel;
     fallback: (state: { attemptsLeft: number; retry: () => void }) => React.ReactNode;
 }) {
     const [panel, setPanel] = useState<Panel>(startPanel);
-    const [method, setMethod] = useState(options.methods[0]);
+    const providers = [...options.methods, ...manual.map((m) => m.method).filter((m) => !options.methods.includes(m))];
+    const [method, setMethod] = useState(providers[0]);
+    const chosenManual = options.methods.includes(method) ? null : manual.find((m) => m.method === method) ?? null;
+    const label = (m: string) => (m === 'mpesa' ? 'M-Pesa' : m === 'bank' ? 'Bank transfer' : 'EcoCash');
     const [phone, setPhone] = useState(options.phone ?? '');
     const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
@@ -119,9 +131,26 @@ export function OnlinePay({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    /** EcoCash numbers start with 6, M-Pesa with 5: the provider follows the number when it can. */
+    function typePhone(v: string) {
+        setPhone(v);
+        setError(null);
+        const fits = v.startsWith('6') ? 'ecocash' : v.startsWith('5') ? 'mpesa' : null;
+        if (fits && fits !== method && options.methods.includes(fits)) setMethod(fits);
+    }
+    const mismatch = phone.length > 0 && ((method === 'ecocash' && !phone.startsWith('6')) || (method === 'mpesa' && !phone.startsWith('5')))
+        ? method === 'ecocash'
+            ? 'EcoCash numbers start with 6.' + (providers.includes('mpesa') ? ' For a number starting with 5, choose M-Pesa.' : '')
+            : 'M-Pesa numbers start with 5.' + (providers.includes('ecocash') ? ' For a number starting with 6, choose EcoCash.' : '')
+        : null;
+
     async function send() {
         if (phone.length !== 8) {
             setError('Enter a valid 8-digit mobile number.');
+            return;
+        }
+        if (mismatch) {
+            setError(mismatch);
             return;
         }
         setError(null);
@@ -176,9 +205,10 @@ export function OnlinePay({
             <div className="border-b border-gray-50 p-8 sm:p-10">
                 <div className="mb-2 flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-xl bg-action/10 text-action"><Zap className="size-5" /></div>
-                    <h2 className="text-2xl font-black uppercase italic leading-none tracking-tighter text-gray-900">Pay Online</h2>
+                    <h2 className="text-2xl font-black uppercase italic leading-none tracking-tighter text-gray-900">{options.methods.length ? 'Pay Online' : 'Pay'}</h2>
                 </div>
                 <p className="text-sm font-medium text-gray-500">Payment processed securely through VENTIQ. Your ticket activates as soon as the payment goes through.</p>
+                {top && <div className="mt-5">{top}</div>}
             </div>
 
             <div className="p-8 sm:p-10">
@@ -186,30 +216,40 @@ export function OnlinePay({
                     <div className="space-y-6">
                         <div>
                             <Label className="mb-3">Choose Provider</Label>
-                            <div className="grid grid-cols-2 gap-4">
-                                {options.methods.map((m) => (
+                            <div className={cn('grid gap-3', providers.length >= 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+                                {providers.map((m) => (
                                     <button
                                         key={m}
                                         type="button"
-                                        onClick={() => setMethod(m)}
-                                        className={cn('flex flex-col items-center gap-2 rounded-2xl border-2 p-5 transition-all', method === m ? 'border-action bg-action/5' : 'border-slate-100 bg-slate-50')}
+                                        onClick={() => {
+                                            setMethod(m);
+                                            setError(null);
+                                        }}
+                                        className={cn('flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all', method === m ? 'border-action bg-action/5' : 'border-slate-100 bg-slate-50')}
                                     >
                                         <Smartphone className={cn('size-6', m === 'mpesa' ? 'text-red-600' : 'text-blue-600')} />
-                                        <span className="text-xs font-black uppercase tracking-tight text-gray-900">{m === 'mpesa' ? 'M-Pesa' : 'EcoCash'}</span>
+                                        <span className="text-xs font-black uppercase tracking-tight text-gray-900">{label(m)}</span>
+                                        {!options.methods.includes(m) && <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Pay by hand</span>}
                                     </button>
                                 ))}
                             </div>
                         </div>
-                        <div>
-                            <Label htmlFor="online_phone">Mobile Number <span className="text-rose-500">*</span></Label>
-                            <PhoneInput id="online_phone" value={phone} onChange={setPhone} invalid={!!error} />
-                            {error && <p className="ml-1 mt-2 text-[10px] font-bold uppercase text-rose-500">{error}</p>}
-                        </div>
-                        <Button type="button" size="lg" className="w-full tracking-[0.4em]" onClick={send} disabled={sending}>
-                            {sending ? 'Sending…' : 'Send Payment Request'}
-                        </Button>
-                        {attemptsLeft < options.maxAttempts && (
-                            <p className="text-center text-[11px] font-bold text-gray-400">{attemptsLeft} of {options.maxAttempts} tries left</p>
+                        {chosenManual ? (
+                            <ManualPay key={chosenManual.method} code={code} option={chosenManual} paidFrom={options.phone} owed={owed} />
+                        ) : (
+                            <>
+                                <div>
+                                    <Label htmlFor="online_phone">{label(method)} Number <span className="text-rose-500">*</span></Label>
+                                    <PhoneInput id="online_phone" value={phone} onChange={typePhone} invalid={!!(error || mismatch)} />
+                                    {(error || mismatch) && <p className="ml-1 mt-2 text-[10px] font-bold uppercase text-rose-500">{error || mismatch}</p>}
+                                </div>
+                                <Button type="button" size="lg" className="w-full tracking-[0.4em]" onClick={send} disabled={sending}>
+                                    {sending ? 'Sending…' : 'Send Payment Request'}
+                                </Button>
+                                {attemptsLeft < options.maxAttempts && (
+                                    <p className="text-center text-[11px] font-bold text-gray-400">{attemptsLeft} of {options.maxAttempts} tries left</p>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
@@ -223,7 +263,7 @@ export function OnlinePay({
                         <h3 className={panelTitle}>Check Your Phone</h3>
                         <p className="mb-1 text-sm font-bold text-gray-500">A payment prompt was sent to</p>
                         <p className="mb-6 text-lg font-black text-brand">{masked}</p>
-                        <p className="mb-4 text-[13px] font-bold text-gray-600">Enter your EcoCash PIN on your phone to approve the payment.</p>
+                        <p className="mb-4 text-[13px] font-bold text-gray-600">Enter your {label(method)} PIN on your phone to approve the payment.</p>
                         <div className="mx-auto max-w-xs">
                             <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                                 <div className="h-full bg-action transition-all duration-1000" style={{ width: `${(100 * secondsLeft) / waitSeconds}%` }} />
@@ -238,7 +278,7 @@ export function OnlinePay({
                     <div className="py-6 text-center">
                         <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl bg-amber-100"><Smartphone className="size-7 text-amber-500" /></div>
                         <h3 className={panelTitle}>Did you enter your PIN?</h3>
-                        <p className="mb-6 text-sm font-bold text-gray-500">We haven't heard back from EcoCash yet.</p>
+                        <p className="mb-6 text-sm font-bold text-gray-500">We haven't heard back from {label(method)} yet.</p>
                         <div className="space-y-3">
                             <Button type="button" variant="dark" className="w-full" onClick={approved}>Yes, I approved it</Button>
                             <Button type="button" className="w-full" onClick={retryOrFallback}>No, send it again</Button>

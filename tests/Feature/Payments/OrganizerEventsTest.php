@@ -281,11 +281,17 @@ describe('online payment methods', function () {
         config(['gateways.paylesotho.enabled' => true, 'gateways.paylesotho.ecocash.enabled' => true, 'gateways.paylesotho.mpesa.enabled' => false]);
     });
 
-    it('shows every method, with the ones not live yet as coming soon', function () {
+    it('shows every method, with the ones not live yet as coming soon, and those VENTIQ takes by hand', function () {
+        config(['gateways.paylesotho.mpesa.merchant_number' => null, 'ventiq.bank.account_number' => null]);
         $this->actingAs($this->admin)->get(route('organizer.events.create'))
             ->assertOk()->assertInertia(fn ($page) => $page
-                ->where('onlineCatalog', ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'card' => 'Card'])
-                ->where('onlineDrivers', ['ecocash']));
+                ->where('onlineCatalog', ['ecocash' => 'EcoCash', 'mpesa' => 'M-Pesa', 'bank' => 'Bank transfer'])
+                ->where('onlineDrivers', ['ecocash'])->where('manualMethods', []));
+
+        // M-Pesa to VENTIQ's number and VENTIQ's bank account: offered, paid by hand.
+        config(['gateways.paylesotho.mpesa.merchant_number' => '58000000', 'ventiq.bank.account_number' => '63212657621']);
+        $this->get(route('organizer.events.create'))->assertInertia(fn ($page) => $page
+            ->where('onlineDrivers', ['ecocash', 'mpesa', 'bank'])->where('manualMethods', ['mpesa', 'bank']));
     });
 
     it('stores the chosen methods, and attendees are offered only those that are live', function () {

@@ -426,6 +426,18 @@ class RegistrationController extends Controller
             'anotherWay'    => $anotherWay,
             'merchant'      => $merchant,
             'merchantReference' => $merchantReference,
+            // Paid to VENTIQ by hand, with no PIN prompt: where to send it, and the reference.
+            'manual'        => collect($accounts->manualMethodsForEvent($event))->map(fn (string $m) => [
+                'method' => $m,
+                'label'  => \App\Services\Payments\PaymentGatewayFactory::CATALOG[$m],
+                'lines'  => $m === 'bank'
+                    ? \App\Support\BankDetails::lines($merchantReference)
+                    : array_values(array_filter([
+                        ['label' => 'Send to', 'value' => (string) config('gateways.paylesotho.mpesa.merchant_number')],
+                        config('gateways.paylesotho.mpesa.merchant_name') ? ['label' => 'Name', 'value' => (string) config('gateways.paylesotho.mpesa.merchant_name')] : null,
+                        ['label' => 'Reference', 'value' => $merchantReference],
+                    ])),
+            ])->values(),
             // The organizer's own accounts (only on events VENTIQ sponsors).
             'accounts'      => $paymentMethods->map(fn ($m) => [
                 'id'           => $m->id,
@@ -468,14 +480,23 @@ class RegistrationController extends Controller
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code]);
         }
         abort_unless(in_array($ticket->status, ['pending', 'active'], true), 410);
-        abort_unless(app(\App\Services\Payments\PaymentAccountService::class)->merchantForEvent($event), 404);
 
-        // The number they paid from is enough for the SMS to be matched;
-        // the approval code or a screenshot helps a person if it isn't.
+        // EcoCash to VENTIQ's merchant code (matched on its SMS), or M-Pesa
+        // to VENTIQ's number or a bank transfer, which VENTIQ confirms.
+        $method = (string) $request->input('method', 'ecocash');
+        $accounts = app(\App\Services\Payments\PaymentAccountService::class);
+        abort_unless($method === 'ecocash' ? $accounts->merchantForEvent($event) : in_array($method, $accounts->manualMethodsForEvent($event), true), 404);
+
+        // The number they paid from is enough for an EcoCash SMS to be
+        // matched; the others need the reference or a screenshot.
         $validated = $request->validate([
-            'merchant_reference' => ['nullable', 'string', 'max:100'],
-            'merchant_phone'     => ['required', 'string', 'max:20'],
+            'merchant_reference' => [$method === 'ecocash' ? 'nullable' : 'required_without:proof', 'nullable', 'string', 'max:100'],
+            'merchant_phone'     => [$method === 'bank' ? 'nullable' : 'required', 'nullable', 'string', 'max:20'],
             'proof'              => \App\Support\PaymentProof::RULES,
+        ], [
+            'merchant_reference.required_without' => $method === 'bank'
+                ? 'Add the reference from your bank, or a screenshot of the transfer.'
+                : 'Add the transaction ID from your M-Pesa message, or a screenshot of it.',
         ]);
 
         $owed = round(max(0, (float) $ticket->amount - (float) $ticket->amount_paid), 2);
@@ -488,9 +509,9 @@ class RegistrationController extends Controller
         $session->fill([
             'payable_type'     => 'ticket',
             'payable_id'       => $ticket->id,
-            'gateway'          => 'paylesotho',
+            'gateway'          => $method === 'bank' ? 'bank' : 'paylesotho',
             'status'           => 'pending',
-            'payment_method'   => 'ecocash',
+            'payment_method'   => $method === 'bank' ? 'bank_transfer' : $method,
             'amount'           => $owed,
             'organization_id'  => $organization->id,
             'client_reference' => $session->client_reference ?? 'HAND' . $ticket->id . 'T' . random_int(1_000_000_000, 9_999_999_999),
@@ -498,7 +519,7 @@ class RegistrationController extends Controller
             'purchase_meta'    => ['by_hand' => true],
             'callback_payload' => ['by_hand' => [
                 'reference'  => $validated['merchant_reference'] ?? null,
-                'paid_from'  => $validated['merchant_phone'],
+                'paid_from'  => $validated['merchant_phone'] ?? null,
                 'proof_path' => \App\Support\PaymentProof::store($request->file('proof')) ?? ($session->callback_payload['by_hand']['proof_path'] ?? null),
                 'at'         => now()->toIso8601String(),
             ]],
@@ -507,8 +528,8 @@ class RegistrationController extends Controller
         // Waiting on VENTIQ now, not on the attendee: don't let it expire.
         $ticket->update(['payment_due_at' => null]);
 
-        // Its SMS may already be here.
-        if (app(\App\Services\MobileMoney\MobileMoneyInbox::class)->claimed($session)) {
+        // An EcoCash payment's SMS may already be here.
+        if ($method === 'ecocash' && app(\App\Services\MobileMoney\MobileMoneyInbox::class)->claimed($session)) {
             return redirect()->route('ticket.download', ['qr_code' => $ticket->qr_code])
                 ->with('status', "Payment received. Your ticket is active and on its way to you.");
         }

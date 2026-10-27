@@ -92,7 +92,7 @@ class VentiqMoneyController extends Controller
             // hand against the merchant statement until its callbacks work.
             // Pushes EcoCash never answered (after the ~2 minute wait), and
             // attendees who paid the merchant by hand (straight away).
-            'toCheck'     => PaymentSession::where('payable_type', 'ticket')->where('gateway', 'paylesotho')
+            'toCheck'     => PaymentSession::where('payable_type', 'ticket')->whereIn('gateway', ['paylesotho', 'bank'])
                 ->where('status', 'pending')
                 ->where(fn ($q) => $q->where('created_at', '<', now()->subMinutes(3))->orWhereNotNull('purchase_meta'))
                 ->where('created_at', '>', now()->subDays(7))->latest()->limit(100)->get()
@@ -102,7 +102,7 @@ class VentiqMoneyController extends Controller
                     return [
                         'id'        => $s->id,
                         'amount'    => (float) $s->amount,
-                        'method'    => ucfirst((string) $s->payment_method),
+                        'method'    => \App\Services\Payments\PaymentGatewayFactory::CATALOG[$s->payment_method] ?? ucfirst((string) $s->payment_method),
                         'at'        => $s->created_at->format('j M, H:i'),
                         'reference' => $s->client_reference,
                         'transaction' => $s->transaction_id,

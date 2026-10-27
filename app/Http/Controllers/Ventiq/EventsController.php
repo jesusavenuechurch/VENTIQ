@@ -50,6 +50,8 @@ class EventsController extends Controller
             ]),
             'state'    => $table->state(),
             'statuses' => collect(config('constants.event_statuses'))->map(fn ($label, $value) => compact('value', 'label'))->values(),
+            // To create an event for one of them (opened in its organizer view).
+            'organizations' => \App\Models\Organization::orderBy('name')->get(['id', 'name'])->map(fn ($o) => ['value' => $o->id, 'label' => $o->name]),
             'meta'     => ['title' => 'Events | VENTIQ'],
         ]);
     }

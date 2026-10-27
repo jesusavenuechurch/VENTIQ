@@ -36,7 +36,8 @@ export default function Register({
         institution: '',
         district: '',
         updates: false,
-        terms: false,
+        // Agreed by continuing: the line under the button says so.
+        terms: true,
     });
     const paid = tier.price > 0;
     const workshop = event.type === 'workshop' && districts;
@@ -52,7 +53,11 @@ export default function Register({
         if (!before) return;
         setSaved(true);
         setPeople(before.people);
-        form.setData((d) => ({ ...d, phone: before.phone, email: before.email, preferred_delivery: before.delivery, has_whatsapp: before.delivery !== 'email' }));
+        form.setData((d) => ({
+            ...d, phone: before.phone, email: before.email, preferred_delivery: before.delivery, has_whatsapp: before.delivery !== 'email',
+            // Their own answer last time for this organizer: never ticked for them otherwise.
+            updates: before.updatesFor.includes(event.organization.slug),
+        }));
         if (before.people[0]) choosePerson(before.people[0]);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -98,6 +103,7 @@ export default function Register({
             onSuccess: () => remember(
                 { phone: form.data.phone, email: wantsEmail ? form.data.email : '', delivery: form.data.preferred_delivery },
                 { name: form.data.full_name.trim(), ...(workshop ? { position: form.data.position, institution: form.data.institution, district: form.data.district } : {}) },
+                { organizer: event.organization.slug, yes: form.data.updates },
             ),
         });
     }
@@ -281,13 +287,10 @@ export default function Register({
                                     <span className="block text-[11px] text-gray-400">By WhatsApp or email. You can say stop at any time.</span>
                                 </span>
                             </label>
-                            <label className="flex cursor-pointer items-start">
-                                <input type="checkbox" required checked={form.data.terms} onChange={(e) => form.setData('terms', e.target.checked)} className="mt-1 size-5 rounded accent-action" />
-                                <span className="ml-4 text-[11px] font-bold uppercase tracking-wide text-gray-500">
-                                    I agree to the <a href={route('terms')} target="_blank" rel="noopener" className="text-brand underline hover:text-action">ticket terms</a>.
-                                </span>
-                            </label>
                             <Button type="submit" size="lg" className="hidden w-full lg:flex" disabled={form.processing}>{action}</Button>
+                            <p className="text-center text-[11px] font-medium text-gray-400">
+                                By continuing you agree to the <a href={route('terms')} target="_blank" rel="noopener" className="font-bold text-brand underline hover:text-action">ticket terms</a>.
+                            </p>
                         </div>
                     </form>
                 </div>

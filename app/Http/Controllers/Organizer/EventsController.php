@@ -126,7 +126,9 @@ class EventsController extends Controller
                 ->map(fn (OrganizationPaymentMethod $a) => ['id' => $a->id, 'label' => $a->display_label, 'number' => $a->account_number, 'isDefault' => (bool) $a->is_default])
                 ->values(),
             'selectedAccounts' => array_map('intval', $selectedAccounts),
-            'onlineDrivers'    => PaymentGatewayFactory::enabledMethods(),
+            // What can be offered: online, or paid to VENTIQ by hand (confirmed by VENTIQ).
+            'onlineDrivers'    => PaymentGatewayFactory::availableMethods(),
+            'manualMethods'    => PaymentGatewayFactory::manualMethods(),
             'onlineCatalog'    => PaymentGatewayFactory::CATALOG,
             // Chosen methods: the event's, or for an event that never chose
             // (and new events) every live one when online is on.

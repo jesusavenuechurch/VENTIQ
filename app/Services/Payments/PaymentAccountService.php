@@ -101,6 +101,25 @@ class PaymentAccountService
     }
 
     /**
+     * Ways to pay VENTIQ by hand this event offers (M-Pesa to VENTIQ's
+     * number, a bank transfer), gated like online payment: the event offers
+     * VENTIQ's online account, and chose the method (older events: all).
+     *
+     * @return string[]
+     */
+    public function manualMethodsForEvent(Event $event): array
+    {
+        $online = OrganizationPaymentMethod::where('organization_id', $event->organization_id)
+            ->where('payment_method', 'online')->where('is_active', true)->first();
+        if (!$online || ($event->enabled_payment_method_ids !== null && !in_array($online->id, $event->enabled_payment_method_ids))) {
+            return [];
+        }
+        $manual = PaymentGatewayFactory::manualMethods();
+
+        return $event->online_methods === null ? $manual : array_values(array_intersect($manual, $event->online_methods));
+    }
+
+    /**
      * Accounts a new event starts with: the default account for each
      * method, or every active account when the organization hasn't marked
      * any default (so nothing disappears for organizations that never

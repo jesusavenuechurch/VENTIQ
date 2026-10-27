@@ -1,9 +1,14 @@
 import { Head, router } from '@inertiajs/react';
-import { ExternalLink, Gift } from 'lucide-react';
+import { ExternalLink, Gift, Plus } from 'lucide-react';
+import { useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { OrgLink, Pill, organizerView, smallButton } from '@/components/admin/cells';
 import { DataTable, type Column, type TableState } from '@/components/data-table';
 import type { Paginated } from '@/components/pagination';
+import { Field } from '@/components/field';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { NativeSelect } from '@/components/ui/native-select';
 
 interface Row {
     id: number;
@@ -59,9 +64,31 @@ const columns: Column<Row>[] = [
 ];
 
 /** Every event on VENTIQ. */
-export default function Events({ rows, state, statuses }: { rows: Paginated<Row>; state: TableState; statuses: { value: string; label: string }[] }) {
+export default function Events({ rows, state, statuses, organizations }: { rows: Paginated<Row>; state: TableState; statuses: { value: string; label: string }[]; organizations: { value: number; label: string }[] }) {
+    const [creating, setCreating] = useState(false);
+    const [org, setOrg] = useState('');
+
     return (
-        <AdminLayout title="Events" subtitle="Every ticketed event on VENTIQ. Opening one takes you into its organizer view, on its behalf. Sessions and programmes are under Kind.">
+        <AdminLayout
+            title="Events"
+            subtitle="Every ticketed event on VENTIQ. Opening one takes you into its organizer view, on its behalf. Sessions and programmes are under Kind."
+            actions={<Button type="button" variant="brand" className="px-5 py-3 text-[10px]" onClick={() => setCreating(true)}><Plus className="size-3.5" />Create an event</Button>}
+        >
+            <Dialog open={creating} onOpenChange={setCreating}>
+                <DialogContent className="max-w-md rounded-[2rem]">
+                    <DialogTitle className="text-lg font-black text-brand">Create an event</DialogTitle>
+                    <p className="text-[12px] text-gray-500">For which organization? Its event form opens, in its organizer view, on its behalf.</p>
+                    <Field label="Organization" htmlFor="create-org">
+                        <NativeSelect id="create-org" value={org} onChange={(e) => setOrg(e.target.value)}>
+                            <option value="" disabled>Choose…</option>
+                            {organizations.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </NativeSelect>
+                    </Field>
+                    <Button type="button" variant="brand" disabled={!org} onClick={() => (window.location.href = route('organizer.act-as.start', { organization: org, to: 'create' }))}>
+                        Open the event form
+                    </Button>
+                </DialogContent>
+            </Dialog>
             <Head title="Events" />
             <DataTable
                 rows={rows}

@@ -21,6 +21,11 @@ class ActAsController extends Controller
         session([CurrentOrganization::SESSION_KEY => $organization->id]);
         Log::info("Super admin {$request->user()->id} opened the organizer area for organization {$organization->id}");
 
+        // Creating an event for it (from the admin's Events page).
+        if ($request->query('to') === 'create') {
+            return redirect()->route('organizer.events.create');
+        }
+
         // Straight to one of its events (from the admin's events and tickets lists).
         $event = $request->integer('event') ? $organization->events()->find($request->integer('event')) : null;
         if ($event) {
