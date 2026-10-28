@@ -2,13 +2,13 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
-import { ArrowLeft, ChevronRight, GraduationCap, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, GraduationCap, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
 import SessionsLayout, { primaryButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import { cn } from '@/lib/utils';
 import type { SessionsArea, SharedProps } from '@/types';
 
-type Column = 'ready' | 'live' | 'upcoming' | 'recent';
+type Column = 'ready' | 'live' | 'upcoming';
 
 interface Tile {
     id: number;
@@ -25,8 +25,18 @@ interface Tile {
     series: { id: number; rule: string } | null;
 }
 
+interface DueAction {
+    id: number;
+    task: string;
+    owner: string | null;
+    dueLabel: string | null;
+    overdue: boolean;
+    session: { id: number; title: string } | null;
+}
+
 interface Props {
     columns: Record<Column, Tile[]>;
+    dueActions: DueAction[];
     filter: Column | null;
     members: number;
     pendingInvites: number;
@@ -41,12 +51,12 @@ const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = 
     ready: { label: 'Ready to review', tint: '#FDF3D9', empty: 'Nothing waiting' },
     live: { label: 'Happening now', tint: '#FFE9CE', empty: 'Nothing live' },
     upcoming: { label: 'Coming up', tint: '#E9EEF5', empty: 'Nothing scheduled' },
-    recent: { label: 'Recently finished', tint: '#F1F5F9', empty: 'Nothing yet' },
 };
+const ACTIONS_TINT = '#E6F4EA';
 const ROTATIONS = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg'];
 
-/** The desk: sessions to review, live, coming up and just finished, as notes on a board. */
-export default function Index({ columns, filter, members, pendingInvites, series, types, today, openSchedule }: Props) {
+/** The desk: sessions to review, live and coming up, and the action points due, as notes on a board. */
+export default function Index({ columns, dueActions, filter, members, pendingInvites, series, types, today, openSchedule }: Props) {
     const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -68,7 +78,7 @@ export default function Index({ columns, filter, members, pendingInvites, series
         if (!open) checkDraft();
     };
     const outOfSessions = sessionsArea.quota.remaining <= 0;
-    const anything = (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
+    const anything = dueActions.length > 0 || (Object.keys(COLUMNS) as Column[]).some((c) => columns[c].length > 0);
 
     return (
         <SessionsLayout
@@ -153,7 +163,7 @@ export default function Index({ columns, filter, members, pendingInvites, series
                 <Board>
                     <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">
                         {(Object.keys(COLUMNS) as Column[]).map((c, i) => (
-                            <div key={c} className={cn(i > 0 && 'lg:border-l lg:border-dashed lg:border-slate-900/10 lg:pl-6', i < 3 && 'lg:pr-6')}>
+                            <div key={c} className={cn(i > 0 && 'lg:border-l lg:border-dashed lg:border-slate-900/10 lg:pl-6', 'lg:pr-6')}>
                                 <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{COLUMNS[c].label}</p>
                                 <div className="space-y-5">
                                     {columns[c].slice(0, 4).map((t) => <Note key={t.id} tile={t} column={c} can={can} />)}
@@ -164,6 +174,16 @@ export default function Index({ columns, filter, members, pendingInvites, series
                                 )}
                             </div>
                         ))}
+                        <div className="lg:border-l lg:border-dashed lg:border-slate-900/10 lg:pl-6">
+                            <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Action points due</p>
+                            <div className="space-y-5">
+                                {dueActions.slice(0, 4).map((a) => <ActionNote key={a.id} point={a} canTick={can.run} />)}
+                                {dueActions.length === 0 && <p className="text-[11px] italic text-gray-400">Nothing due this week</p>}
+                            </div>
+                            <Link href={route('sessions.actions.index', dueActions.some((a) => a.overdue) ? { show: 'overdue' } : {})} className="mt-3 inline-block text-[11px] font-bold text-brand underline">
+                                {dueActions.length > 4 ? `See all ${dueActions.length}` : 'All action points'}
+                            </Link>
+                        </div>
                     </div>
                 </Board>
             ) : (
@@ -199,8 +219,8 @@ function Note({ tile, column, can }: { tile: Tile; column: Column; can: Sessions
         ready: 'Report ready',
         live: 'Live now',
         upcoming: tile.starts ? `Starts ${tile.starts}` : 'Scheduled',
-        recent: tile.updated,
     }[column];
+    const writingUp = column === 'ready' && tile.status === 'completed';
 
     return (
         <Tag
@@ -220,9 +240,51 @@ function Note({ tile, column, can }: { tile: Tile; column: Column; can: Sessions
                 ) : null}
             </div>
             <p className="flex items-center gap-1 text-[9px] font-bold text-slate-900/45">
-                {column === 'live' ? <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> : column === 'upcoming' && <Clock className="size-3" />}
-                {status}
+                {column === 'live' || writingUp ? <span className={cn('size-1.5 animate-pulse rounded-full', writingUp ? 'bg-amber-500' : 'bg-emerald-500')} /> : column === 'upcoming' && <Clock className="size-3" />}
+                {writingUp ? 'Writing up…' : status}
             </p>
         </Tag>
+    );
+}
+
+/** An action point on the board: who, by when, from which meeting, ticked off in place. */
+function ActionNote({ point, canTick }: { point: DueAction; canTick: boolean }) {
+    const [ticking, setTicking] = useState(false);
+    const tick = () => {
+        setTicking(true);
+        router.post(route('sessions.actions.done', point.id), {}, { preserveScroll: true, onFinish: () => setTicking(false) });
+    };
+
+    return (
+        <div
+            className="relative rounded-b-[10px] rounded-t px-3.5 pb-3.5 pt-[18px] shadow-[0_10px_20px_rgba(15,23,42,0.12)]"
+            style={{ background: ACTIONS_TINT, transform: `rotate(${ROTATIONS[point.id % ROTATIONS.length]})` }}
+        >
+            <span className="absolute -top-2.5 left-1/2 h-[18px] w-[50px] -translate-x-1/2 -rotate-3 border border-white/80 bg-white/60 shadow-sm" />
+            <div className="flex items-start gap-2.5">
+                {canTick && (
+                    <button
+                        type="button"
+                        onClick={tick}
+                        disabled={ticking}
+                        title="Mark done"
+                        aria-label={`Mark done: ${point.task}`}
+                        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-2 border-emerald-700/40 bg-white/70 text-emerald-700 transition-colors hover:border-emerald-700 hover:bg-emerald-700 hover:text-white disabled:opacity-50"
+                    >
+                        <Check className="size-3" strokeWidth={3} />
+                    </button>
+                )}
+                <span className="min-w-0">
+                    <span className="mb-1 line-clamp-3 block text-[13px] font-black leading-snug text-brand">{point.task}</span>
+                    {point.owner && <span className="mb-1.5 block truncate text-[10px] font-bold text-slate-900/55"><UsersRound className="mr-1 inline size-3" />{point.owner}</span>}
+                    <span className={cn('block text-[9px] font-black uppercase tracking-widest', point.overdue ? 'text-rose-700' : 'text-slate-900/45')}>
+                        {point.overdue ? `Overdue · ${point.dueLabel}` : `Due ${point.dueLabel}`}
+                    </span>
+                    {point.session && (
+                        <Link href={route('sessions.show', point.session.id)} className="mt-1 block truncate text-[10px] font-bold text-slate-900/45 hover:text-brand">From {point.session.title}</Link>
+                    )}
+                </span>
+            </div>
+        </div>
     );
 }

@@ -85,18 +85,29 @@ class SessionController extends Controller
         };
 
         // Reported sessions live in Reports once reviewed; finished ones
-        // without a report yet are "Recently finished".
+        // still being written up wait in "Ready to review" too.
         $columns = [
-            'ready'    => $sessions->filter(fn ($s) => $s->status === 'reported' && !$s->reviewed_at),
+            'ready'    => $sessions->filter(fn ($s) => ($s->status === 'reported' && !$s->reviewed_at) || $s->status === 'completed')
+                ->sortBy(fn ($s) => $s->status === 'completed' ? 0 : 1),
             'live'     => $sessions->filter(fn ($s) => $s->status === 'active'),
             // A series shows only its next meeting here; the rest are on its page.
             'upcoming' => $sessions->filter(fn ($s) => $s->status === 'draft')->sortBy(fn ($s) => $s->date?->toDateString() . ' ' . $s->start_time)
                 ->unique(fn ($s) => $s->series_id ? "series-{$s->series_id}" : "session-{$s->id}"),
-            'recent'   => $sessions->filter(fn ($s) => $s->status === 'completed'),
         ];
+
+        // What people promised, overdue first, then the coming week.
+        $dueActions = \App\Models\ActionPoint::where('organization_id', $organization->id)
+            ->where('status', 'open')
+            ->whereNotNull('due_date')
+            ->whereDate('due_date', '<=', today()->addDays(7))
+            ->with(['session', 'ownerUser', 'ownerClient'])
+            ->orderBy('due_date')
+            ->limit(30)
+            ->get();
 
         return Inertia::render('Sessions/Index', [
             'columns'        => collect($columns)->map(fn ($items) => $items->map($tile)->values()),
+            'dueActions'     => $dueActions->map->toCard()->values(),
             'filter'         => in_array($request->query('filter'), array_keys($columns), true) ? $request->query('filter') : null,
             'members'        => $organization->members()->count(),
             'pendingInvites' => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->count(),
