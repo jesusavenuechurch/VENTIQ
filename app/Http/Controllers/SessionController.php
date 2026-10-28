@@ -10,6 +10,7 @@ use App\Jobs\GenerateSessionReport;
 use App\Services\SessionQuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use App\Support\SessionType;
 use Inertia\Inertia;
@@ -78,6 +79,7 @@ class SessionController extends Controller
                 'presenters' => $s->segments->count(),
                 'speaker'    => $activeIndex === false ? null : $activeIndex + 1,
                 'starts'     => $starts ? ($s->start_time ? $starts->format('D j M · H:i') : $starts->format('D j M')) : null,
+                'date'       => $s->date?->toDateString(),
                 'updated'    => $s->updated_at->diffForHumans(),
                 'tracking'   => (bool) $s->public_token,
                 'series'     => $s->series ? ['id' => $s->series->id, 'rule' => $s->series->describe()] : null,
@@ -108,6 +110,7 @@ class SessionController extends Controller
         return Inertia::render('Sessions/Index', [
             'columns'        => collect($columns)->map(fn ($items) => $items->map($tile)->values()),
             'dueActions'     => $dueActions->map->toCard()->values(),
+            'week'           => fn () => $this->week($request, $organization->id),
             'filter'         => in_array($request->query('filter'), array_keys($columns), true) ? $request->query('filter') : null,
             'members'        => $organization->members()->count(),
             'pendingInvites' => $organization->invites()->whereNull('accepted_at')->where('expires_at', '>', now())->count(),
@@ -122,6 +125,111 @@ class SessionController extends Controller
             'openSchedule'   => (bool) session('schedule'),
             'meta'           => ['title' => 'Sessions | VENTIQ'],
         ]);
+    }
+
+    /** The week strip: each day's sessions and action points, Monday first. */
+    private function week(Request $request, int $organizationId): array
+    {
+        $start = rescue(fn () => \Carbon\Carbon::parse((string) $request->query('week', today()->toDateString())), today(), false)
+            ->startOfWeek(\Carbon\Carbon::MONDAY)->startOfDay();
+        $end = $start->copy()->addDays(6);
+
+        $sessions = Session::forOrganization($organizationId)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn ($s) => $s->date->toDateString());
+        $points = \App\Models\ActionPoint::where('organization_id', $organizationId)
+            ->where('status', 'open')
+            ->whereBetween('due_date', [$start->toDateString(), $end->toDateString()])
+            ->with(['session', 'ownerUser', 'ownerClient'])
+            ->get()
+            ->groupBy(fn ($p) => $p->due_date->toDateString());
+
+        return [
+            'start' => $start->toDateString(),
+            'label' => $start->month === $end->month ? $start->format('j') . '–' . $end->format('j M Y') : $start->format('j M') . ' – ' . $end->format('j M Y'),
+            'prev'  => $start->copy()->subWeek()->toDateString(),
+            'next'  => $start->copy()->addWeek()->toDateString(),
+            'days'  => collect(range(0, 6))->map(function ($i) use ($start, $sessions, $points) {
+                $day = $start->copy()->addDays($i);
+                $key = $day->toDateString();
+
+                return [
+                    'date'     => $key,
+                    'weekday'  => $day->format('D'),
+                    'day'      => $day->format('j'),
+                    'label'    => $day->format('l j F'),
+                    'sessions' => ($sessions[$key] ?? collect())->map(fn (Session $s) => [
+                        'id'       => $s->id,
+                        'title'    => $s->resolved_title,
+                        'status'   => $s->status,
+                        'time'     => $s->start_time ? substr($s->start_time, 0, 5) : null,
+                        'tracking' => (bool) $s->public_token,
+                    ])->values(),
+                    'actions'  => ($points[$key] ?? collect())->map->toCard()->values(),
+                ];
+            })->values(),
+        ];
+    }
+
+    /**
+     * The desk search: sessions by title, who led an item, the notes taken
+     * and the minutes. Each hit says where it matched.
+     */
+    public function search(Request $request)
+    {
+        $q = trim((string) $request->query('q'));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['results' => []]);
+        }
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+
+        $sessions = Session::forOrganization(Auth::user()->organization_id)
+            ->where(fn ($w) => $w->where('title', 'like', $like)
+                ->orWhere('minutes', 'like', $like)
+                ->orWhereHas('segments', fn ($s) => $s->where('title', 'like', $like)
+                    ->orWhere('presenter_name', 'like', $like)
+                    ->orWhere('raw_log', 'like', $like)))
+            ->with('segments')
+            ->orderByDesc('date')
+            ->limit(12)
+            ->get();
+
+        return response()->json(['results' => $sessions->map(fn (Session $s) => [
+            'id'     => $s->id,
+            'title'  => $s->resolved_title,
+            'date'   => $s->date?->format('D j M Y'),
+            'status'   => $s->status,
+            'tracking' => (bool) $s->public_token,
+            'match'    => static::whereMatched($s, $q),
+        ])->values()]);
+    }
+
+    /** "Led by …", "Item: …" or a bit of the notes or minutes around the words. */
+    private static function whereMatched(Session $s, string $q): ?string
+    {
+        if (Str::contains($s->resolved_title, $q, true)) {
+            return null;
+        }
+        foreach ($s->segments as $item) {
+            if (Str::contains((string) $item->presenter_name, $q, true)) {
+                return "Led by {$item->presenter_name}";
+            }
+            if (Str::contains((string) $item->title, $q, true)) {
+                return "Item: {$item->title}";
+            }
+        }
+        $texts = $s->segments->flatMap(fn ($item) => collect($item->raw_log ?? [])->pluck('text'))
+            ->merge(Arr::flatten((array) ($s->minutes ?? [])));
+        foreach ($texts as $text) {
+            if (is_string($text) && ($at = mb_stripos($text, $q)) !== false) {
+                $start = max(0, $at - 40);
+                return ($start > 0 ? '…' : '') . trim(mb_substr($text, $start, 110)) . (mb_strlen($text) > $start + 110 ? '…' : '');
+            }
+        }
+
+        return null;
     }
 
     // Scheduling is a dialog over the desk, or over the programme it's for.

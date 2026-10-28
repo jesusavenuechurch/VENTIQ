@@ -41,3 +41,34 @@ it('puts a finished session still being written up in Ready to review, ahead of 
         ->where('columns.ready.0.id', $writing->id)->where('columns.ready.0.status', 'completed')
         ->where('columns.ready.1.id', $this->session->id));
 });
+
+it('finds sessions by title, item leader and the notes, saying where it matched, only in this organization', function () {
+    $this->session->segments()->create(['title' => 'Fuel budget', 'presenter_name' => 'Palesa Mokoena', 'order' => 1, 'status' => 'completed', 'raw_log' => [['time' => '10:02', 'text' => 'agreed to buy a second vehicle for the district']]]);
+    $other = Organization::factory()->create();
+    Session::create(['organization_id' => $other->id, 'type' => 'meeting', 'title' => 'Board vehicle talk', 'date' => today()]);
+
+    $this->getJson(route('sessions.search', ['q' => 'board']))->assertOk()->assertJsonCount(1, 'results')->assertJsonPath('results.0.match', null);
+    $this->getJson(route('sessions.search', ['q' => 'palesa']))->assertJsonPath('results.0.match', 'Led by Palesa Mokoena');
+    $this->getJson(route('sessions.search', ['q' => 'second vehicle']))->assertJsonPath('results.0.id', $this->session->id)
+        ->assertJsonPath('results.0.match', 'agreed to buy a second vehicle for the district');
+    $this->getJson(route('sessions.search', ['q' => 'b']))->assertJsonCount(0, 'results');
+    $this->getJson(route('sessions.search', ['q' => '100%']))->assertJsonCount(0, 'results');
+});
+
+it('shows the week, Monday first, with each day\'s sessions and action points, and moves between weeks', function () {
+    $monday = today()->startOfWeek();
+    $this->session->update(['date' => $monday->copy()->addDays(2), 'start_time' => '09:30']);
+    ActionPoint::create(['organization_id' => $this->org->id, 'session_id' => $this->session->id, 'task' => 'Send quotes', 'status' => 'open', 'due_date' => $monday->copy()->addDays(4)]);
+
+    $this->get(route('sessions.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('week.start', $monday->toDateString())
+        ->has('week.days', 7)
+        ->where('week.days.0.weekday', 'Mon')
+        ->where('week.days.2.sessions.0.title', 'Board meeting')->where('week.days.2.sessions.0.time', '09:30')
+        ->where('week.days.4.actions.0.task', 'Send quotes'));
+
+    $this->get(route('sessions.index', ['week' => $monday->copy()->addWeek()->addDays(3)->toDateString()]))->assertInertia(fn (Assert $page) => $page
+        ->where('week.start', $monday->copy()->addWeek()->toDateString())
+        ->where('week.days.2.sessions', []));
+    $this->get(route('sessions.index', ['week' => 'not-a-date']))->assertOk();
+});

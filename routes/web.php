@@ -253,6 +253,7 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::get('/create', [SessionController::class, 'create'])->name('create');
     Route::post('/', [SessionController::class, 'store'])->name('store');
     Route::post('/quick', [SessionController::class, 'quick'])->name('quick');
+    Route::get('/search', [SessionController::class, 'search'])->middleware('throttle:60,1')->name('search');
 
     // MUST be above '/{session}' — otherwise Laravel tries to bind
     // "reports" as a Session ID and 404s before this line is ever reached.

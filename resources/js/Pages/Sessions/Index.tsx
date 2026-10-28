@@ -1,6 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
+import { DeskSearch } from '@/components/sessions/desk-search';
+import { WeekStrip, type Week } from '@/components/sessions/week-strip';
 import { clearDraft, readDraft } from '@/lib/session-draft';
 import { ArrowLeft, Check, ChevronRight, GraduationCap, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
 import SessionsLayout, { primaryButton } from '@/Layouts/SessionsLayout';
@@ -37,6 +39,7 @@ interface DueAction {
 interface Props {
     columns: Record<Column, Tile[]>;
     dueActions: DueAction[];
+    week: Week;
     filter: Column | null;
     members: number;
     pendingInvites: number;
@@ -53,10 +56,19 @@ const COLUMNS: Record<Column, { label: string; tint: string; empty: string }> = 
     upcoming: { label: 'Coming up', tint: '#E9EEF5', empty: 'Nothing scheduled' },
 };
 const ACTIONS_TINT = '#E6F4EA';
+const DAY_STATUS: Record<string, string> = { draft: 'Scheduled', active: 'Live now', completed: 'Writing up', reported: 'Report ready' };
+
+/** Where a session opens depends on the role: the console to run it, the report to read it, or the check-in list at the door. */
+function sessionHref(can: SessionsArea['can'], s: { id: number; status: string; tracking: boolean }): string | null {
+    if (can.run) return s.status === 'reported' ? route('sessions.report', s.id) : route('sessions.show', s.id);
+    if (can.view && s.status === 'reported') return route('sessions.report', s.id);
+    if (can.checkin && s.tracking) return route('sessions.checkin', s.id);
+    return null;
+}
 const ROTATIONS = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg'];
 
 /** The desk: sessions to review, live and coming up, and the action points due, as notes on a board. */
-export default function Index({ columns, dueActions, filter, members, pendingInvites, series, types, today, openSchedule }: Props) {
+export default function Index({ columns, dueActions, week, filter, members, pendingInvites, series, types, today, openSchedule }: Props) {
     const { auth, sessionsArea } = usePage<SharedProps & { sessionsArea: SessionsArea }>().props;
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -64,6 +76,8 @@ export default function Index({ columns, dueActions, filter, members, pendingInv
     // A session half scheduled earlier in this visit: offer to finish it.
     const [draft, setDraft] = useState<{ title: string; programme: number | null } | null>(null);
     const [scheduling, setScheduling] = useState(false);
+    const [day, setDay] = useState<string | null>(null);
+    const picked = week.days.find((d) => d.date === day) ?? null;
     const checkDraft = () => {
         const d = readDraft();
         setDraft(d?.data.title?.trim() && !d.data.programme_id ? { title: d.data.title.trim(), programme: null } : null);
@@ -112,6 +126,11 @@ export default function Index({ columns, dueActions, filter, members, pendingInv
                 </>
             }
         >
+            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+                <WeekStrip week={week} today={today} selected={day} onSelect={setDay} />
+                <div className="lg:w-80 lg:shrink-0"><DeskSearch href={(hit) => sessionHref(can, hit)} /></div>
+            </div>
+
             {draft && can.run && (
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-action/30 bg-white p-4 shadow-sm">
                     <p className="min-w-0 text-[13px] font-bold text-brand">
@@ -131,7 +150,7 @@ export default function Index({ columns, dueActions, filter, members, pendingInv
                 </div>
             )}
 
-            {series.length > 0 && !filter && (
+            {series.length > 0 && !filter && !picked && (
                 <div className="mb-6">
                     <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Repeating</p>
                     <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -148,7 +167,38 @@ export default function Index({ columns, dueActions, filter, members, pendingInv
                 </div>
             )}
 
-            {filter ? (
+            {picked ? (
+                <>
+                    <button type="button" onClick={() => setDay(null)} className="mb-4 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand"><ArrowLeft className="size-3" />Back to the desk</button>
+                    <Board>
+                        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{picked.label}</p>
+                        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                            <div className="space-y-2">
+                                {picked.sessions.map((s) => {
+                                    const to = sessionHref(can, s);
+                                    const Tag = to ? Link : 'div';
+                                    return (
+                                        <Tag key={s.id} href={to ?? ''} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm transition-all hover:shadow-md">
+                                            <span className="min-w-0">
+                                                <span className="block truncate text-[13px] font-bold text-brand">{s.title}</span>
+                                                <span className="block text-[11px] text-gray-400">{[s.time, DAY_STATUS[s.status] ?? s.status].filter(Boolean).join(' · ')}</span>
+                                            </span>
+                                            {to && <ChevronRight className="size-4 shrink-0 text-gray-300" />}
+                                        </Tag>
+                                    );
+                                })}
+                                {picked.sessions.length === 0 && <p className="text-[11px] italic text-gray-400">No sessions this day</p>}
+                            </div>
+                            {picked.actions.length > 0 && (
+                                <div>
+                                    <p className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Action points due</p>
+                                    <div className="space-y-5">{picked.actions.map((a) => <ActionNote key={a.id} point={a} canTick={can.run} />)}</div>
+                                </div>
+                            )}
+                        </div>
+                    </Board>
+                </>
+            ) : filter ? (
                 <>
                     <Link href={route('sessions.index')} className="mb-4 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-brand"><ArrowLeft className="size-3" />Back to the desk</Link>
                     <Board>
@@ -203,15 +253,8 @@ function Board({ children }: { children: React.ReactNode }) {
 
 /** A session as a taped-on sticky note. */
 function Note({ tile, column, can }: { tile: Tile; column: Column; can: SessionsArea['can'] }) {
-    // Where it opens depends on the role: the console to run it, the report
-    // to read it, or the check-in list at the door. Otherwise just a note.
-    const href = can.run
-        ? (tile.status === 'reported' ? route('sessions.report', tile.id) : route('sessions.show', tile.id))
-        : can.view && tile.status === 'reported'
-          ? route('sessions.report', tile.id)
-          : can.checkin && tile.tracking
-            ? route('sessions.checkin', tile.id)
-            : null;
+    // Otherwise just a note.
+    const href = sessionHref(can, tile);
     const Tag = href ? Link : 'div';
     const people =
         column === 'live' ? `${tile.attendees} checked in` : column === 'upcoming' ? `${tile.attendees || tile.expected || '—'} expected` : `${tile.attendees} attended`;
