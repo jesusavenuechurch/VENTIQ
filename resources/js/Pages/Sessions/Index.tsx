@@ -97,6 +97,7 @@ export default function Index({ columns, dueActions, week, filter, members, pend
     return (
         <SessionsLayout
             title={`${greeting}, ${auth.user?.firstName ?? 'there'}`}
+            actionsBelow
             subtitle={
                 <span className="flex flex-wrap items-center gap-2">
                     What's happening today?
@@ -126,10 +127,10 @@ export default function Index({ columns, dueActions, week, filter, members, pend
                 </>
             }
         >
-            {/* A small calendar to the left, search to the right: there when wanted, out of the way otherwise. */}
+            {/* Search to the left, a small calendar to the right: there when wanted, out of the way otherwise. */}
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <WeekStrip week={week} today={today} selected={day} onSelect={setDay} />
                 <div className="sm:w-72 sm:shrink-0"><DeskSearch href={(hit) => sessionHref(can, hit)} /></div>
+                <WeekStrip week={week} today={today} selected={day} onSelect={setDay} />
             </div>
 
             {draft && can.run && (

@@ -36,7 +36,7 @@ export function WeekStrip({ week, today, selected, onSelect }: { week: Week; tod
     const arrow = 'flex size-7 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand';
 
     return (
-        <div className="inline-flex max-w-full items-center gap-0.5 self-start rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
+        <div className="inline-flex max-w-full items-center gap-0.5 self-start sm:self-auto rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
             <button type="button" onClick={() => go(week.prev, 'prev')} className={arrow} aria-label="The week before"><ChevronLeft className="size-4" /></button>
             <div className="overflow-hidden">
                 <div

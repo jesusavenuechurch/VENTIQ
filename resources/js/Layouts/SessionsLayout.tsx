@@ -83,6 +83,7 @@ export default function SessionsLayout({
     subtitle,
     crumbs,
     actions,
+    actionsBelow = false,
     width = 'max-w-6xl',
     children,
 }: {
@@ -91,6 +92,8 @@ export default function SessionsLayout({
     /** [[label, url], ..., [label]]: the last is this page. */
     crumbs?: Array<[string, string?]>;
     actions?: React.ReactNode;
+    /** The actions under the title, rather than to its right. */
+    actionsBelow?: boolean;
     width?: string;
     children: React.ReactNode;
 }) {
@@ -114,7 +117,7 @@ export default function SessionsLayout({
                 </nav>
             )}
 
-            <div className={cn('mb-8 flex flex-wrap items-end justify-between gap-4', !crumbs && 'mt-4 sm:mt-0')}>
+            <div className={cn('mb-8 flex flex-wrap gap-4', actionsBelow ? 'flex-col items-start' : 'items-end justify-between', !crumbs && 'mt-4 sm:mt-0')}>
                 <div className="min-w-0">
                     <h1 className="text-2xl font-black tracking-tight text-brand">{title}</h1>
                     {subtitle && <div className="mt-1 text-[13px] font-medium text-gray-500">{subtitle}</div>}
