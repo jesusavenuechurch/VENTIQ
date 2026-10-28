@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Search, X } from 'lucide-react';
+import { Loader2, Repeat, Search, X } from 'lucide-react';
 
 export interface SearchHit {
     id: number;
@@ -9,6 +9,8 @@ export interface SearchHit {
     status: string;
     tracking: boolean;
     match: string | null;
+    /** Several meetings of one repeating meeting: one result, opening the series. */
+    series: { id: number; meetings: number; rule: string } | null;
 }
 
 const STATUS: Record<string, string> = { draft: 'Coming up', active: 'Live', completed: 'Writing up', reported: 'Report' };
@@ -80,14 +82,14 @@ export function DeskSearch({ href }: { href: (hit: SearchHit) => string | null }
             {showing && (
                 <div className="absolute inset-x-0 top-full z-30 mt-2 max-h-[22rem] overflow-y-auto rounded-2xl border border-gray-100 bg-white p-1.5 shadow-xl">
                     {results.map((r) => {
-                        const to = href(r);
+                        const to = r.series ? route('sessions.series.show', r.series.id) : href(r);
                         const body = (
                             <>
                                 <span className="flex items-baseline justify-between gap-3">
-                                    <span className="truncate text-[13px] font-bold text-brand">{r.title}</span>
-                                    <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-gray-400">{STATUS[r.status] ?? r.status}</span>
+                                    <span className="truncate text-[13px] font-bold text-brand">{r.series && <Repeat className="mr-1.5 inline size-3.5 text-action" />}{r.title}</span>
+                                    <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-gray-400">{r.series ? `${r.series.meetings} meetings` : STATUS[r.status] ?? r.status}</span>
                                 </span>
-                                <span className="block truncate text-[11px] text-gray-400">{[r.date, r.match].filter(Boolean).join(' · ')}</span>
+                                <span className="block truncate text-[11px] text-gray-400">{(r.series ? [r.series.rule, r.match] : [r.date, r.match]).filter(Boolean).join(' · ')}</span>
                             </>
                         );
                         return to ? (

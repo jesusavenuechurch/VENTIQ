@@ -72,3 +72,17 @@ it('shows the week, Monday first, with each day\'s sessions and action points, a
         ->where('week.days.2.sessions', []));
     $this->get(route('sessions.index', ['week' => 'not-a-date']))->assertOk();
 });
+
+it('shows a repeating meeting as one search result, opening the series, unless only one of its meetings matched', function () {
+    $series = \App\Models\SessionSeries::create(['organization_id' => $this->org->id, 'title' => 'Ops meeting', 'type' => 'meeting', 'frequency' => 'weekly', 'starts_on' => today()->subWeeks(2)]);
+    $held = Session::create(['organization_id' => $this->org->id, 'series_id' => $series->id, 'type' => 'meeting', 'title' => 'Ops meeting', 'date' => today()->subWeek(), 'status' => 'reported']);
+    Session::create(['organization_id' => $this->org->id, 'series_id' => $series->id, 'type' => 'meeting', 'title' => 'Ops meeting', 'date' => today()->addWeek(), 'status' => 'draft']);
+    $held->segments()->create(['title' => 'Fleet', 'presenter_name' => 'Mpho Sello', 'order' => 1, 'status' => 'completed']);
+
+    $this->getJson(route('sessions.search', ['q' => 'ops']))->assertJsonCount(1, 'results')
+        ->assertJsonPath('results.0.title', 'Ops meeting')
+        ->assertJsonPath('results.0.series.id', $series->id)->assertJsonPath('results.0.series.meetings', 2);
+    $this->getJson(route('sessions.search', ['q' => 'mpho']))->assertJsonCount(1, 'results')
+        ->assertJsonPath('results.0.id', $held->id)->assertJsonPath('results.0.series', null)
+        ->assertJsonPath('results.0.match', 'Led by Mpho Sello');
+});

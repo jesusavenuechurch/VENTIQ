@@ -191,19 +191,38 @@ class SessionController extends Controller
                 ->orWhereHas('segments', fn ($s) => $s->where('title', 'like', $like)
                     ->orWhere('presenter_name', 'like', $like)
                     ->orWhere('raw_log', 'like', $like)))
-            ->with('segments')
+            ->with(['segments', 'series'])
             ->orderByDesc('date')
-            ->limit(12)
+            ->limit(60)
             ->get();
 
-        return response()->json(['results' => $sessions->map(fn (Session $s) => [
-            'id'     => $s->id,
-            'title'  => $s->resolved_title,
-            'date'   => $s->date?->format('D j M Y'),
-            'status'   => $s->status,
-            'tracking' => (bool) $s->public_token,
-            'match'    => static::whereMatched($s, $q),
-        ])->values()]);
+        // A repeating meeting is one result, opening its series, unless only
+        // one of its meetings matched: then that meeting.
+        $results = $sessions->groupBy(fn ($s) => $s->series_id ? "series-{$s->series_id}" : "session-{$s->id}")
+            ->map(function ($group) use ($q) {
+                $s = $group->first(fn ($m) => $m->status !== 'draft') ?? $group->last();
+                $hit = [
+                    'id'       => $s->id,
+                    'title'    => $s->resolved_title,
+                    'date'     => $s->date?->format('D j M Y'),
+                    'status'   => $s->status,
+                    'tracking' => (bool) $s->public_token,
+                    'match'    => static::whereMatched($s, $q),
+                    'series'   => null,
+                ];
+                if ($group->count() > 1) {
+                    $hit['title'] = $s->series->title;
+                    $hit['date'] = null;
+                    $hit['match'] = $group->map(fn ($m) => static::whereMatched($m, $q))->filter()->first();
+                    $hit['series'] = ['id' => $s->series_id, 'meetings' => $group->count(), 'rule' => $s->series->describe()];
+                }
+
+                return $hit;
+            })
+            ->take(12)
+            ->values();
+
+        return response()->json(['results' => $results]);
     }
 
     /** "Led by …", "Item: …" or a bit of the notes or minutes around the words. */
