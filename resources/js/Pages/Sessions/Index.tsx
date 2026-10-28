@@ -126,9 +126,10 @@ export default function Index({ columns, dueActions, week, filter, members, pend
                 </>
             }
         >
-            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+            {/* A small calendar to the left, search to the right: there when wanted, out of the way otherwise. */}
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <WeekStrip week={week} today={today} selected={day} onSelect={setDay} />
-                <div className="lg:w-80 lg:shrink-0"><DeskSearch href={(hit) => sessionHref(can, hit)} /></div>
+                <div className="sm:w-72 sm:shrink-0"><DeskSearch href={(hit) => sessionHref(can, hit)} /></div>
             </div>
 
             {draft && can.run && (
