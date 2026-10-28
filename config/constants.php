@@ -303,5 +303,7 @@ return [
         'tickets_sold_out'  => ['name' => 'tickets_sold_out',  'approved' => false, 'button' => true],
         // VENTIQ Sessions
         'thank_you'         => ['name' => 'thank_you',         'approved' => true,  'button' => false],
+        // Action point reminders; email is used until Meta approves it.
+        'action_reminder'   => ['name' => 'action_reminder',   'approved' => false, 'button' => false],
     ],
 ];

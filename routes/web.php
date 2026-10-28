@@ -428,6 +428,7 @@ Route::middleware(['auth', 'throttle:60,1'])->prefix('assist')->name('assist.')-
 Route::middleware('auth')->group(function () {
     Route::get('/account', [App\Http\Controllers\AccountController::class, 'edit'])->name('account.edit');
     Route::put('/account', [App\Http\Controllers\AccountController::class, 'updateProfile'])->name('account.update');
+    Route::put('/account/reminders', [App\Http\Controllers\AccountController::class, 'updateReminders'])->name('account.reminders');
     Route::put('/account/password', [App\Http\Controllers\AccountController::class, 'updatePassword'])->middleware('throttle:6,1')->name('account.password');
 });
 Route::post('/logout', [App\Http\Controllers\Auth\LogoutController::class, 'destroy'])->name('logout');

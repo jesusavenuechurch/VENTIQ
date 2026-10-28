@@ -1,6 +1,6 @@
 # WhatsApp templates
 
-All approved by Meta (October 2026) and switched on in `config/constants.php`, except **tickets_sold_out** (section 6), which still needs submitting. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
+All approved by Meta (October 2026) and switched on in `config/constants.php`, except **tickets_sold_out** (section 6) and **action_reminder** (section 7), which still need submitting. Kept here as the record of each template's wording, variables and button, for when one needs changing or resubmitting (WhatsApp Manager → Message templates).
 
 - **Category:** Utility (not Marketing).
 - **Language:** English (US). The code sends `en_US`.
@@ -117,7 +117,24 @@ Once Meta approves it, set `'approved' => true` for `tickets_sold_out` in `confi
 
 ---
 
+## 7. action_reminder (VENTIQ Sessions, new: submit this one)
+
+Reminds someone of their open action points from sessions: two days before the due date, on the day, and once a week while overdue. One message per person with all their points. It goes to team members who chose WhatsApp on their account page (My account → Action point reminders), and to attendees who own an action point and gave a phone number at check-in. Each message uses one of the organization's WhatsApp messages for the month. Until approved, when the organization has no messages left, or when a send fails, the reminder goes by email instead.
+
+- **Name:** `action_reminder`
+- **Body:**
+
+  > Hello {{1}}, this is a reminder from {{2}} about your action points from their meetings: {{3}}. Thank you for following up.
+
+- **Samples:** {{1}} `Thabo Lebona`, {{2}} `Maloti Water`, {{3}} `Send the venue quotes to finance (due today); Book the hall for the AGM (overdue, due 12 Oct)`
+- **Button:** none.
+
+{{3}} is always one line: the points separated by `;`, each with its due date, and "and N more" after about 700 characters. Once Meta approves it, set `'approved' => true` for `action_reminder` in `config/constants.php` and deploy.
+
+---
+
 ## Already with Meta, leave as they are
 
 - **ticket_ready:** sent once a ticket is paid. Already approved and live.
 - **ticket_registered:** sent when the first payment is started. It's already submitted with {{1}} name, {{2}} event, {{3}} ticket number and {{4}} amount, and the code sends those four.
+- **thank_you:** VENTIQ Sessions. Sent to each participant after a session with attendance, with their attendance card as the image and {{1}} their name. Already approved and live.

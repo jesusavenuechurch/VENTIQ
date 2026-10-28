@@ -54,6 +54,19 @@ class ActionPoint extends Model
         return $this->ownerUser?->email ?: $this->ownerClient?->email ?: null;
     }
 
+    /**
+     * The number to remind them on WhatsApp, or null for email: a team
+     * member who chose WhatsApp, or an attendee whose phone we have.
+     */
+    public function ownerWhatsApp(): ?string
+    {
+        if ($this->ownerUser) {
+            return $this->ownerUser->reminders_via === 'whatsapp' ? ($this->ownerUser->phone ?: null) : null;
+        }
+
+        return $this->ownerClient?->phone ?: null;
+    }
+
     public function ownerLabel(): ?string
     {
         return $this->ownerUser?->name ?: $this->ownerClient?->full_name ?: $this->owner_name;

@@ -4,14 +4,17 @@ import { Field } from '@/components/field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput, localDigits } from '@/components/phone-input';
+import { cn } from '@/lib/utils';
 
 const card = 'space-y-4 rounded-[1.5rem] border border-gray-100 bg-white p-6 shadow-sm sm:p-8';
 const field = 'rounded-2xl px-4 py-3 text-[14px] font-semibold';
 
-/** Your name and your password. */
-export default function Account({ account, needsCurrent }: { account: { name: string; email: string; google: boolean }; needsCurrent: boolean }) {
+/** Your name, how your reminders reach you, and your password. */
+export default function Account({ account, reminders, needsCurrent }: { account: { name: string; email: string; google: boolean }; reminders: { via: 'email' | 'whatsapp'; phone: string }; needsCurrent: boolean }) {
     const { flash } = usePage().props;
     const name = useForm({ name: account.name });
+    const remind = useForm({ via: reminders.via, phone: localDigits(reminders.phone) });
     const password = useForm({ current_password: '', password: '', password_confirmation: '' });
 
     return (
@@ -30,6 +33,34 @@ export default function Account({ account, needsCurrent }: { account: { name: st
                         <Input id="name" required className={field} value={name.data.name} onChange={(e) => name.setData('name', e.target.value)} />
                     </Field>
                     <Button type="submit" variant="brand" className="px-6 py-3 text-[11px]" disabled={name.processing}>Save name</Button>
+                </form>
+
+                <form className={card} onSubmit={(e) => { e.preventDefault(); remind.put(route('account.reminders'), { preserveScroll: true }); }}>
+                    <div>
+                        <p className="text-[15px] font-black text-brand">Action point reminders</p>
+                        <p className="mt-1 text-[12px] text-gray-500">When an action point of yours from a session is due, we remind you before the date.</p>
+                    </div>
+                    <div role="radiogroup" aria-label="Send my reminders" className="grid grid-cols-2 gap-2">
+                        {([['whatsapp', 'On WhatsApp', 'Quick to see on your phone'], ['email', 'By email', `To ${account.email}`]] as const).map(([value, label, hint]) => (
+                            <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={remind.data.via === value}
+                                onClick={() => remind.setData('via', value)}
+                                className={cn('rounded-2xl border-2 px-4 py-3 text-left transition-colors', remind.data.via === value ? 'border-brand bg-brand/5' : 'border-gray-100 hover:border-gray-200')}
+                            >
+                                <span className="block text-[13px] font-black text-brand">{label}</span>
+                                <span className="block truncate text-[11px] text-gray-500">{hint}</span>
+                            </button>
+                        ))}
+                    </div>
+                    {remind.data.via === 'whatsapp' && (
+                        <Field label="Your WhatsApp number" htmlFor="reminder_phone" error={remind.errors.phone} hint="If a WhatsApp message can't be sent, the reminder comes by email instead.">
+                            <PhoneInput id="reminder_phone" required value={remind.data.phone} onChange={(v) => remind.setData('phone', v)} invalid={!!remind.errors.phone} />
+                        </Field>
+                    )}
+                    <Button type="submit" variant="brand" className="px-6 py-3 text-[11px]" disabled={remind.processing}>Save reminders</Button>
                 </form>
 
                 <form className={card} onSubmit={(e) => { e.preventDefault(); password.put(route('account.password'), { preserveScroll: true, onSuccess: () => password.reset() }); }}>

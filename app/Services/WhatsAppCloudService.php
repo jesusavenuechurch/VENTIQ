@@ -199,6 +199,16 @@ class WhatsAppCloudService
     // Approved body only has one variable ({{1}}, name) — the original
     // draft's {{2}} session-title variable got dropped when the wording
     // was simplified to clear the Marketing-content flag.
+    /** Someone's action points that are due, in one message; the list is a single line. */
+    public function sendActionReminder(string $phone, string $name, string $organization, string $points): bool
+    {
+        return $this->sendTemplate(
+            to: $phone,
+            templateName: $this->template('action_reminder'),
+            bodyParams: [$name, $organization, $points],
+        );
+    }
+
     public function sendSessionThankYou(\App\Models\Participant $participant, string $cardPath): bool
     {
         if (!$participant->client?->phone) {

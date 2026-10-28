@@ -19,6 +19,7 @@ class AccountController extends Controller
 
         return \Inertia\Inertia::render('Account', [
             'account'      => ['name' => $user->name, 'email' => $user->email, 'google' => (bool) $user->google_id],
+            'reminders'    => ['via' => $user->reminders_via ?: 'email', 'phone' => $user->phone ?? ''],
             'needsCurrent' => $this->needsCurrent($request),
             'meta'         => ['title' => 'My account | VENTIQ'],
         ]);
@@ -30,6 +31,23 @@ class AccountController extends Controller
         $request->user()->update($data);
 
         return back()->with('status', 'Your name has been updated.');
+    }
+
+    /** How their action point reminders reach them: email, or WhatsApp at a number they give. */
+    public function updateReminders(Request $request)
+    {
+        $data = $request->validate([
+            'via'   => ['required', 'in:email,whatsapp'],
+            'phone' => ['nullable', 'string', 'max:20', 'required_if:via,whatsapp'],
+        ], ['phone.required_if' => 'Add the WhatsApp number to send your reminders to.']);
+
+        $phone = \App\Support\Phone::normalize($data['phone'] ?? null);
+        if ($data['via'] === 'whatsapp' && !$phone) {
+            return back()->withErrors(['phone' => 'That doesn\'t look like a phone number. Try 5xxx xxxx or 6xxx xxxx, or +country code.']);
+        }
+        $request->user()->update(['reminders_via' => $data['via'], 'phone' => $phone ?? $request->user()->phone]);
+
+        return back()->with('status', $data['via'] === 'whatsapp' ? 'Your action point reminders will come on WhatsApp.' : 'Your action point reminders will come by email.');
     }
 
     public function updatePassword(Request $request)
