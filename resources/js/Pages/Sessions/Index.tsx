@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
 import { ArrowLeft, ChevronRight, GraduationCap, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
-import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
+import SessionsLayout, { primaryButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import { cn } from '@/lib/utils';
 import type { SessionsArea, SharedProps } from '@/types';
@@ -98,7 +98,7 @@ export default function Index({ columns, filter, members, pendingInvites, series
                         </button>
                     )}
                     {/* Trainings and anything over several days, with enrolment and certificates (without the Business plan, the Programmes page says how to get it). */}
-                    {can.run && <AppLink to="programmes.create" className={quietButton}><GraduationCap className="size-3.5" />Create a programme</AppLink>}
+                    {can.run && <AppLink to="programmes.create" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-mint px-5 py-3 text-[11px] font-black uppercase tracking-widest text-mint-ink shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"><GraduationCap className="size-4" />Create a programme</AppLink>}
                 </>
             }
         >
