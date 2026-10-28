@@ -2,7 +2,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ScheduleSessionDialog, type SessionType } from '@/components/sessions/schedule-dialog';
 import { clearDraft, readDraft } from '@/lib/session-draft';
-import { ArrowLeft, CalendarPlus, ChevronRight, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
+import { ArrowLeft, ChevronRight, GraduationCap, Clock, Mic, Repeat, Sparkles, Ticket, UsersRound, Zap } from 'lucide-react';
 import SessionsLayout, { primaryButton, quietButton } from '@/Layouts/SessionsLayout';
 import { AppLink } from '@/components/app-link';
 import { cn } from '@/lib/utils';
@@ -97,7 +97,8 @@ export default function Index({ columns, filter, members, pendingInvites, series
                             <Zap className="size-4" />Quick catch-up
                         </button>
                     )}
-                    {can.run && <AppLink to="organizer.events.create" className={quietButton}><CalendarPlus className="size-3.5" />Create an event</AppLink>}
+                    {/* Trainings and anything over several days, with enrolment and certificates (without the Business plan, the Programmes page says how to get it). */}
+                    {can.run && <AppLink to="programmes.create" className={quietButton}><GraduationCap className="size-3.5" />Create a programme</AppLink>}
                 </>
             }
         >
