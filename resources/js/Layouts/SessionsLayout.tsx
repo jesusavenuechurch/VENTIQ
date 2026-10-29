@@ -1,4 +1,7 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage, usePoll } from '@inertiajs/react';
+import { useEffect, useRef } from 'react';
+import { LoaderCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { ArrowLeft, ChevronRight, FileText, FolderOpen, LayoutGrid, ListTodo, Ticket } from 'lucide-react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { type AreaTab, useAreaTabs } from '@/components/area-tabs';
@@ -73,7 +76,47 @@ export function SessionsShell({ children }: { children: React.ReactNode }) {
                 </nav>
                 {children}
             </div>
+            <BackgroundWork />
         </SiteLayout>
+    );
+}
+
+/**
+ * Work sent to the background: a small pill in the corner on every
+ * Sessions page while Ventiq Assist writes, checked every few seconds,
+ * and a note with a link when it's ready.
+ */
+function BackgroundWork() {
+    const { sessionsArea } = usePage<{ sessionsArea: SessionsArea }>().props;
+    const writing = sessionsArea?.writing ?? [];
+    const seen = useRef(writing);
+    const onReport = typeof window !== 'undefined' && /\/sessions\/\d+\/report/.test(window.location.pathname);
+    const { start, stop } = usePoll(5000, { only: ['sessionsArea'] }, { autoStart: false });
+    useEffect(() => (writing.length ? start() : stop()), [writing.length, start, stop]);
+    useEffect(() => {
+        const done = seen.current.filter((w) => !writing.some((x) => x.id === w.id));
+        done.forEach((w) =>
+            toast.success(`Ready: ${w.title}`, {
+                description: 'Ventiq Assist has finished writing it.',
+                action: { label: 'Open', onClick: () => router.visit(route('sessions.report', w.id)) },
+                duration: 10000,
+            }),
+        );
+        seen.current = writing;
+    }, [writing]);
+
+    if (!writing.length || onReport) return null;
+
+    return (
+        <Link
+            href={route('sessions.report', writing[0].id)}
+            className="fixed bottom-24 left-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-full bg-brand py-2.5 pl-3 pr-4 text-white shadow-xl transition hover:-translate-y-0.5 sm:bottom-6"
+        >
+            <LoaderCircle className="size-4 shrink-0 animate-spin text-[#F7A35C]" />
+            <span className="min-w-0 truncate text-[11px] font-bold">
+                Ventiq Assist is writing {writing.length > 1 ? `${writing.length} reports` : writing[0].title}…
+            </span>
+        </Link>
     );
 }
 

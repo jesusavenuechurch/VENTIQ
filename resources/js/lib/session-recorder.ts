@@ -90,6 +90,8 @@ export function useSessionRecorder(sessionId: number, initial: RecordingState, l
     const wanted = useRef<'recording' | 'paused' | 'idle'>('idle');
     const uploading = useRef(false);
     const timer = useRef<number | undefined>(undefined);
+    // How loud the room is, for the listening bars: what the microphone actually hears.
+    const audio = useRef<{ ctx: AudioContext; analyser: AnalyserNode; data: Uint8Array<ArrayBuffer> } | null>(null);
 
     segment.current = liveSegmentId;
 
@@ -211,6 +213,19 @@ export function useSessionRecorder(sessionId: number, initial: RecordingState, l
             void json(`${base}/stop`, { method: 'POST' });
             return false;
         }
+        try {
+            if (!audio.current) {
+                const ctx = new AudioContext();
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 64;
+                analyser.smoothingTimeConstant = 0.7;
+                ctx.createMediaStreamSource(stream.current).connect(analyser);
+                audio.current = { ctx, analyser, data: new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount)) };
+            }
+            void audio.current.ctx.resume();
+        } catch {
+            audio.current = null;
+        }
         stream.current.getAudioTracks().forEach((t) => (t.onended = () => wanted.current === 'recording' && setProblem('The phone stopped the recording. Keep this page open and the screen on, then tap Record again.')));
         await keepAwake();
         wanted.current = 'recording';
@@ -242,6 +257,8 @@ export function useSessionRecorder(sessionId: number, initial: RecordingState, l
         if (media.current?.state === 'recording') media.current.stop();
         stream.current?.getTracks().forEach((t) => t.stop());
         stream.current = null;
+        void audio.current?.ctx.close().catch(() => {});
+        audio.current = null;
         void wake.current?.release().catch(() => {});
         wake.current = null;
         setStatus('idle');
@@ -286,7 +303,14 @@ export function useSessionRecorder(sessionId: number, initial: RecordingState, l
         return () => document.removeEventListener('visibilitychange', back);
     }, []);
 
+    /** The room's loudness right now, one value 0–255 per band; null when not listening. */
+    const levels = useCallback((): Uint8Array | null => {
+        if (!audio.current || wanted.current !== 'recording') return null;
+        audio.current.analyser.getByteFrequencyData(audio.current.data);
+        return audio.current.data;
+    }, []);
+
     const supported = typeof window !== 'undefined' && typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof indexedDB !== 'undefined';
 
-    return { status, seconds, queued, problem, setProblem, supported, start, pause, resume, cut, moveTo, finish };
+    return { status, seconds, queued, problem, setProblem, supported, start, pause, resume, cut, moveTo, finish, levels };
 }

@@ -6,6 +6,8 @@ import type { ActionPointCard } from '@/components/sessions/action-points';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { json } from '@/lib/http';
 import { useSessionRecorder, type RecordingState } from '@/lib/session-recorder';
+import { Listening } from '@/components/sessions/listening';
+import { WorkingScreen } from '@/components/sessions/working-screen';
 import { cn } from '@/lib/utils';
 
 type Status = 'upcoming' | 'active' | 'completed';
@@ -677,7 +679,11 @@ export default function Show({ session, segments, roles, carried, recording }: P
                             {capturingHere && onLatestPage && paused && (
                                 <p className={cn(label, 'py-3')}>{paused === 'auto' ? 'Paused while this tab is in the background' : 'Paused: resume when ready'}</p>
                             )}
-                            {capturingHere && onLatestPage && !paused && (
+                            {/* Recording: this phone listens; no typing on it. */}
+                            {capturingHere && onLatestPage && (rec.status === 'recording' || rec.status === 'paused') && (
+                                <Listening levels={rec.levels} paused={rec.status === 'paused'} item={live ? nameOf(live) : null} />
+                            )}
+                            {capturingHere && onLatestPage && !paused && !(rec.status === 'recording' || rec.status === 'paused') && (
                                 <div className="flex min-w-0 items-start gap-4 py-3">
                                     <span className="w-14 shrink-0 pt-[3px] text-[10px] font-black text-[#D4AF37]">{clock(live?.duration ?? 0)}</span>
                                     <textarea
@@ -727,6 +733,15 @@ export default function Show({ session, segments, roles, carried, recording }: P
             <ConfirmDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing ? nameOf(removing) : ''}?`} confirmLabel="Remove" onConfirm={() => removing && removePerson(removing)}>
                 {agenda ? "Nothing's been noted under it, so no notes are lost." : "They haven't presented, so no notes are lost."}
             </ConfirmDialog>
+
+            {/* The meeting closing: the whole screen says so until the report takes over. */}
+            {finishing && isLastSpeaker && (
+                <WorkingScreen
+                    title={agenda ? 'Wrapping up the meeting' : 'Wrapping up the session'}
+                    steps={[...(recOn || rec.queued > 0 ? [`Sending the last of the recording${rec.queued ? ` (${rec.queued} left)` : ''}`] : []), 'Saving the notes', `Handing over to Ventiq Assist`]}
+                    note="Keep this page open for a moment."
+                />
+            )}
 
             {/* Before recording: the room is told, and the phone is set up to last. */}
             <Dialog open={consent} onOpenChange={setConsent}>

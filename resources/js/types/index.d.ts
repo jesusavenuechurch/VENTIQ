@@ -53,6 +53,8 @@ export interface SessionsArea {
     can: Record<'desk' | 'checkin' | 'view' | 'run' | 'plan', boolean>;
     needsReview: number;
     overdueActions: number;
+    /** Reports Ventiq Assist is writing right now. */
+    writing: { id: number; title: string }[];
     /** An Admin allowed them to sign certificates. */
     canSign: boolean;
     /** On a corporate rate there's no included number: sessions are invoiced monthly. */

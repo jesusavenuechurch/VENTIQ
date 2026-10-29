@@ -47,6 +47,11 @@ class EnsureSessionsAccess
             'canSign'      => (bool) $user->can_sign_certificates,
             'organization' => $organization->name,
             'needsReview'  => Session::forOrganization($organization->id)->where('status', 'reported')->whereNull('reviewed_at')->count(),
+            // Reports Ventiq Assist is writing right now, for the "still working" pill.
+            'writing'      => Session::forOrganization($organization->id)->where('status', 'completed')->latest('updated_at')->limit(5)->get()
+                ->reject(fn (Session $s) => $s->reportStuck())
+                ->map(fn (Session $s) => ['id' => $s->id, 'title' => $s->resolved_title])
+                ->values(),
             'overdueActions' => \App\Models\ActionPoint::where('organization_id', $organization->id)->where('status', 'open')->whereDate('due_date', '<', today())->count(),
             'quota'        => $this->quota->isCorporate($organization)
                 ? ['used' => app(\App\Services\Sessions\CorporateBilling::class)->monthToDate($organization)['held'], 'included' => null, 'remaining' => 9999, 'corporate' => true]

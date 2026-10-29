@@ -1,11 +1,12 @@
 import { Link, router, usePage, usePoll } from '@inertiajs/react';
 import { BarChart3, Check, ChevronDown, Download, FileText, LoaderCircle, Mic, Pencil, RotateCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
 import { Minutes, type MinutesData } from '@/components/sessions/minutes';
 import { SessionNumbers, type SessionNumbersData } from '@/components/sessions/numbers';
 import { ConfirmDialog } from '@/components/confirm-dialog';
+import { WorkingScreen } from '@/components/sessions/working-screen';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,48 @@ export default function Report({ session, segments, actionPoints, carried, owner
     // Downloading before anyone has reviewed it: offer to review it first, or take it as a marked draft.
     const [gate, setGate] = useState<string | null>(null);
     const [rewrite, setRewrite] = useState(false);
+
+    // While Ventiq Assist writes: the whole screen shows it, unless sent to the background.
+    const writing = session.status === 'completed' && !session.failed;
+    const bgKey = `ventiq_background_${session.id}`;
+    const [background, setBackground] = useState(() => {
+        try {
+            return typeof window !== 'undefined' && sessionStorage.getItem(bgKey) === '1';
+        } catch {
+            return false;
+        }
+    });
+    const [rewriting, setRewriting] = useState(false);
+    const [justDone, setJustDone] = useState(false);
+    const showing = useRef(false);
+    useEffect(() => {
+        if (writing) setRewriting(false);
+    }, [writing]);
+    useEffect(() => {
+        const working = writing || rewriting;
+        if (showing.current && !working && session.status === 'reported') {
+            setJustDone(true);
+            const t = window.setTimeout(() => setJustDone(false), 1600);
+            return () => window.clearTimeout(t);
+        }
+        showing.current = working && !background;
+        if (!working) {
+            try {
+                sessionStorage.removeItem(bgKey);
+            } catch {
+                /* private window */
+            }
+        }
+    }, [writing, rewriting, background, session.status, bgKey]);
+    function toBackground() {
+        try {
+            sessionStorage.setItem(bgKey, '1');
+        } catch {
+            /* private window */
+        }
+        setBackground(true);
+        router.visit(route('sessions.index'));
+    }
     const [reviewing, setReviewing] = useState(false);
     function guard(e: React.MouseEvent<HTMLAnchorElement>) {
         if (session.reviewed) return;
@@ -245,10 +288,31 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 title={session.takesMinutes ? 'Write the minutes again?' : 'Write the report again?'}
                 confirmLabel="Write it again"
                 destructive={false}
-                onConfirm={() => router.post(route('sessions.report.generate', session.id))}
+                onConfirm={() => {
+                    setBackground(false);
+                    setRewriting(true);
+                    router.post(route('sessions.report.generate', session.id), {}, { onError: () => setRewriting(false) });
+                }}
             >
                 Ventiq Assist writes it again from the notes and the recording. Changes you made to {session.takesMinutes ? "the items' write-ups" : 'the report'} are replaced; action points stay.
             </ConfirmDialog>
+            {(((writing || rewriting) && !background) || justDone) && (
+                <WorkingScreen
+                    title={session.takesMinutes ? 'Ventiq Assist is writing the minutes' : 'Ventiq Assist is writing the report'}
+                    steps={[
+                        ...(transcribing > 0 ? ['Writing down the last of the recording'] : []),
+                        'Gathering the notes and the recording',
+                        'Reading what was said',
+                        'Picking out decisions and action points',
+                        session.takesMinutes ? 'Writing the minutes' : 'Writing the report',
+                        'Checking names and figures',
+                    ]}
+                    note="This usually takes a minute or two. You can keep working; it'll be under Reports when it's ready."
+                    done={justDone}
+                    doneLabel={session.takesMinutes ? 'The minutes are ready' : 'The report is ready'}
+                    onBackground={toBackground}
+                />
+            )}
             <Dialog open={!!gate} onOpenChange={(open) => !open && setGate(null)}>
                 <DialogContent className="max-w-md rounded-[2rem] p-8">
                     <DialogTitle className="text-xl font-black normal-case not-italic tracking-tight text-brand">{session.takesMinutes ? "These minutes aren't reviewed yet" : "This report isn't reviewed yet"}</DialogTitle>

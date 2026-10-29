@@ -98,3 +98,14 @@
     button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
     input::placeholder, textarea::placeholder { color: var(--color-gray-400); }
 }
+
+/* The working screen: the rocket rides, its trail flickers, the stars drift by. */
+@keyframes ventiq-ride { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes ventiq-flame { 0%, 100% { opacity: .9; transform: scaleY(1); } 50% { opacity: .55; transform: scaleY(.7); } }
+@keyframes ventiq-drift { from { transform: translateY(-40px); opacity: 0; } 20% { opacity: .8; } to { transform: translateY(420px); opacity: 0; } }
+.ventiq-ride { animation: ventiq-ride 2.4s ease-in-out infinite; }
+.ventiq-flame { animation: ventiq-flame .35s ease-in-out infinite; transform-origin: top center; }
+.ventiq-drift { animation: ventiq-drift linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .ventiq-ride, .ventiq-flame, .ventiq-drift { animation: none; }
+}
