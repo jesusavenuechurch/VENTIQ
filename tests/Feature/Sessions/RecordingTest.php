@@ -151,3 +151,15 @@ it('spells VENTIQ right however Whisper heard it, and leaves other words alone',
     expect(Recording::clean('Vintig Sessions is a platform. Ventik Assist will help.'))->toBe('Ventiq Sessions is a platform. Ventiq Assist will help.')
         ->and(Recording::clean('An old vintage car, and a ventilator.'))->toBe('An old vintage car, and a ventilator.');
 });
+
+it('marks every PDF of a report no one has reviewed as a draft by Ventiq Assist, and not once it is', function () {
+    $this->session->update(['status' => 'reported', 'session_report' => "Multi\u{2011}speaker test"]);
+    $html = fn () => view('sessions.report-pdf', ['session' => $this->session->fresh(), 'logo' => null, 'recorded' => true])->render();
+
+    expect($html())->toContain('Draft, not reviewed')->toContain('machine transcript')->toContain('Multi-speaker test');
+    $this->get(route('sessions.report.pdf', $this->session))->assertOk();
+    $this->get(route('sessions.report.full', $this->session))->assertOk();
+
+    $this->session->update(['reviewed_at' => now()]);
+    expect($html())->not->toContain('Draft, not reviewed');
+});

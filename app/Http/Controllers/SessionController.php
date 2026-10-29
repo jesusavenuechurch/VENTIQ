@@ -702,7 +702,7 @@ class SessionController extends Controller
                 ->download('minutes-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . $session->date->format('Y-m-d') . '.pdf');
         }
 
-        $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session, 'logo' => \App\Support\Logo::of($session->organization)])->setPaper('a4', 'portrait');
+        $pdf = \PDF::loadView('sessions.report-pdf', ['session' => $session, 'logo' => \App\Support\Logo::of($session->organization), 'recorded' => \App\Models\SessionRecordingPiece::where('session_id', $session->id)->exists()])->setPaper('a4', 'portrait');
 
         return $pdf->download("ventiq-report-{$session->id}.pdf");
     }

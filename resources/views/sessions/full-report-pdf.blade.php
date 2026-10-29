@@ -109,6 +109,8 @@
         {{ $org }} · {{ $session->resolved_title }}, {{ ($session->date ?? $session->created_at)->format('j M Y') }} · Full report produced by VENTIQ Sessions on {{ $produced }}
     </div>
 
+    @include('sessions.partials.draft-stamp', ['reviewed' => (bool) $session->reviewed_at, 'recorded' => \App\Models\SessionRecordingPiece::where('session_id', $session->id)->exists()])
+
     {{-- ── Cover ─────────────────────────────────────────────── --}}
     <div class="cover">
         @if ($logo)<img class="logo" src="{{ $logo }}" alt="">@endif

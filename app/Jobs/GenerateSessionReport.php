@@ -87,7 +87,7 @@ class GenerateSessionReport implements ShouldQueue
             foreach (array_keys($sectionsConfig) as $key) {
                 $summary[$key] = $parsed[$key] ?? 'None identified.';
             }
-            $segment->update(['ai_summary' => $summary]);
+            $segment->update(['ai_summary' => array_map(fn ($v) => is_string($v) ? \App\Support\PlainText::normalize($v) : $v, $summary)]);
         }
 
         // Whole-session failure — same rule as before: don't fake success
@@ -152,13 +152,14 @@ class GenerateSessionReport implements ShouldQueue
             'participantCount'  => $session->event_id
                 ? Participant::where('session_id', $session->id)->count()
                 : null,
-            'durationFormatted' => $this->formatDuration(
-                $session->segments->sum(fn ($s) => $s->duration_seconds ?? 0)
-            ),
+            // A session left running for days (a test, a forgotten tab) has no real length to report.
+            'durationFormatted' => ($seconds = $session->segments->sum(fn ($s) => $s->duration_seconds ?? 0)) > 0 && $seconds <= 12 * 3600
+                ? $this->formatDuration($seconds)
+                : null,
         ];
 
         $session->update([
-            'session_report' => $this->buildReport($session, $overall, $metrics, $sectionsConfig),
+            'session_report' => \App\Support\PlainText::normalize($this->buildReport($session, $overall, $metrics, $sectionsConfig)),
             'status'         => 'reported',
         ]);
         AiGenerationResult::where('job_id', $this->jobId)->update(['status' => 'completed']);
@@ -196,7 +197,9 @@ class GenerateSessionReport implements ShouldQueue
         if ($metrics['participantCount'] !== null) {
             $overviewLines[] = "Participants: {$metrics['participantCount']}";
         }
-        $overviewLines[] = "Duration: {$metrics['durationFormatted']}";
+        if ($metrics['durationFormatted']) {
+            $overviewLines[] = "Duration: {$metrics['durationFormatted']}";
+        }
 
         $presenterBlocks = $session->segments->map(function ($s) use ($sectionsConfig, $session) {
             $header = $s->presenter_name . ($s->role ? ' — ' . (SessionType::roles($session->type)[$s->role]['label'] ?? ucfirst($s->role)) : '');

@@ -27,7 +27,7 @@ const none = 'text-[13px] italic text-gray-400';
  * that can be changed has its own pencil; what Ventiq Assist wrote is
  * kept unless someone changes it. Confirming them is reviewing the report.
  */
-export function Minutes({ sessionId, minutes, canEdit, tracking }: { sessionId: number; minutes: MinutesData; canEdit: boolean; tracking: boolean }) {
+export function Minutes({ sessionId, minutes, canEdit, tracking, onDownload }: { sessionId: number; minutes: MinutesData; canEdit: boolean; tracking: boolean; onDownload?: (e: React.MouseEvent<HTMLAnchorElement>) => void }) {
     const h = minutes.heading;
     const save = (payload: Record<string, string | Record<number, Record<string, string>>>, done: () => void, failed: () => void) =>
         router.patch(route('sessions.minutes.update', sessionId), payload, { preserveScroll: true, preserveState: true, only: ['minutes', 'flash', 'errors'], onSuccess: done, onError: failed });
@@ -45,7 +45,7 @@ export function Minutes({ sessionId, minutes, canEdit, tracking }: { sessionId: 
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <a href={route('sessions.report.pdf', sessionId)} className={quietButton}><Download className="size-3.5" />PDF</a>
+                    <a href={route('sessions.report.pdf', sessionId)} onClick={onDownload} className={quietButton}><Download className="size-3.5" />PDF</a>
                     {tracking && <a href={route('sessions.checkin.pdf', sessionId)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
                 </div>
             </div>

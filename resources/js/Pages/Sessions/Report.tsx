@@ -5,6 +5,7 @@ import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
 import { Minutes, type MinutesData } from '@/components/sessions/minutes';
 import { SessionNumbers, type SessionNumbersData } from '@/components/sessions/numbers';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
 import type { SessionsArea } from '@/types';
@@ -67,6 +68,31 @@ export default function Report({ session, segments, actionPoints, carried, owner
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session.report]);
 
+    // Downloading before anyone has reviewed it: offer to review it first, or take it as a marked draft.
+    const [gate, setGate] = useState<string | null>(null);
+    const [reviewing, setReviewing] = useState(false);
+    function guard(e: React.MouseEvent<HTMLAnchorElement>) {
+        if (session.reviewed) return;
+        e.preventDefault();
+        setGate(e.currentTarget.href);
+    }
+    function downloadDraft() {
+        if (gate) window.location.href = gate;
+        setGate(null);
+    }
+    function reviewThenDownload() {
+        const url = gate;
+        setReviewing(true);
+        router.post(route('sessions.report.review', session.id), {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setGate(null);
+                if (url) window.location.href = url;
+            },
+            onFinish: () => setReviewing(false),
+        });
+    }
+
     async function save() {
         setSaving(true);
         setError('');
@@ -113,7 +139,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                             <Icon className="size-3.5" />{label}
                         </button>
                     ))}
-                    <a href={route('sessions.report.full', session.id)} className={cn(quietButton, 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
+                    <a href={route('sessions.report.full', session.id)} onClick={guard} className={cn(quietButton, 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
                         <Download className="size-3.5" />Full report
                     </a>
                 </div>
@@ -125,7 +151,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     <div className="lg:col-span-2">
                     {minutes ? (
-                        <Minutes sessionId={session.id} minutes={minutes} canEdit={canRun} tracking={session.tracking} />
+                        <Minutes sessionId={session.id} minutes={minutes} canEdit={canRun} tracking={session.tracking} onDownload={guard} />
                     ) : (
                     <div className="rounded-2xl border border-gray-100 bg-white p-6 md:p-8">
                         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +165,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                                 ) : canRun ? (
                                     <button type="button" onClick={() => setEditing(true)} className={quietButton}><Pencil className="size-3.5" />Edit</button>
                                 ) : null}
-                                <a href={route('sessions.report.pdf', session.id)} className={quietButton}><Download className="size-3.5" />PDF</a>
+                                <a href={route('sessions.report.pdf', session.id)} onClick={guard} className={quietButton}><Download className="size-3.5" />PDF</a>
                                 {session.tracking && <a href={route('sessions.checkin.pdf', session.id)} className={quietButton}><Download className="size-3.5" />Participant list</a>}
                             </div>
                         </div>
@@ -206,6 +232,23 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 )}
                 </>
             )}
+            <Dialog open={!!gate} onOpenChange={(open) => !open && setGate(null)}>
+                <DialogContent className="max-w-md rounded-[2rem] p-8">
+                    <DialogTitle className="text-xl font-black normal-case not-italic tracking-tight text-brand">{session.takesMinutes ? "These minutes aren't reviewed yet" : "This report isn't reviewed yet"}</DialogTitle>
+                    <DialogDescription className="mt-2 text-[13px] font-medium normal-case leading-relaxed tracking-normal text-gray-500">
+                        Ventiq Assist wrote it, and no one has checked it yet. Downloaded now, every page is marked as a draft, written by Ventiq Assist.
+                        {canRun && ' Marking it reviewed first lets attendees know the notes are ready.'}
+                    </DialogDescription>
+                    <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button type="button" onClick={downloadDraft} className={quietButton}>Download the draft</button>
+                        {canRun && (
+                            <button type="button" disabled={reviewing} onClick={reviewThenDownload} className="rounded-2xl bg-action px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:shadow-lg disabled:opacity-60">
+                                {reviewing ? 'Marking…' : 'Mark reviewed and download'}
+                            </button>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </SessionsLayout>
     );
 }
