@@ -71,6 +71,20 @@ Keep it on `127.0.0.1` for the test. When we build, it is reached the same way t
 | Names and places right? (people, villages, organisations) | |
 | Time taken while Ollama is writing a report at the same time | |
 
+## Results so far
+
+On the Mac mini (M4, 24 GB), `-t 8`:
+
+| Recording | Length | Model | Time | Notes |
+|---|---|---|---|---|
+| Voice note, one speaker | 27 s | turbo / large-v3 | 2.6 s / 4.2 s | Every word right with large-v3. |
+| Monologue, one speaker | 5 min | turbo with hint list | 18.6 s (about 16x real time) | "Ventiq" right everywhere with the hint; "roster" and "purchase" still wrong. |
+
+- **Model: turbo.** About as accurate as large-v3 on these, twice as fast, and its lines follow sentences.
+- **Hint list (`--prompt`):** pass the organisation, agenda items, facilitators and checked-in names for each session. It fixes names; it does little for ordinary words, which Ventiq Assist corrects when writing the minutes.
+- **Speed:** a 30-second piece takes under 2 seconds; a 2-hour meeting about 7 minutes if it all arrives at the end.
+- **Still to test:** several people talking, and Sesotho mixed with English.
+
 ## Recordings to test with
 
 Record with everyone's agreement, 10 to 15 minutes each, on an ordinary phone (voice memo is fine).
