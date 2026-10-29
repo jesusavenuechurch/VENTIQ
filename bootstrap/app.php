@@ -13,6 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+            // Behind a tunnel or proxy that ends https (Tailscale Serve, a load
+            // balancer): trust what it says about the scheme and host, so links
+            // and assets come out as https. TRUSTED_PROXIES=* or a list of IPs;
+            // unset, nothing is trusted.
+            if ($proxies = env('TRUSTED_PROXIES')) {
+                $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+            }
+
             // Server-to-server gateway callbacks carry no CSRF token, so
             // without this every PayLesotho callback was refused with a 419
             // before reaching the controller.
