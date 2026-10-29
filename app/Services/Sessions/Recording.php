@@ -80,7 +80,8 @@ class Recording
     public function transcribe(SessionRecordingPiece $piece): string
     {
         $audio = Storage::disk('local')->get($piece->path);
-        $response = Http::timeout((int) config('services.whisper.timeout'))
+        // Unreachable (the Mac mini off, Tailscale down): fail in seconds, and the piece is tried again later.
+        $response = Http::connectTimeout(5)->timeout((int) config('services.whisper.timeout'))
             ->attach('file', $audio, basename($piece->path))
             ->post(rtrim(config('services.whisper.url'), '/') . '/inference', [
                 'response_format' => 'json',

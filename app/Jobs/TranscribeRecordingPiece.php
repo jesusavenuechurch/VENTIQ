@@ -27,6 +27,7 @@ class TranscribeRecordingPiece implements ShouldQueue
 
     public function handle(Recording $recording): void
     {
+        \App\Support\LongRunning::allow();
         $piece = SessionRecordingPiece::with(['session', 'segment'])->find($this->pieceId);
         if (!$piece || $piece->status !== 'pending' || !$piece->path) {
             return;

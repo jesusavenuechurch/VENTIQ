@@ -33,6 +33,7 @@ class GenerateSessionReport implements ShouldQueue
 
     public function handle(AIService $ai): void
     {
+        \App\Support\LongRunning::allow();
         $session = Session::with('segments')->find($this->sessionId);
         if (!$session) { $this->markFailed('Session no longer exists.'); return; }
 

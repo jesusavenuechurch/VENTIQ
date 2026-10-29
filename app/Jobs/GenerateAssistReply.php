@@ -39,6 +39,7 @@ class GenerateAssistReply implements ShouldQueue
 
     public function handle(AskVentiq $ask): void
     {
+        \App\Support\LongRunning::allow();
         AiGenerationResult::where('job_id', $this->jobId)->update(['status' => 'processing']);
 
         try {

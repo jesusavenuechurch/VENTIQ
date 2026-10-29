@@ -28,6 +28,7 @@ class GenerateProgrammeReport implements ShouldQueue
 
     public function handle(AIService $ai): void
     {
+        \App\Support\LongRunning::allow();
         $programme = Event::find($this->programmeId);
         if (!$programme) { $this->markFailed('Programme no longer exists.'); return; }
 
