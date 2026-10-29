@@ -17,6 +17,7 @@ export function WorkingScreen({
     done,
     doneLabel = 'Ready',
     onBackground,
+    stepMs = 3500,
 }: {
     title: string;
     steps: string[];
@@ -25,13 +26,15 @@ export function WorkingScreen({
     done?: boolean;
     doneLabel?: string;
     onBackground?: () => void;
+    /** How long each step shows before the next: short ones reach the last step quickly. */
+    stepMs?: number;
 }) {
     const [step, setStep] = useState(0);
     useEffect(() => {
         if (done) return;
-        const t = window.setInterval(() => setStep((s) => Math.min(s + 1, steps.length - 1)), 3500);
+        const t = window.setInterval(() => setStep((s) => Math.min(s + 1, steps.length - 1)), stepMs);
         return () => window.clearInterval(t);
-    }, [done, steps.length]);
+    }, [done, steps.length, stepMs]);
 
     return (
         <div role="status" aria-live="polite" className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_30%,#24386A_0%,#1D2F55_55%,#14213D_100%)] px-6 text-white animate-in fade-in duration-300">

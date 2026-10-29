@@ -64,7 +64,11 @@ export function ActionPointRow({
                 <span className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md', proposed ? 'text-lilac-ink' : 'text-gray-300')}>{proposed ? <Sparkles className="size-4" /> : <ListTodo className="size-4" />}</span>
             )}
             <div className="min-w-0 flex-1">
-                <p className={cn('text-[13px] font-bold leading-snug text-brand', done && 'text-gray-400 line-through')}>{point.task}</p>
+                {canEdit ? (
+                    <button type="button" onClick={() => setEditing(true)} title="Open to change who, what or when" className={cn('text-left text-[13px] font-bold leading-snug text-brand hover:text-action hover:underline', done && 'text-gray-400 line-through')}>{point.task}</button>
+                ) : (
+                    <p className={cn('text-[13px] font-bold leading-snug text-brand', done && 'text-gray-400 line-through')}>{point.task}</p>
+                )}
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
                     <span className="inline-flex items-center gap-1"><UserRound className="size-3" />{point.owner ?? 'No one yet'}</span>
                     {point.dueLabel && <span className={cn('inline-flex items-center gap-1', point.overdue && 'font-bold text-rose-600')}><CalendarDays className="size-3" />{point.overdue ? `Overdue, ${point.dueLabel}` : `By ${point.dueLabel}`}</span>}
@@ -78,8 +82,8 @@ export function ActionPointRow({
                     {proposed && (
                         <button type="button" onClick={() => router.patch(route('sessions.actions.update', point.id), { task: point.task, owner: point.ownerKey, owner_name: point.ownerName, due_date: point.due }, opts)} className="rounded-full bg-lilac-ink px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white">Keep</button>
                     )}
-                    <button type="button" aria-label="Change" onClick={() => setEditing(true)} className="rounded-full p-2 text-gray-300 hover:bg-gray-50 hover:text-brand"><Pencil className="size-3.5" /></button>
-                    <button type="button" aria-label="Remove" onClick={() => router.delete(route('sessions.actions.destroy', point.id), opts)} className="rounded-full p-2 text-gray-300 hover:bg-gray-50 hover:text-rose-600"><Trash2 className="size-3.5" /></button>
+                    <button type="button" aria-label="Change" onClick={() => setEditing(true)} className="rounded-full p-2 text-gray-500 hover:bg-gray-50 hover:text-brand"><Pencil className="size-3.5" /></button>
+                    <button type="button" aria-label="Remove" onClick={() => router.delete(route('sessions.actions.destroy', point.id), opts)} className="rounded-full p-2 text-gray-400 hover:bg-gray-50 hover:text-rose-600"><Trash2 className="size-3.5" /></button>
                 </span>
             )}
             {editing && <ActionPointDialog point={point} owners={owners} onClose={() => setEditing(false)} />}
@@ -144,7 +148,7 @@ export function SessionActionPoints({ sessionId, points, carried, owners, canEdi
     const suggested = points.filter((p) => p.status === 'proposed').length;
 
     return (
-        <div className="mt-6 rounded-2xl border border-gray-100 bg-white">
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-50 px-5 py-4">
                 <div>
                     <p className="flex items-center gap-2 text-[13px] font-black text-brand"><ListTodo className="size-4 text-action" />Action points</p>

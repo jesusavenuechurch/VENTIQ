@@ -200,6 +200,9 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                     <div className="lg:col-span-2">
+                    {/* What was agreed, first: it's what people come back to the report for. */}
+                    {session.findingActions && <p className="mb-6 flex items-center gap-2 rounded-2xl bg-lilac/60 px-5 py-4 text-[12px] font-bold text-lilac-ink"><LoaderCircle className="size-4 animate-spin" />Ventiq Assist is picking out the action points…</p>}
+                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} minutes={!!minutes} />
                     {minutes ? (
                         <Minutes sessionId={session.id} minutes={minutes} canEdit={canRun} tracking={session.tracking} onDownload={guard} />
                     ) : (
@@ -240,8 +243,6 @@ export default function Report({ session, segments, actionPoints, carried, owner
                         </div>
                     </div>
                     )}
-                    {session.findingActions && <p className="mt-6 flex items-center gap-2 rounded-2xl bg-lilac/60 px-5 py-4 text-[12px] font-bold text-lilac-ink"><LoaderCircle className="size-4 animate-spin" />Ventiq Assist is picking out the action points…</p>}
-                    <SessionActionPoints sessionId={session.id} points={actionPoints} carried={carried} owners={owners} canEdit={canRun} minutes={!!minutes} />
                     </div>
 
                     <div className="rounded-2xl bg-[#F7F3EC] p-5">
@@ -311,6 +312,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                     note="This usually takes a minute or two. You can keep working; it'll be under Reports when it's ready."
                     done={justDone}
                     doneLabel={session.takesMinutes ? 'The minutes are ready' : 'The report is ready'}
+                    stepMs={2500}
                     onBackground={toBackground}
                 />
             )}

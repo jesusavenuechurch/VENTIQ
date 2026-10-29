@@ -738,8 +738,9 @@ export default function Show({ session, segments, roles, carried, recording }: P
             {finishing && isLastSpeaker && (
                 <WorkingScreen
                     title={agenda ? 'Wrapping up the meeting' : 'Wrapping up the session'}
-                    steps={[...(recOn || rec.queued > 0 ? [`Sending the last of the recording${rec.queued ? ` (${rec.queued} left)` : ''}`] : []), 'Saving the notes', `Handing over to Ventiq Assist`]}
-                    note="Keep this page open for a moment."
+                    steps={[recording.available && (recOn || recording.seconds > 0) ? 'Extracting the audio' : 'Saving the notes', 'Writing the meeting notes', 'Finishing up']}
+                    stepMs={1200}
+                    note={rec.queued > 0 ? `Sending the last ${rec.queued === 1 ? 'piece' : `${rec.queued} pieces`} of the recording. Keep this page open for a moment.` : 'Keep this page open for a moment.'}
                 />
             )}
 
