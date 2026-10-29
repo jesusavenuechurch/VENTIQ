@@ -1,1 +1,0 @@
-import{j as r,c as o}from"./app-E-ksB1-b.js";function n({className:t,...e}){return r.jsx("textarea",{className:o("w-full rounded-2xl border-2 border-slate-50 bg-slate-50 px-4 py-3 text-[14px] font-medium text-gray-900 outline-none transition-all focus:border-action focus:bg-white",t),...e})}export{n as T};
