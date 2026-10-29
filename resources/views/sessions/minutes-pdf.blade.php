@@ -31,6 +31,6 @@
     @include('sessions.partials.letterhead', ['logo' => $logo ?? null, 'name' => $h['organization']])
     @include('sessions.partials.minutes-body', ['minutes' => $minutes])
 
-    <p class="foot">Minutes kept with VENTIQ Sessions. Notes typed during the meeting and written up by Ventiq Assist, then reviewed.</p>
+    <p class="foot">Minutes kept with VENTIQ Sessions. {{ !empty($recorded) ? 'Recorded during the meeting' : 'Notes typed during the meeting' }} and written up by Ventiq Assist, then reviewed.</p>
 </body>
 </html>

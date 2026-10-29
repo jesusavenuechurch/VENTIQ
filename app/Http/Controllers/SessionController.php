@@ -80,6 +80,8 @@ class SessionController extends Controller
                 'speaker'    => $activeIndex === false ? null : $activeIndex + 1,
                 'starts'     => $starts ? ($s->start_time ? $starts->format('D j M · H:i') : $starts->format('D j M')) : null,
                 'date'       => $s->date?->toDateString(),
+                // Written up and never finished: shown as such, not "Writing up…" for ever.
+                'stuck'      => $s->status === 'completed' && $s->reportStuck(),
                 'updated'    => $s->updated_at->diffForHumans(),
                 'tracking'   => (bool) $s->public_token,
                 'series'     => $s->series ? ['id' => $s->series->id, 'rule' => $s->series->describe()] : null,
@@ -527,8 +529,9 @@ class SessionController extends Controller
                 'takesMinutes'   => SessionType::takesMinutes($session->type),
                 'previous' => $session->parent_session_id && Session::whereKey($session->parent_session_id)->where('status', 'reported')->exists() ? $session->parent_session_id : null,
                 // The report is written in the background; this says if that failed.
-                'failed'   => $session->status === 'completed' && $session->report_job_id
-                    && AiGenerationResult::where('job_id', $session->report_job_id)->value('status') === 'failed',
+                'failed'   => ($session->status === 'completed' && $session->report_job_id
+                    && AiGenerationResult::where('job_id', $session->report_job_id)->value('status') === 'failed')
+                    || $session->reportStuck(),
             ],
             'segments' => $session->segments->map(fn ($s) => [
                 'id'      => $s->id,
@@ -695,7 +698,7 @@ class SessionController extends Controller
         if (SessionType::takesMinutes($session->type) && $session->status === 'reported') {
             $minutes = app(\App\Services\Sessions\MinutesBuilder::class)->build($session);
 
-            return \PDF::loadView('sessions.minutes-pdf', ['minutes' => $minutes, 'logo' => \App\Support\Logo::of($session->organization)])->setPaper('a4', 'portrait')
+            return \PDF::loadView('sessions.minutes-pdf', ['minutes' => $minutes, 'logo' => \App\Support\Logo::of($session->organization), 'recorded' => \App\Models\SessionRecordingPiece::where('session_id', $session->id)->exists()])->setPaper('a4', 'portrait')
                 ->download('minutes-' . \Illuminate\Support\Str::slug($session->resolved_title) . '-' . $session->date->format('Y-m-d') . '.pdf');
         }
 

@@ -152,6 +152,25 @@ class Session extends Model
         $this->update(['status' => 'active']);
     }
 
+    /**
+     * A finished session whose report has gone quiet: still "writing" half
+     * an hour on, with nothing from Ventiq Assist (the job was cut off or
+     * lost). It's shown as not written, with Try again, instead of
+     * spinning forever. A recorded session still sending its pieces isn't.
+     */
+    public function reportStuck(): bool
+    {
+        if ($this->status !== 'completed' || ($this->meta['recording']['report_waiting'] ?? false)) {
+            return false;
+        }
+        $result = $this->report_job_id
+            ? \App\Models\AiGenerationResult::where('job_id', $this->report_job_id)->first(['status', 'updated_at'])
+            : null;
+        $since = $result?->updated_at ?? $this->updated_at;
+
+        return (!$result || $result->status === 'pending') && $since && $since->lt(now()->subMinutes(30));
+    }
+
     // Shared by the automatic trigger (last segment finishes) and the
     // manual "regenerate" action — one place, not duplicated logic.
     public function queueReportGeneration(): void

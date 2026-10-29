@@ -124,6 +124,8 @@ class Recording
             $kept[] = $sentence;
         }
         $clean = implode(' ', $kept);
+        // Whisper spells the name by ear: Vintiq, Ventik, Vintig, Ventex…
+        $clean = preg_replace('/\b(?:v[ei]nt[ie][qkcg]s?|ventex|vintage)(?=\s+(?:assist|sessions?)\b)|\b(?:vintiq|ventik|vintik|vintig|ventig|ventic|vintic|ventex)\b/i', 'Ventiq', $clean);
 
         return in_array(static::key($clean), self::NOISE, true) ? '' : $clean;
     }

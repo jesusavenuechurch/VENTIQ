@@ -40,6 +40,8 @@ abstract class PromptBuilder
                "a professional event management platform in Lesotho, Southern Africa. " .
                "You help event organisers create compelling, professional content. " .
                "Always respond in clear, professional English unless asked otherwise. " .
-               "Keep responses focused and practical. Do not add unnecessary disclaimers.";
+               "Keep responses focused and practical. Do not add unnecessary disclaimers. " .
+               "When writing about people, use their name or role; never guess anyone's gender with he, she, his or her unless the source does: repeat the name, or use they. " .
+               "The platform is spelt VENTIQ (or Ventiq), and its assistant Ventiq Assist, however a note or transcript spells it.";
     }
 }

@@ -131,3 +131,23 @@ it('deletes the audio on review only when switched on, keeping the text', functi
     Storage::disk('local')->assertMissing($path);
     expect(SessionRecordingPiece::first()->path)->toBeNull();
 });
+
+it('shows a report that never finished as not written, with Try again, after half an hour', function () {
+    $this->session->update(['status' => 'completed']);
+    $this->session->queueReportGeneration();
+    $this->get(route('sessions.report', $this->session))->assertInertia(fn (Assert $page) => $page->where('session.failed', false));
+    $this->get(route('sessions.index'))->assertInertia(fn (Assert $page) => $page->where('columns.ready.0.stuck', false));
+
+    $this->travel(31)->minutes();
+    $this->get(route('sessions.report', $this->session))->assertInertia(fn (Assert $page) => $page->where('session.failed', true));
+    $this->get(route('sessions.index'))->assertInertia(fn (Assert $page) => $page->where('columns.ready.0.stuck', true));
+
+    // A recorded session still waiting for its pieces isn't stuck.
+    \App\Services\Sessions\Recording::remember($this->session->fresh(), ['report_waiting' => true]);
+    expect($this->session->fresh()->reportStuck())->toBeFalse();
+});
+
+it('spells VENTIQ right however Whisper heard it, and leaves other words alone', function () {
+    expect(Recording::clean('Vintig Sessions is a platform. Ventik Assist will help.'))->toBe('Ventiq Sessions is a platform. Ventiq Assist will help.')
+        ->and(Recording::clean('An old vintage car, and a ventilator.'))->toBe('An old vintage car, and a ventilator.');
+});

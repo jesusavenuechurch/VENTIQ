@@ -24,6 +24,7 @@ interface Tile {
     starts: string | null;
     updated: string;
     tracking: boolean;
+    stuck: boolean;
     series: { id: number; rule: string } | null;
 }
 
@@ -60,7 +61,8 @@ const DAY_STATUS: Record<string, string> = { draft: 'Scheduled', active: 'Live n
 
 /** Where a session opens depends on the role: the console to run it, the report to read it, or the check-in list at the door. */
 function sessionHref(can: SessionsArea['can'], s: { id: number; status: string; tracking: boolean }): string | null {
-    if (can.run) return s.status === 'reported' ? route('sessions.report', s.id) : route('sessions.show', s.id);
+    // Finished: its report (being written, or to try again). Otherwise the console.
+    if (can.run) return s.status === 'reported' || s.status === 'completed' ? route('sessions.report', s.id) : route('sessions.show', s.id);
     if (can.view && s.status === 'reported') return route('sessions.report', s.id);
     if (can.checkin && s.tracking) return route('sessions.checkin', s.id);
     return null;
@@ -265,7 +267,8 @@ function Note({ tile, column, can }: { tile: Tile; column: Column; can: Sessions
         live: 'Live now',
         upcoming: tile.starts ? `Starts ${tile.starts}` : 'Scheduled',
     }[column];
-    const writingUp = column === 'ready' && tile.status === 'completed';
+    const writingUp = column === 'ready' && tile.status === 'completed' && !tile.stuck;
+    const stuck = column === 'ready' && tile.stuck;
 
     return (
         <Tag
@@ -286,7 +289,8 @@ function Note({ tile, column, can }: { tile: Tile; column: Column; can: Sessions
             </div>
             <p className="flex items-center gap-1 text-[9px] font-bold text-slate-900/45">
                 {column === 'live' || writingUp ? <span className={cn('size-1.5 animate-pulse rounded-full', writingUp ? 'bg-amber-500' : 'bg-emerald-500')} /> : column === 'upcoming' && <Clock className="size-3" />}
-                {writingUp ? 'Writing up…' : status}
+                {stuck && <span className="size-1.5 rounded-full bg-rose-500" />}
+                {stuck ? "Couldn't be written · open to try again" : writingUp ? 'Writing up…' : status}
             </p>
         </Tag>
     );

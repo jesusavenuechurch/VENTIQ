@@ -18,6 +18,8 @@ class TranscribeRecordingPiece implements ShouldQueue
 
     public int $tries = 4;
 
+    public int $timeout = 180;
+
     public function __construct(public int $pieceId) {}
 
     public function backoff(): array
