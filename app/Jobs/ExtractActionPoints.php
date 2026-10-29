@@ -123,7 +123,8 @@ class ExtractActionPoints implements ShouldQueue
                 'organization_id' => $session->organization_id,
                 'session_id'      => $session->id,
                 'series_id'       => $session->series_id,
-                'task'            => $point['task'],
+                // Written as a sentence: "Capture the report", not "capture the report".
+                'task'            => Str::ucfirst(trim(\App\Support\PlainText::normalize($point['task']))),
                 'owner_name'      => isset($owner['user_id']) || isset($owner['client_id']) ? null : ($owner['name'] ?? ($point['owner'] ?: null)),
                 'owner_user_id'   => $owner['user_id'] ?? null,
                 'owner_client_id' => $owner['client_id'] ?? null,

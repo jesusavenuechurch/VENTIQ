@@ -289,6 +289,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 confirmLabel="Write it again"
                 destructive={false}
                 onConfirm={() => {
+                    setRewrite(false);
                     setBackground(false);
                     setRewriting(true);
                     router.post(route('sessions.report.generate', session.id), {}, { onError: () => setRewriting(false) });
