@@ -96,7 +96,7 @@ class MinutesBuilder
             'decisions'  => array_key_exists('decisions', $edit)
                 ? ($this->lines($edit['decisions']) ?? [])
                 : ($failed ? [] : ($this->lines($this->text($summary['decisions'] ?? null)) ?? [])),
-            'noted'      => !empty($segment->raw_log),
+            'noted'      => !empty($segment->raw_log) || trim((string) $segment->transcript) !== '',
         ];
     }
 

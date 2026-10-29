@@ -69,8 +69,13 @@ class SessionSegmentController extends Controller
             $session->update(['status' => 'completed']);
             // No button, no waiting — this is what makes "Ready to Review"
             // something that's just there next time someone opens Ventiq,
-            // not something they had to remember to ask for.
-            $session->queueReportGeneration();
+            // not something they had to remember to ask for. A recorded
+            // session's report waits for its last pieces to be written down.
+            if (\App\Services\Sessions\Recording::pending($session) > 0) {
+                \App\Services\Sessions\Recording::remember($session, ['report_waiting' => true, 'finished_at' => now()->toIso8601String()]);
+            } else {
+                $session->queueReportGeneration();
+            }
             // Cards and thank-yous after the reply: finishing never waits on them.
             dispatch(fn () => $this->notifyParticipantsSessionEnded($session->fresh()))->afterResponse();
         }
@@ -180,6 +185,16 @@ class SessionSegmentController extends Controller
         return response()->json($parsed);
     }
 
+
+    /** The recorded transcript of an item, corrected by hand; it's kept as written from then on. */
+    public function transcript(\Illuminate\Http\Request $request, Session $session, SessionSegment $segment)
+    {
+        $this->authorizeSegment($session, $segment);
+        $text = $request->validate(['transcript' => 'nullable|string|max:200000'])['transcript'] ?? '';
+        $segment->update(['transcript' => trim($text) !== '' ? trim($text) : null, 'transcript_edited_at' => now()]);
+
+        return back()->with('status', 'Transcript saved.');
+    }
 
     private function authorizeSegment(Session $session, SessionSegment $segment): void
     {

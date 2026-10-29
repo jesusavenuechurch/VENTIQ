@@ -8,7 +8,7 @@ People in Lesotho often don't type fast enough to keep notes, so they go back to
 - **Fits the agenda.** Each agenda item has a start and end time, so the transcript goes under the item that was running. Typed notes keep working beside it. Ventiq Assist picks key points and action points from both, and the minutes and report are made as they are today.
 - **Runs on our Mac mini**, beside Ollama. Audio never leaves our machine.
 - **English first, with Whisper.** Sesotho, and Sesotho mixed with English, later: test Meta's MMS model (it has Sesotho) on real recordings, then decide.
-- **Audio is deleted once the report is marked reviewed.** Only the text is kept.
+- **Audio is kept for now.** Deleting it once the report is marked reviewed (keeping the text) is one switch: `RECORDING_DELETE_AUDIO_ON_REVIEW=true`.
 - **Part of the existing plans** for now. Pricing is revised later. A fair-use limit per session protects the Mac mini.
 - **The room is told.** A "This session is being recorded" notice when recording starts (Data Protection Act 2011).
 
@@ -19,6 +19,24 @@ People in Lesotho often don't type fast enough to keep notes, so they go back to
 3. **Build**: record button (keeps the screen awake), 30-second uploads with retry, a transcription queue, the transcript under each item and editable on the report, Assist reading it when the session finishes, audio deleted on review.
 4. **Near-live view**: the rolling transcript and sticky notes in the console.
 5. **Sesotho**: test MMS; possibly adapt a model with recordings collected with consent.
+
+## Phase 1: built (English, one person speaking at a time)
+
+How it works:
+
+- **Console.** When Whisper is set up, a live session shows **Record**. It first asks that the room is told, then records. **Pause** pauses the session and the recording together (the transcript notes when). **Next item** starts a new piece, so what's said from then goes under the next item. **Finish** waits until every piece has reached the server ("Sending the last pieces…").
+- **The phone.** Pieces are 30 seconds, each a whole file, kept in the browser's storage until the server has them: a dropped connection or a closed page only delays them; they're sent the next time the console is opened on that phone. The screen is kept awake while recording. One phone records a session at a time; another is told someone else is recording.
+- **Server.** `POST /sessions/{id}/recording/pieces` stores the piece (`storage/app/private/recordings/session-{id}/`), and the `TranscribeRecordingPiece` job sends it to Whisper with the session's hint list: organisation, title, agenda items, who leads them and who checked in. Whisper's text is cleaned (its `[BLANK_AUDIO]` tags, a sentence repeated straight after itself, a piece that's only "Thank you.") and goes under the item.
+- **The report** waits for the last pieces, then Ventiq Assist writes it from the typed notes and the transcript together (`SessionSegment::notesText()`). A Transcript tab on the report shows it item by item, correctable; a corrected item isn't overwritten. Admins and Staff only: Viewers and the check-in desk don't see it.
+- **Safety net.** `sessions:recording-catch-up` (every 10 minutes) sends stuck pieces again, and writes a report that has waited 45 minutes for its last pieces from what's there.
+- **Fair use:** 4 hours per session (`RECORDING_MAX_SECONDS`).
+
+### Switching it on in production
+
+1. Run the migrations (`2026_10_29_000008` adds the recording pieces and each item's transcript).
+2. On the Mac mini, keep Whisper running (step 3 below) on its Tailscale address, with `-l en -mc 0 --convert`.
+3. In the server's `.env`: `WHISPER_URL=http://<the Mac mini's Tailscale address>:8178`. Until it's set, the Record button doesn't show.
+4. A queue worker must be running (`php artisan queue:work`), as for the reports, and the scheduler (`php artisan schedule:run` every minute) for the safety net.
 
 ## Mac mini test (M4, 10-core CPU and GPU, 24 GB)
 

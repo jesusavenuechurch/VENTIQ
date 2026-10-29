@@ -350,6 +350,7 @@ class SessionController extends Controller
                 'insights'   => $s->insights->map(fn ($i) => ['id' => $i->id, 'type' => $i->category, 'text' => $i->content])->values(),
             ])->values(),
             'carried' => $this->carried($session),
+            'recording' => \App\Services\Sessions\Recording::state($session),
             'roles' => collect(\App\Support\SessionType::roles($session->type))
                 ->map(fn ($r, $value) => ['value' => $value, 'label' => $r['label'], 'presenting' => $r['presenting']])
                 ->values(),
@@ -510,6 +511,7 @@ class SessionController extends Controller
         }
 
         $session->load('segments');
+        $canRun = \App\Support\SessionsAccess::can(Auth::user(), 'run');
 
         return Inertia::render('Sessions/Report', [
             'session' => [
@@ -536,7 +538,15 @@ class SessionController extends Controller
                 'summary' => $s->ai_summary['summary'] ?? null,
                 'topic'   => $s->title,
                 'logs'    => collect($s->raw_log ?? [])->map(fn ($l) => ['time' => $l['time'] ?? '', 'text' => $l['text'] ?? ''])->values(),
+                // What was said, when recorded: for the team who run sessions only.
+                'transcript' => $canRun ? $s->transcript : null,
             ])->values(),
+            'recorded'     => $canRun && \App\Models\SessionRecordingPiece::where('session_id', $session->id)->exists(),
+            'transcribing' => $canRun ? \App\Services\Sessions\Recording::pending($session) : 0,
+            'pauses'       => $canRun ? collect($session->meta['recording']['pauses'] ?? [])->map(fn ($p) => [
+                'from' => \Illuminate\Support\Carbon::parse($p['from'])->timezone(config('app.timezone'))->format('H:i'),
+                'to'   => $p['to'] ? \Illuminate\Support\Carbon::parse($p['to'])->timezone(config('app.timezone'))->format('H:i') : null,
+            ])->values() : [],
             // What was agreed here, and what came in still open from the
             // series' earlier meetings (and whether it was done here).
             'actionPoints' => $session->actionPoints()->whereIn('status', ['proposed', 'open', 'done'])->with(['ownerUser', 'ownerClient'])->orderBy('id')->get()->map->toCard(),
@@ -561,6 +571,9 @@ class SessionController extends Controller
         $session->update(['reviewed_at' => now(), 'meta' => array_merge($session->meta ?? [], ['reviewed_by' => Auth::user()->name])]);
         // Reviewing the report confirms the action points proposed for it.
         $session->actionPoints()->where('status', 'proposed')->update(['status' => 'open']);
+        if (config('services.whisper.delete_audio_on_review')) {
+            \App\Services\Sessions\Recording::deleteAudio($session);
+        }
 
         $organization = $session->organization;
 

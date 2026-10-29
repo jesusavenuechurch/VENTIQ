@@ -47,7 +47,7 @@ class GenerateSessionReport implements ShouldQueue
         foreach ($session->segments as $segment) {
             if (!$segment->is_presenting) continue;
 
-            $rawText = collect($segment->raw_log ?? [])->pluck('text')->implode("\n");
+            $rawText = $segment->notesText();
             if (trim($rawText) === '') continue;
 
             $attempted++;

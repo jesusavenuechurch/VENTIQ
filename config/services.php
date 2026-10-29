@@ -165,4 +165,16 @@ return [
         // while events are selling; the money page warns after that.
         'quiet_hours' => (int) env('MOBILE_MONEY_QUIET_HOURS', 24),
     ],
+
+    // Whisper on the Mac mini (whisper.cpp's server, over Tailscale), for
+    // recorded sessions. Without a URL the record button doesn't show.
+    // See docs/transcription-plan.md.
+    'whisper' => [
+        'url'     => env('WHISPER_URL'),
+        'timeout' => (int) env('WHISPER_TIMEOUT', 120),
+        // Fair use: this much recording per session.
+        'max_seconds' => (int) env('RECORDING_MAX_SECONDS', 4 * 3600),
+        // Delete the audio once the report is marked reviewed (the text stays).
+        'delete_audio_on_review' => (bool) env('RECORDING_DELETE_AUDIO_ON_REVIEW', false),
+    ],
 ];

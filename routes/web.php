@@ -287,6 +287,12 @@ Route::middleware(['auth', 'sessions.area'])->prefix('sessions')->name('sessions
     Route::post('/{session}/segments/{segment}/log', [SessionSegmentController::class, 'log'])->name('segments.log');
     Route::post('/{session}/segments/{segment}/log/undo', [SessionSegmentController::class, 'undoLog'])->name('segments.log.undo');
     Route::post('/{session}/segments/{segment}/finish', [SessionSegmentController::class, 'finish'])->name('segments.finish');
+    Route::patch('/{session}/segments/{segment}/transcript', [SessionSegmentController::class, 'transcript'])->name('segments.transcript');
+    Route::post('/{session}/recording/start', [App\Http\Controllers\SessionRecordingController::class, 'start'])->name('recording.start');
+    Route::post('/{session}/recording/pieces', [App\Http\Controllers\SessionRecordingController::class, 'piece'])->middleware('throttle:240,1')->name('recording.piece');
+    Route::post('/{session}/recording/pause', [App\Http\Controllers\SessionRecordingController::class, 'pause'])->name('recording.pause');
+    Route::post('/{session}/recording/resume', [App\Http\Controllers\SessionRecordingController::class, 'resume'])->name('recording.resume');
+    Route::post('/{session}/recording/stop', [App\Http\Controllers\SessionRecordingController::class, 'stop'])->name('recording.stop');
     Route::post('/{session}/segments/{segment}/tag', [SessionSegmentController::class, 'tag'])->name('segments.tag');
     Route::get('/{session}/report', [SessionController::class, 'report'])->name('report');
     Route::post('/{session}/report/review', [SessionController::class, 'markReviewed'])->name('report.review');

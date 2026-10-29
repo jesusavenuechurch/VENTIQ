@@ -1,5 +1,5 @@
 import { Link, router, usePage, usePoll } from '@inertiajs/react';
-import { BarChart3, Check, ChevronDown, Download, FileText, LoaderCircle, Pencil, RotateCw } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, Download, FileText, LoaderCircle, Mic, Pencil, RotateCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
@@ -11,19 +11,24 @@ import type { SessionsArea } from '@/types';
 
 interface Props {
     session: { id: number; title: string; date: string; status: string; report: string | null; reviewed: string | null; tracking: boolean; failed: boolean; series: { id: number; title: string } | null; previous: number | null; findingActions: boolean; takesMinutes: boolean };
-    segments: { id: number; name: string; role: string | null; summary: string | null; topic: string | null; logs: { time: string; text: string }[] }[];
+    segments: { id: number; name: string; role: string | null; summary: string | null; topic: string | null; logs: { time: string; text: string }[]; transcript: string | null }[];
     actionPoints: ActionPointCard[];
     carried: ActionPointCard[];
     owners: Owner[];
     /** A meeting's report is its minutes. */
     minutes: MinutesData | null;
     numbers: SessionNumbersData | null;
+    /** The session was recorded (shown to those who run sessions only). */
+    recorded: boolean;
+    /** Pieces of the recording still being written down. */
+    transcribing: number;
+    pauses: { from: string; to: string | null }[];
 }
 
-type Tab = 'report' | 'numbers';
+type Tab = 'report' | 'numbers' | 'transcript';
 
 /** A session's report: written by Ventiq Assist from the notes, editable, and the notes it came from. */
-export default function Report({ session, segments, actionPoints, carried, owners, minutes, numbers }: Props) {
+export default function Report({ session, segments, actionPoints, carried, owners, minutes, numbers, recorded, transcribing, pauses }: Props) {
     // Writing the report, then picking out its action points: checked every few seconds.
     const generating = (session.status === 'completed' && !session.failed) || session.findingActions;
     // Viewers read the report; Admins and Staff edit and review it.
@@ -35,11 +40,14 @@ export default function Report({ session, segments, actionPoints, carried, owner
     const [justSaved, setJustSaved] = useState(false);
     const [error, setError] = useState('');
     // The tab, kept in the address so a refresh or a shared link opens it.
-    const [tab, setTab] = useState<Tab>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'numbers' ? 'numbers' : 'report'));
+    const [tab, setTab] = useState<Tab>(() => {
+        const asked = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
+        return asked === 'numbers' || (asked === 'transcript' && recorded) ? asked : 'report';
+    });
     function show(next: Tab) {
         setTab(next);
         const url = new URL(window.location.href);
-        if (next === 'numbers') url.searchParams.set('tab', 'numbers');
+        if (next !== 'report') url.searchParams.set('tab', next);
         else url.searchParams.delete('tab');
         window.history.replaceState(window.history.state, '', url);
     }
@@ -49,7 +57,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
         : segments.map((s) => ({ label: s.topic || s.name, text: s.summary }));
 
     // While the report is being written, check every few seconds.
-    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints', 'minutes'] }, { autoStart: generating });
+    const { start, stop } = usePoll(3000, { only: ['session', 'segments', 'actionPoints', 'minutes', 'transcribing'] }, { autoStart: generating });
     useEffect(() => (generating ? start() : stop()), [generating, start, stop]);
     // The report arriving from the check above.
     useEffect(() => {
@@ -99,7 +107,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
             ) : (
                 <>
                 <div role="tablist" aria-label="Report views" className="mb-6 flex flex-wrap items-center gap-2">
-                    {([['report', session.takesMinutes ? 'Minutes' : 'Report', FileText], ['numbers', 'Summary and numbers', BarChart3]] as const).map(([key, label, Icon]) => (
+                    {([['report', session.takesMinutes ? 'Minutes' : 'Report', FileText], ['numbers', 'Summary and numbers', BarChart3], ...(recorded ? [['transcript', 'Transcript', Mic] as const] : [])] as const).map(([key, label, Icon]) => (
                         <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => show(key)}
                             className={cn(quietButton, tab === key && 'border-brand bg-brand text-white hover:text-white')}>
                             <Icon className="size-3.5" />{label}
@@ -109,7 +117,9 @@ export default function Report({ session, segments, actionPoints, carried, owner
                         <Download className="size-3.5" />Full report
                     </a>
                 </div>
-                {tab === 'numbers' && numbers ? (
+                {tab === 'transcript' && recorded ? (
+                    <Transcript sessionId={session.id} segments={segments} pauses={pauses} transcribing={transcribing} />
+                ) : tab === 'numbers' && numbers ? (
                     <SessionNumbers numbers={numbers} summary={summary} minuted={session.takesMinutes} />
                 ) : (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -197,6 +207,64 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 </>
             )}
         </SessionsLayout>
+    );
+}
+
+/** What was said, item by item, as Whisper wrote it down; corrected by hand where it misheard. */
+function Transcript({ sessionId, segments, pauses, transcribing }: { sessionId: number; segments: Props['segments']; pauses: Props['pauses']; transcribing: number }) {
+    return (
+        <div className="space-y-4">
+            <p className="rounded-2xl bg-[#F7F3EC] px-5 py-4 text-[12px] font-medium leading-relaxed text-gray-600">
+                Written down by machine from the recording, so names and some words may be misheard. Correct anything here; the minutes were written from it.
+                {transcribing > 0 && <span className="mt-1 flex items-center gap-1.5 font-bold text-action"><LoaderCircle className="size-3.5 animate-spin" />{transcribing} {transcribing === 1 ? 'piece is' : 'pieces are'} still being written down.</span>}
+                {pauses.length > 0 && <span className="mt-1 block font-bold text-gray-500">Recording paused {pauses.map((p) => `${p.from}–${p.to ?? 'end'}`).join(', ')}.</span>}
+            </p>
+            {segments.map((s) => <TranscriptItem key={s.id} sessionId={sessionId} segment={s} />)}
+        </div>
+    );
+}
+
+function TranscriptItem({ sessionId, segment }: { sessionId: number; segment: Props['segments'][number] }) {
+    const [editing, setEditing] = useState(false);
+    const [text, setText] = useState(segment.transcript ?? '');
+    const [saving, setSaving] = useState(false);
+    useEffect(() => {
+        if (!editing) setText(segment.transcript ?? '');
+    }, [segment.transcript, editing]);
+
+    function save() {
+        setSaving(true);
+        router.patch(route('sessions.segments.transcript', [sessionId, segment.id]), { transcript: text }, {
+            preserveScroll: true,
+            onSuccess: () => setEditing(false),
+            onFinish: () => setSaving(false),
+        });
+    }
+
+    return (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <span>
+                    <span className="block text-[14px] font-black text-brand">{segment.name}</span>
+                    {segment.role && <span className="block text-[11px] font-bold text-gray-400">{segment.role}</span>}
+                </span>
+                {editing ? (
+                    <span className="flex gap-2">
+                        <button type="button" onClick={() => { setText(segment.transcript ?? ''); setEditing(false); }} className={quietButton}>Cancel</button>
+                        <button type="button" disabled={saving} onClick={save} className={cn(quietButton, 'border-brand bg-brand text-white hover:bg-action')}>{saving ? 'Saving…' : 'Save'}</button>
+                    </span>
+                ) : (
+                    <button type="button" onClick={() => setEditing(true)} className={quietButton}><Pencil className="size-3.5" />Correct</button>
+                )}
+            </div>
+            {editing ? (
+                <textarea aria-label={`Transcript: ${segment.name}`} value={text} onChange={(e) => setText(e.target.value)} rows={10} className="w-full resize-y rounded-2xl border-none bg-gray-50 px-5 py-4 text-[13px] font-medium leading-relaxed text-gray-700 outline-none focus:ring-2 focus:ring-action/20" />
+            ) : segment.transcript ? (
+                <p className="whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-gray-700">{segment.transcript}</p>
+            ) : (
+                <p className="text-[12px] italic text-gray-300">Nothing recorded under this one.</p>
+            )}
+        </div>
     );
 }
 

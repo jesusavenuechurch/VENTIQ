@@ -1,9 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Link2, ListOrdered, PencilSparkles, Plus, QrCode, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Link2, ListOrdered, Mic, PencilSparkles, Plus, QrCode, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import type { ActionPointCard } from '@/components/sessions/action-points';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { json } from '@/lib/http';
+import { useSessionRecorder, type RecordingState } from '@/lib/session-recorder';
 import { cn } from '@/lib/utils';
 
 type Status = 'upcoming' | 'active' | 'completed';
@@ -54,6 +56,8 @@ interface Props {
     roles: Role[];
     /** In a series: action points still open from earlier meetings. */
     carried: ActionPointCard[];
+    /** Recording the session on this phone (when Whisper is set up). */
+    recording: RecordingState;
 }
 
 const PALETTE = ['#D4AF37', '#10b981', '#0f172a', '#64748b', '#94a3b8'];
@@ -84,7 +88,7 @@ async function call<T = Record<string, unknown>>(url: string, method = 'POST', b
  * background. Each line is saved as it's written; the last one can be
  * pulled back to fix a mistyped Enter.
  */
-export default function Show({ session, segments, roles, carried }: Props) {
+export default function Show({ session, segments, roles, carried, recording }: Props) {
     const base = `/sessions/${session.id}`;
     const [speakers, setSpeakers] = useState<Speaker[]>(() => segments.map((s) => ({ ...s, breaks: [0], page: 0 })));
     const active = segments.find((s) => s.status === 'active');
@@ -121,6 +125,10 @@ export default function Show({ session, segments, roles, carried }: Props) {
 
     const selected = speakers.find((s) => s.id === selectedId) ?? null;
     const live = speakers.find((s) => s.id === liveId) ?? null;
+    const rec = useSessionRecorder(session.id, recording, liveId);
+    const [consent, setConsent] = useState(false);
+    const [recClock, setRecClock] = useState(recording.seconds);
+    const recOn = rec.status === 'recording' || rec.status === 'paused' || rec.status === 'sending';
     const capturingHere = isLive && !!selected && selected.id === liveId;
     const onLatestPage = !selected || selected.page === selected.breaks.length - 1;
     const completed = speakers.filter((s) => s.status === 'completed').length;
@@ -165,6 +173,19 @@ export default function Show({ session, segments, roles, carried }: Props) {
         if (typeof data?.duration_seconds === 'number') update(liveId, () => ({ duration: data.duration_seconds! }));
         window.setTimeout(() => draftRef.current?.focus(), 0);
     }, [isLive, paused, liveId, base, update]);
+
+    // The recording's clock, and a warning before closing the page while it records.
+    useEffect(() => {
+        if (rec.status !== 'recording') return;
+        const t = window.setInterval(() => setRecClock((c) => c + 1), 1000);
+        return () => window.clearInterval(t);
+    }, [rec.status]);
+    useEffect(() => {
+        if (!recOn && !rec.queued) return;
+        const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [recOn, rec.queued]);
 
     // Away from the tab: pause; back: resume, unless they paused it themselves.
     useEffect(() => {
@@ -274,6 +295,12 @@ export default function Show({ session, segments, roles, carried }: Props) {
         setFinishing(true);
         await queue.current;
         setFinishFailed(false);
+        // The last item: every piece of the recording reaches VENTIQ before the meeting closes.
+        if (isLastSpeaker && (recOn || rec.queued > 0) && !(await rec.finish())) {
+            setFinishing(false);
+            rec.setProblem("Some of the recording hasn't reached VENTIQ yet. Keep this page open, check the connection, and tap Finish again.");
+            return;
+        }
         const data = await call<{ next_segment_id: number | null }>(`${base}/segments/${live.id}/finish`);
         setFinishing(false);
         if (!data) {
@@ -284,6 +311,7 @@ export default function Show({ session, segments, roles, carried }: Props) {
         const next = data.next_segment_id;
         if (next) {
             update(next, () => ({ status: 'active' }));
+            rec.moveTo(next);
             setLiveId(next);
             setSelectedId(next);
             setDraft('');
@@ -563,8 +591,28 @@ export default function Show({ session, segments, roles, carried }: Props) {
                                     <button type="button" aria-label="Next page" disabled={onLatestPage} onClick={() => update(selected.id, (s) => ({ page: s.page + 1 }))} className="text-slate-400 disabled:opacity-20"><ChevronRight className="size-4" /></button>
                                 </div>
                             )}
+                            {isLive && !['completed', 'reported'].includes(session.status) && recording.available && rec.supported && (
+                                recOn ? (
+                                    <span className={cn(pill, 'inline-flex items-center gap-1.5 normal-case tracking-normal', rec.status === 'recording' ? 'bg-rose-600' : 'bg-slate-400')} role="status">
+                                        {rec.status === 'recording' && <span className="size-1.5 animate-pulse rounded-full bg-white" />}
+                                        {rec.status === 'sending' ? `Sending the last pieces…${rec.queued ? ` (${rec.queued})` : ''}` : rec.status === 'paused' ? 'Recording paused' : `Recording ${clock(recClock)}`}
+                                    </span>
+                                ) : (
+                                    <button type="button" disabled={rec.status === 'starting'} onClick={() => setConsent(true)} className={cn(pill, 'inline-flex items-center gap-1.5 bg-rose-600 transition hover:opacity-80 disabled:opacity-50')}>
+                                        <Mic className="size-3" />{rec.status === 'starting' ? 'Starting…' : 'Record'}
+                                    </button>
+                                )
+                            )}
                             {capturingHere && (
-                                <button type="button" disabled={paused === 'auto'} onClick={() => (paused ? resume() : pause('manual'))} className={cn(pill, 'transition hover:opacity-80', paused ? 'bg-slate-300' : 'bg-slate-900')}>
+                                <button type="button" disabled={paused === 'auto'} onClick={() => {
+                                    if (paused) {
+                                        void resume();
+                                        if (rec.status === 'paused') void rec.resume();
+                                    } else {
+                                        void pause('manual');
+                                        if (rec.status === 'recording') void rec.pause();
+                                    }
+                                }} className={cn(pill, 'transition hover:opacity-80', paused ? 'bg-slate-300' : 'bg-slate-900')}>
                                     {paused ? (paused === 'auto' ? 'Away' : 'Resume') : 'Pause'}
                                 </button>
                             )}
@@ -575,6 +623,12 @@ export default function Show({ session, segments, roles, carried }: Props) {
                             )}
                         </div>
                     </header>
+                    {(rec.problem || (rec.queued > 0 && !recOn)) && (
+                        <p role="alert" className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-rose-50 px-4 py-3 text-[12px] font-bold text-rose-800">
+                            {rec.problem || `${rec.queued} ${rec.queued === 1 ? 'piece' : 'pieces'} of recording waiting to send. Keep this page open.`}
+                            {rec.problem && <button type="button" onClick={() => rec.setProblem('')} className="underline">OK</button>}
+                        </p>
+                    )}
                     {finishFailed && (
                         <p role="alert" className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-[12px] font-bold text-amber-800">
                             That didn't get a reply. Your notes are saved.
@@ -673,6 +727,33 @@ export default function Show({ session, segments, roles, carried }: Props) {
             <ConfirmDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing ? nameOf(removing) : ''}?`} confirmLabel="Remove" onConfirm={() => removing && removePerson(removing)}>
                 {agenda ? "Nothing's been noted under it, so no notes are lost." : "They haven't presented, so no notes are lost."}
             </ConfirmDialog>
+
+            {/* Before recording: the room is told, and the phone is set up to last. */}
+            <Dialog open={consent} onOpenChange={setConsent}>
+                <DialogContent className="max-w-md rounded-[2rem] p-8">
+                    <DialogTitle className="text-xl font-black normal-case not-italic tracking-tight text-slate-900">Record this session?</DialogTitle>
+                    <DialogDescription asChild>
+                        <div className="space-y-3 text-[13px] font-medium normal-case leading-relaxed tracking-normal text-slate-600">
+                            <p><b className="text-slate-900">Tell the room first.</b> Everyone should know this session is being recorded.</p>
+                            <p>VENTIQ writes down what is said, in English, under each agenda item. Tap <b>Next item</b> as the meeting moves on, and <b>Pause</b> for anything off the record.</p>
+                            <p>Put this phone in the middle of the table, plugged in, with this page open and the screen on.</p>
+                        </div>
+                    </DialogDescription>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <button type="button" onClick={() => setConsent(false)} className="whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-bold normal-case tracking-normal text-slate-500 hover:text-slate-900">Not now</button>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                setConsent(false);
+                                if (await rec.start()) setRecClock(rec.seconds);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-white hover:opacity-90"
+                        >
+                            <Mic className="size-3.5" />The room knows. Start recording
+                        </button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

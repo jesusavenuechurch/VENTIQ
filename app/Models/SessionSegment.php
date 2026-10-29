@@ -28,6 +28,8 @@ class SessionSegment extends Model
         'paused_seconds',
         'role',
         'is_presenting',
+        'transcript',
+        'transcript_edited_at',
     ];
 
     protected $casts = [
@@ -36,7 +38,25 @@ class SessionSegment extends Model
         'raw_log'    => 'array',
         'ai_summary' => 'array',
         'paused_at' => 'datetime',
+        'transcript_edited_at' => 'datetime',
     ];
+
+    /**
+     * Everything captured under this item, for Ventiq Assist: the lines
+     * typed in the console and, when the session was recorded, what was
+     * said. Empty when neither.
+     */
+    public function notesText(): string
+    {
+        $typed = collect($this->raw_log ?? [])->pluck('text')->filter()->implode("\n");
+        $said = trim((string) $this->transcript);
+
+        return match (true) {
+            $said === ''  => $typed,
+            $typed === '' => "Recording transcript (written down by machine: names and some words may be misheard):\n{$said}",
+            default       => "Typed notes:\n{$typed}\n\nRecording transcript (written down by machine: names and some words may be misheard):\n{$said}",
+        };
+    }
 
     /**
      * A meeting's agenda item keeps the item in title and who leads it in

@@ -42,3 +42,6 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('sessions:renewals')->dailyAt('08:15')->withoutOverlapping();
 // Sessions pilots: VENTIQ told a week before one ends; ended after their last day.
 \Illuminate\Support\Facades\Schedule::command('sessions:pilots')->dailyAt('08:20')->withoutOverlapping();
+
+// Recorded sessions: retry stuck pieces, and don't let a report wait forever.
+\Illuminate\Support\Facades\Schedule::command('sessions:recording-catch-up')->everyTenMinutes()->withoutOverlapping();

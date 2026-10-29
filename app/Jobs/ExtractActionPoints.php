@@ -82,7 +82,7 @@ class ExtractActionPoints implements ShouldQueue
     public function propose(AIService $ai, Session $session): array
     {
         $notes = $session->segments->map(function ($s) {
-            $lines = collect($s->raw_log ?? [])->pluck('text')->filter()->implode("\n");
+            $lines = $s->notesText();
 
             // A meeting's agenda item: the item, and who led it if anyone.
             $heading = $s->title && $s->presenter_name === $s->title ? $s->title : trim($s->presenter_name . ($s->title ? " ({$s->title})" : ''));
