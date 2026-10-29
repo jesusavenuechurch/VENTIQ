@@ -48,7 +48,7 @@ class MinutesBuilder
             'apologies' => $this->lines($edits['apologies'] ?? null) ?? [],
             'previous'  => $this->previous($session),
             'arising'   => ActionPoint::carriedInto($session)->map->toCard()->values()->all(),
-            'items'     => $items->map(fn (SessionSegment $s) => $this->item($s, $edits['items'][$s->id] ?? []))->all(),
+            'items'     => $items->map(fn (SessionSegment $s) => $this->item($s, $edits['items'][$s->id] ?? []) + ['leadAs' => $session->isQuick() ? 'Organised by' : 'Led by'])->all(),
             'actions'   => $session->actionPoints()->whereIn('status', ['proposed', 'open', 'done'])->with(['session', 'ownerUser', 'ownerClient'])->orderBy('id')->get()->map->toCard()->all(),
             'aob'       => trim($edits['aob'] ?? '') ?: null,
             'next'      => array_key_exists('next', $edits) ? (trim($edits['next'] ?? '') ?: null) : $this->next($session),

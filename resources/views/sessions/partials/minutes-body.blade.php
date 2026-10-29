@@ -45,7 +45,7 @@
 
     @foreach ($minutes['items'] as $item)
         <h2>{{ $n++ }}. {{ $item['title'] }}</h2>
-        @if ($item['lead'])<p class="lead">Led by {{ $item['lead'] }}</p>@endif
+        @if ($item['lead'])<p class="lead">{{ $item['leadAs'] ?? 'Led by' }} {{ $item['lead'] }}</p>@endif
         @if ($item['discussion'])
             <p>{{ $item['discussion'] }}</p>
         @else

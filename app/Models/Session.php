@@ -152,6 +152,12 @@ class Session extends Model
         $this->update(['status' => 'active']);
     }
 
+    /** Started with Quick catch-up: whoever started it organised it, not necessarily said what was said. */
+    public function isQuick(): bool
+    {
+        return (bool) ($this->meta['quick'] ?? ($this->title === 'Quick catch-up'));
+    }
+
     /**
      * A finished session whose report has gone quiet: still "writing" half
      * an hour on, with nothing from Ventiq Assist (the job was cut off or

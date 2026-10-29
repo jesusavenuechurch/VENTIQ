@@ -11,7 +11,7 @@ export interface MinutesData {
     apologies: string[];
     previous: { id: number; date: string; confirmed: boolean } | null;
     arising: ActionPointCard[];
-    items: { id: number; title: string; lead: string | null; discussion: string | null; decisions: string[]; noted: boolean }[];
+    items: { id: number; title: string; lead: string | null; leadAs?: string; discussion: string | null; decisions: string[]; noted: boolean }[];
     actions: ActionPointCard[];
     aob: string | null;
     next: string | null;
@@ -97,7 +97,7 @@ export function Minutes({ sessionId, minutes, canEdit, tracking, onDownload }: {
                 )}
 
                 {minutes.items.map((item) => (
-                    <Section key={item.id} n={num()} title={item.title} sub={item.lead ? `Led by ${item.lead}` : undefined}>
+                    <Section key={item.id} n={num()} title={item.title} sub={item.lead ? `${item.leadAs ?? 'Led by'} ${item.lead}` : undefined}>
                         <Editable canEdit={canEdit} label={`Discussion: ${item.title}`} value={item.discussion ?? ''} rows={5} onSave={(v, done, failed) => save({ items: { [item.id]: { discussion: v } } }, done, failed)}>
                             {item.discussion ? <p className={cn(body, 'whitespace-pre-wrap')}>{item.discussion}</p> : <p className={none}>{item.noted ? 'No discussion recorded.' : 'Nothing was noted for this item.'}</p>}
                         </Editable>

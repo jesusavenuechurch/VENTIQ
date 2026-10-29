@@ -163,3 +163,27 @@ it('marks every PDF of a report no one has reviewed as a draft by Ventiq Assist,
     $this->session->update(['reviewed_at' => now()]);
     expect($html())->not->toContain('Draft, not reviewed');
 });
+
+it('writes the minutes again on request, keeping who was present, and not once reviewed', function () {
+    $this->session->update(['status' => 'reported', 'session_report' => 'Old', 'minutes' => ['present' => 'Thabo Lebona', 'items' => [$this->item->id => ['discussion' => 'Edited']]]]);
+    $this->post(route('sessions.report.generate', $this->session))->assertRedirect();
+
+    $fresh = $this->session->fresh();
+    expect($fresh->status)->toBe('completed')->and($fresh->minutes)->toBe(['present' => 'Thabo Lebona']);
+    Bus::assertDispatched(GenerateSessionReport::class);
+
+    $fresh->update(['status' => 'reported', 'reviewed_at' => now()]);
+    $this->post(route('sessions.report.generate', $this->session))->assertStatus(409);
+});
+
+it('says a quick catch-up was organised by whoever started it, and keeps minutes free of he and she', function () {
+    $this->post(route('sessions.quick'));
+    $quick = Session::latest('id')->first();
+    expect($quick->isQuick())->toBeTrue();
+    $quick->update(['status' => 'reported']);
+    expect(app(\App\Services\Sessions\MinutesBuilder::class)->build($quick)['items'][0]['leadAs'])->toBe('Organised by')
+        ->and(app(\App\Services\Sessions\MinutesBuilder::class)->build($this->session)['items'][0]['leadAs'])->toBe('Led by');
+
+    expect(\App\Support\Pronouns::neutral('He reported that she was late. His plan was adopted. Shepherds noted the theme.'))
+        ->toBe('They reported that they were late. Their plan was adopted. Shepherds noted the theme.');
+});

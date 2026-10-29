@@ -460,6 +460,7 @@ class SessionController extends Controller
             'chair'      => $user->name,
             'people'     => [['title' => 'Catch-up', 'name' => $user->name]],
         ]);
+        $session->update(['meta' => array_merge($session->meta ?? [], ['quick' => true])]);
 
         if ($stopped = $this->begin($session)) {
             return redirect()->route('sessions.show', $session)->with('error', $stopped);
@@ -494,11 +495,17 @@ class SessionController extends Controller
     public function generateReport(Session $session)
     {
         abort_unless($session->organization_id === Auth::user()->organization_id, 403);
+        abort_if($session->reviewed_at, 409, 'This report is reviewed; it is kept as it is.');
 
+        // Written again from the notes and recording: the items' edited write-ups go;
+        // who was present, apologies and the rest stay as they were.
+        $minutes = $session->minutes ?? [];
+        unset($minutes['items']);
+        $session->update(['status' => 'completed', 'minutes' => $minutes ?: null]);
         $session->queueReportGeneration();
 
         return redirect()->route('sessions.report', $session)
-            ->with('status', 'Generating your report — this takes a few seconds.');
+            ->with('status', SessionType::takesMinutes($session->type) ? 'Ventiq Assist is writing the minutes again.' : 'Ventiq Assist is writing the report again.');
     }
 
     public function report(Session $session)

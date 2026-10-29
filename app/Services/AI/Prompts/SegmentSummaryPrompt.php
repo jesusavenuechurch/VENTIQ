@@ -19,10 +19,13 @@ class SegmentSummaryPrompt extends PromptBuilder
 
         if ($agenda) {
             $lead = $this->variables['lead'] ?? null;
-            $leadLine = $lead ? "Led by: {$lead}\n" : '';
+            $quick = (bool) ($this->variables['quick'] ?? false);
+            $leadLine = $lead ? ($quick ? "Organised by: {$lead}\n" : "Led by: {$lead}\n") : '';
 
             $intro = <<<INTRO
-You are writing the minutes of one agenda item from a meeting. The notes below were captured while it was discussed: typed live by the secretary, a transcript of the recording written down by machine, or both. Typed notes may be fragmented or shorthand; a transcript may mishear names and words, so prefer the spelling of names given in the agenda and the typed notes. Write as minutes are written: formal, past tense, third person. Record only what the notes say; don't invent names, figures or decisions. Whoever led the item reported on it: refer to them by name, and give no one a title (Chairperson, Director…) the notes don't give them. Keep each figure with what it counts.
+You are writing the minutes of one agenda item from a meeting. The notes below were captured while it was discussed: typed live by the secretary, a transcript of the recording written down by machine, or both. Typed notes may be fragmented or shorthand; a transcript may mishear names and words, so prefer the spelling of names given in the agenda and the typed notes.
+
+Write as minutes are written: formal, past tense, impersonal. Report what was discussed, noted and agreed, not who said it: "The meeting discussed…", "It was noted that…", "It was agreed that…", "The discussion focused on…". Name a person only where the notes themselves say who said or will do something; a recording doesn't tell you who was speaking, and whoever led or organised the item did not necessarily say it all. Never write he, she, his or her. Record only what the notes say; don't invent names, figures or decisions, and give no one a title (Chairperson, Director…) the notes don't give them. Keep each figure with what it counts.
 
 Agenda item: {$topic}
 {$leadLine}

@@ -61,6 +61,7 @@ class GenerateSessionReport implements ShouldQueue
                 'sections'  => $sectionsConfig,
                 'agenda'    => $agenda,
                 'lead'      => $segment->lead(),
+                'quick'     => $session->isQuick(),
             ]);
 
             try {
@@ -87,7 +88,9 @@ class GenerateSessionReport implements ShouldQueue
             foreach (array_keys($sectionsConfig) as $key) {
                 $summary[$key] = $parsed[$key] ?? 'None identified.';
             }
-            $segment->update(['ai_summary' => array_map(fn ($v) => is_string($v) ? \App\Support\PlainText::normalize($v) : $v, $summary)]);
+            // Minutes are impersonal: no he or she, whatever the model wrote.
+            $tidy = fn ($v) => is_string($v) ? \App\Support\PlainText::normalize($agenda ? \App\Support\Pronouns::neutral($v) : $v) : $v;
+            $segment->update(['ai_summary' => array_map($tidy, $summary)]);
         }
 
         // Whole-session failure — same rule as before: don't fake success

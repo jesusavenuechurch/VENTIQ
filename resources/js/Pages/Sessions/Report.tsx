@@ -5,6 +5,7 @@ import SessionsLayout, { quietButton } from '@/Layouts/SessionsLayout';
 import { type ActionPointCard, type Owner, SessionActionPoints } from '@/components/sessions/action-points';
 import { Minutes, type MinutesData } from '@/components/sessions/minutes';
 import { SessionNumbers, type SessionNumbersData } from '@/components/sessions/numbers';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { json } from '@/lib/http';
 import { cn } from '@/lib/utils';
@@ -70,6 +71,7 @@ export default function Report({ session, segments, actionPoints, carried, owner
 
     // Downloading before anyone has reviewed it: offer to review it first, or take it as a marked draft.
     const [gate, setGate] = useState<string | null>(null);
+    const [rewrite, setRewrite] = useState(false);
     const [reviewing, setReviewing] = useState(false);
     function guard(e: React.MouseEvent<HTMLAnchorElement>) {
         if (session.reviewed) return;
@@ -139,7 +141,12 @@ export default function Report({ session, segments, actionPoints, carried, owner
                             <Icon className="size-3.5" />{label}
                         </button>
                     ))}
-                    <a href={route('sessions.report.full', session.id)} onClick={guard} className={cn(quietButton, 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
+                    {canRun && !session.reviewed && (
+                        <button type="button" onClick={() => setRewrite(true)} className={cn(quietButton, 'ml-auto')} title="Ventiq Assist writes it again from the notes and the recording">
+                            <RotateCw className="size-3.5" />Write it again
+                        </button>
+                    )}
+                    <a href={route('sessions.report.full', session.id)} onClick={guard} className={cn(quietButton, !(canRun && !session.reviewed) && 'ml-auto')} title={`Cover, summary and numbers, the ${session.takesMinutes ? 'minutes' : 'report'}, the notes${session.tracking ? ' and the attendance register' : ''}, in one PDF`}>
                         <Download className="size-3.5" />Full report
                     </a>
                 </div>
@@ -232,6 +239,16 @@ export default function Report({ session, segments, actionPoints, carried, owner
                 )}
                 </>
             )}
+            <ConfirmDialog
+                open={rewrite}
+                onOpenChange={setRewrite}
+                title={session.takesMinutes ? 'Write the minutes again?' : 'Write the report again?'}
+                confirmLabel="Write it again"
+                destructive={false}
+                onConfirm={() => router.post(route('sessions.report.generate', session.id))}
+            >
+                Ventiq Assist writes it again from the notes and the recording. Changes you made to {session.takesMinutes ? "the items' write-ups" : 'the report'} are replaced; action points stay.
+            </ConfirmDialog>
             <Dialog open={!!gate} onOpenChange={(open) => !open && setGate(null)}>
                 <DialogContent className="max-w-md rounded-[2rem] p-8">
                     <DialogTitle className="text-xl font-black normal-case not-italic tracking-tight text-brand">{session.takesMinutes ? "These minutes aren't reviewed yet" : "This report isn't reviewed yet"}</DialogTitle>
