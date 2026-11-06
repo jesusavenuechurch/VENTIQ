@@ -54,7 +54,7 @@ class PaymentCompletion
             $meta = $session->purchase_meta ?? [];
 
             if (($meta['type'] ?? null) === 'plan') {
-                $this->sessionPackages->changePlan(
+                $package = $this->sessionPackages->changePlan(
                     organizationId: $session->organization_id,
                     tier: $meta['tier'],
                     sessionsIncluded: $meta['sessions_included'],
@@ -62,6 +62,14 @@ class PaymentCompletion
                     smsIncluded: $meta['sms_included'],
                     pricePaid: (float) $session->amount,
                 );
+                // What the money did, for the receipt: a new plan from today, or the
+                // same plan paid a month further (this month's sessions as they were).
+                $session->update(['callback_payload' => array_merge($session->callback_payload ?? [], [
+                    'applied'    => $package->wasRecentlyCreated ? 'started' : 'extended',
+                    'paid_until' => $package->paid_until?->toDateString(),
+                    'next_month' => $package->period_end?->toDateString(),
+                    'sessions'   => $package->sessions_included,
+                ])]);
             } elseif (($meta['type'] ?? null) === 'payg') {
                 $this->sessionPackages->addPaygCredits(
                     organizationId: $session->organization_id,

@@ -106,3 +106,20 @@ it('puts the bank account on a corporate invoice, with the invoice number as the
 
     $this->actingAs($this->admin)->get(route('sessions.plan'))->assertInertia(fn (Assert $page) => $page->where('bank', fn ($b) => collect($b)->pluck('value')->contains('63212657621')));
 });
+
+it('says what a confirmed transfer did: a new plan with its sessions, or the same plan paid a month further', function () {
+    $confirm = function () {
+        $this->actingAs($this->admin)->post(route('sessions.plan.bank-transfer'), ['type' => 'plan', 'tier' => 'team', 'paid_on' => '2026-10-20']);
+        $payment = PaymentSession::where('status', 'pending')->sole();
+        $this->actingAs($this->super)->post(route('ventiq.session-plans.transfers.confirm', $payment));
+
+        return (new BankTransferResultMail($payment->fresh(), true, null))->render();
+    };
+
+    $first = $confirm();
+    expect($first)->toContain('is now on your account, with 3 sessions to use this month');
+
+    $second = $confirm();
+    expect($second)->toContain('pays <strong>Team plan')->toContain('paid until')->toContain("This month's sessions carry on as they are")
+        ->and(SessionPackage::where('organization_id', $this->org->id)->where('tier', 'team')->count())->toBe(1);
+});

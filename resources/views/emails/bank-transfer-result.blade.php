@@ -2,7 +2,14 @@
 @if ($confirmed)
 # Payment received
 
-Thank you. Your bank transfer of **M{{ number_format((float) $payment->amount, 2) }}** (reference {{ $payment->client_reference }}) has come in, and **{{ $label }}** is now on your account.
+@php($applied = $payment->callback_payload ?? [])
+@if (($applied['applied'] ?? null) === 'extended')
+Thank you. Your bank transfer of **M{{ number_format((float) $payment->amount, 2) }}** (reference {{ $payment->client_reference }}) has come in. It pays **{{ $label }}** for another month: your plan is now paid until **{{ \Illuminate\Support\Carbon::parse($applied['paid_until'])->format('j F Y') }}**.
+
+This month's sessions carry on as they are. Your next {{ $applied['sessions'] ?? '' }} sessions start on {{ \Illuminate\Support\Carbon::parse($applied['next_month'])->format('j F') }}. Need more before then? Add sessions from your plan page.
+@else
+Thank you. Your bank transfer of **M{{ number_format((float) $payment->amount, 2) }}** (reference {{ $payment->client_reference }}) has come in, and **{{ $label }}** is now on your account{{ isset($applied['sessions']) ? ', with ' . $applied['sessions'] . ' sessions to use this month' : '' }}.
+@endif
 @else
 # We couldn't find your transfer
 
