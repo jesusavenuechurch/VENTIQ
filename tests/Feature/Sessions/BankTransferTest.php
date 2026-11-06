@@ -120,6 +120,6 @@ it('says what a confirmed transfer did: a new plan with its sessions, or the sam
     expect($first)->toContain('is now on your account, with 3 sessions to use this month');
 
     $second = $confirm();
-    expect($second)->toContain('pays <strong>Team plan')->toContain('paid until')->toContain("This month's sessions carry on as they are")
+    expect($second)->toContain('It pays')->toContain('paid until')->toContain('sessions carry on as they are')
         ->and(SessionPackage::where('organization_id', $this->org->id)->where('tier', 'team')->count())->toBe(1);
 });

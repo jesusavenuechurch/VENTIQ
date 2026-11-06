@@ -29,7 +29,7 @@ beforeEach(function () {
     $this->khoebo = function (bool $up = true) {
         $this->khoeboUp = $up;
         // The Sessions books: a Khoebo company of their own.
-        config(['services.khoebo.sessions.url' => 'https://khoebo.test/api/v1', 'services.khoebo.sessions.token' => 'itk_test', 'services.khoebo.sessions.journals.default' => 3]);
+        config(['services.khoebo.sessions.url' => 'https://khoebo.test/api/v1', 'services.khoebo.sessions.token' => 'itk_test', 'services.khoebo.sessions.journals' => ['default' => 3]]);
         KhoeboProduct::create(['key' => 'sessions:session', 'khoebo_id' => 9]);
         Http::fake([
             'khoebo.test/api/v1/customers' => Http::response(['data' => ['id' => 41]], 201),

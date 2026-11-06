@@ -713,11 +713,13 @@ class SessionsDemoSeeder extends Seeder
     /** Run as if it were then, so what's made carries that date. */
     private function at(Carbon $when, \Closure $do): mixed
     {
+        // Back to whatever time it was after (a test's frozen clock, or none).
+        $before = Carbon::getTestNow();
         Carbon::setTestNow($when);
         try {
             return $do();
         } finally {
-            Carbon::setTestNow();
+            Carbon::setTestNow($before);
         }
     }
 
