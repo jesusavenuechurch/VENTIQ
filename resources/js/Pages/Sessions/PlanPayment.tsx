@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 
 interface Props {
     purchase: { type: 'plan' | 'payg'; tier: string | null; quantity: number | null; amount: number; label: string };
+    /** Paying again for the plan they're on: whether it starts a month now or pays the next. */
+    when?: string | null;
     methods: string[];
     /** VENTIQ's bank account, with this purchase's reference; claimed once they've said they paid. */
     bank: { lines: { label: string; value: string }[]; reference: string; claimed: boolean } | null;
@@ -19,7 +21,7 @@ const NAMES: Record<string, string> = { mpesa: 'M-Pesa', ecocash: 'EcoCash' };
 const WAIT_MS = 3 * 60 * 1000;
 
 /** Paying for a Sessions plan or more sessions: a prompt on the phone, then it's added. */
-export default function PlanPayment({ purchase, methods, bank, support }: Props) {
+export default function PlanPayment({ purchase, methods, bank, support, when }: Props) {
     // Mobile money first while it's on; otherwise straight to the bank transfer.
     const [way, setWay] = useState<'mobile' | 'bank'>(methods.length ? 'mobile' : 'bank');
     const [method, setMethod] = useState(methods[0]);
@@ -67,6 +69,7 @@ export default function PlanPayment({ purchase, methods, bank, support }: Props)
                 <p className="mt-2 text-4xl font-black">{money(purchase.amount)}</p>
                 <p className="mt-2 text-[13px] text-white/70">{purchase.label}</p>
             </div>
+            {when && <p className="-mt-2 mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-[12px] font-bold leading-relaxed text-amber-800">{when}</p>}
 
             {methods.length > 0 && bank && panel === 'form' && (
                 <div role="tablist" aria-label="How to pay" className="mb-4 grid grid-cols-2 gap-2">

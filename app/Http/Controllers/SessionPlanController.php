@@ -93,7 +93,16 @@ class SessionPlanController extends Controller
         abort_unless($purchase, 404);
         $reference = BankDetails::reference($organization->id, $purchase['code']);
 
+        // The plan they're on, paid again: what the money will do, said before they pay.
+        $current = app(\App\Services\SessionQuotaService::class)->currentPlan($organization);
+        $when = $type === 'plan' && $current->tier === ($purchase['meta']['tier'] ?? null) && $current->renews()
+            ? ($current->remaining_sessions <= 0
+                ? "You've used this month's {$current->sessions_included} sessions, so a new month starts as soon as this is paid, with {$current->sessions_included} sessions."
+                : "This pays your next month, from {$current->paid_until->format('j F')}. You have {$current->remaining_sessions} of this month's sessions left; need more now? Add sessions instead.")
+            : null;
+
         return Inertia::render('Sessions/PlanPayment', [
+            'when'     => $when,
             'purchase' => [
                 'type'     => $type,
                 'tier'     => $purchase['meta']['tier'] ?? null,

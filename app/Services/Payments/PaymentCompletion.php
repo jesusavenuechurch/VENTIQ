@@ -65,7 +65,7 @@ class PaymentCompletion
                 // What the money did, for the receipt: a new plan from today, or the
                 // same plan paid a month further (this month's sessions as they were).
                 $session->update(['callback_payload' => array_merge($session->callback_payload ?? [], [
-                    'applied'    => $package->wasRecentlyCreated ? 'started' : 'extended',
+                    'applied'    => $package->wasRecentlyCreated ? 'started' : ($package->startedNow ? 'restarted' : 'extended'),
                     'paid_until' => $package->paid_until?->toDateString(),
                     'next_month' => $package->period_end?->toDateString(),
                     'sessions'   => $package->sessions_included,

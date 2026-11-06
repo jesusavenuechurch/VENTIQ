@@ -113,3 +113,32 @@ it('just carries on a plan VENTIQ gave at no charge', function () {
         ->and(($this->plan)()->period_start->toDateString())->toBe('2027-02-02')
         ->and(($this->stages)())->toBe([]);
 });
+
+it('starts the new month today when this month\'s sessions are used up, so paying never leaves anyone stuck', function () {
+    ($this->buy)();
+    $plan = ($this->plan)();
+    $plan->update(['sessions_used' => $plan->sessions_included]);
+    expect(app(SessionQuotaService::class)->hasSessionQuota($this->org))->toBeFalse();
+
+    $this->travel(5)->days();
+    ($this->buy)();
+
+    $plan = ($this->plan)();
+    expect($plan->sessions_used)->toBe(0)
+        ->and($plan->period_start->isToday())->toBeTrue()
+        ->and($plan->paid_until->toDateString())->toBe(now()->addMonthNoOverflow()->toDateString())
+        ->and(app(SessionQuotaService::class)->hasSessionQuota($this->org))->toBeTrue();
+});
+
+it('starts a month already paid ahead as soon as this month\'s sessions run out', function () {
+    ($this->buy)();
+    ($this->buy)();
+    $plan = ($this->plan)();
+    $plan->update(['sessions_used' => $plan->sessions_included]);
+    $this->travel(5)->days();
+
+    expect(app(SessionQuotaService::class)->hasSessionQuota($this->org))->toBeTrue();
+    $plan = ($this->plan)();
+    expect($plan->sessions_used)->toBe(0)->and($plan->period_start->isToday())->toBeTrue()
+        ->and($plan->paid_until->toDateString())->toBe(now()->addMonthNoOverflow()->toDateString());
+});

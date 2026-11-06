@@ -123,3 +123,18 @@ it('says what a confirmed transfer did: a new plan with its sessions, or the sam
     expect($second)->toContain('It pays')->toContain('paid until')->toContain('sessions carry on as they are')
         ->and(SessionPackage::where('organization_id', $this->org->id)->where('tier', 'team')->count())->toBe(1);
 });
+
+it('starts a new month at once when the plan paid for again has no sessions left, and says so before and after', function () {
+    app(\App\Services\SessionPackageService::class)->changePlan($this->org->id, 'team', 3, 50, 50, 500);
+    SessionPackage::where('organization_id', $this->org->id)->where('tier', 'team')->update(['sessions_used' => 3]);
+
+    $this->actingAs($this->admin)->get(route('organization.session-plan.payment', ['type' => 'plan', 'tier' => 'team']))
+        ->assertInertia(fn (Assert $page) => $page->where('when', fn ($w) => str_contains($w, 'a new month starts as soon as this is paid')));
+
+    $this->post(route('sessions.plan.bank-transfer'), ['type' => 'plan', 'tier' => 'team', 'paid_on' => '2026-10-20']);
+    $payment = PaymentSession::where('status', 'pending')->sole();
+    $this->actingAs($this->super)->post(route('ventiq.session-plans.transfers.confirm', $payment));
+
+    expect(app(SessionQuotaService::class)->currentPlan($this->org->fresh())->sessions_used)->toBe(0)
+        ->and((new BankTransferResultMail($payment->fresh(), true, null))->render())->toContain('a new month of');
+});

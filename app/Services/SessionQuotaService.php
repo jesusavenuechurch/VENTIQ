@@ -35,6 +35,11 @@ class SessionQuotaService
             $plan = $this->rolloverPeriod($plan);
         }
 
+        // Sessions used up, with a month already paid ahead: it starts now.
+        if ($plan->renews() && $plan->remaining_sessions <= 0 && $plan->period_end && $plan->paid_until->gt($plan->period_end->copy()->addDay())) {
+            $plan = $plan->startMonthNow();
+        }
+
         // A paid plan whose new month wasn't paid in the days' grace: Free again.
         return app(\App\Services\Sessions\PlanRenewals::class)->lapseIfOverdue($plan) ?? $plan;
     }

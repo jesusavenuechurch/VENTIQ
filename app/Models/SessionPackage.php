@@ -11,6 +11,9 @@ class SessionPackage extends Model
 {
     use HasFactory;
 
+    /** Set when a payment started a new month today (not saved: for the receipt). */
+    public bool $startedNow = false;
+
     protected $fillable = [
         'organization_id',
         'tier',
@@ -102,6 +105,30 @@ class SessionPackage extends Model
     public function graceEndsAt(): ?\Illuminate\Support\Carbon
     {
         return $this->isPaid() ? null : $this->period_start->copy()->addDays(self::GRACE_DAYS);
+    }
+
+    /**
+     * A new month of the plan from today, its sessions fresh. Months paid
+     * ahead stay paid ahead, counted from today. For a plan whose sessions
+     * have run out: paying, or a month already paid ahead, shouldn't wait
+     * for the old month to end.
+     */
+    public function startMonthNow(int $extraMonths = 0): self
+    {
+        $ahead = $this->paid_until && $this->period_end && $this->paid_until->gt($this->period_end)
+            ? (int) floor($this->period_end->floatDiffInMonths($this->paid_until) + 0.05)
+            : 0;
+        $end = now()->addMonthNoOverflow();
+        $this->update([
+            'period_start'  => now(),
+            'period_end'    => $end,
+            'sessions_used' => 0,
+            'whatsapp_used' => 0,
+            'sms_used'      => 0,
+            'paid_until'    => $this->paid_until ? $end->copy()->addMonthsNoOverflow(max(0, $ahead - 1) + $extraMonths) : null,
+        ]);
+
+        return $this;
     }
 
     public function getRemainingSessionsAttribute(): int { return max(0, $this->sessions_included - $this->sessions_used); }

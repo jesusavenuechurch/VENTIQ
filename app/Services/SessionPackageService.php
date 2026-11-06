@@ -24,6 +24,15 @@ class SessionPackageService
         $current = SessionPackage::where('organization_id', $organizationId)->where('tier', $tier)->where('status', 'active')
             ->whereNotNull('paid_until')->latest('period_start')->first();
         if ($current && $pricePaid > 0 && $current->renews()) {
+            // This month's sessions all used: the month paid for starts today.
+            if ($current->remaining_sessions <= 0) {
+                $current->price_paid = (float) $current->price_paid + $pricePaid;
+                $current->notes = trim(($current->notes ? $current->notes . "\n" : '') . ($notes ?? 'Renewed early, sessions used up, ' . now()->format('j M Y')));
+                $current->startMonthNow();
+                $current->startedNow = true;
+
+                return $current;
+            }
             $current->update([
                 'paid_until' => $current->paid_until->copy()->addMonthNoOverflow(),
                 'price_paid' => (float) $current->price_paid + $pricePaid,
